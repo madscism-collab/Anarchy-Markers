@@ -1,0 +1,1220 @@
+FrameWidgetClass {
+ Name "MarkerEditRoot"
+ Slot FrameWidgetSlot "{5DA681954DE6635D}" {
+  Anchor 0 0 1 1
+  PositionX 0
+  OffsetLeft 0
+  PositionY 0
+  OffsetTop 0
+  SizeX 0
+  OffsetRight 0
+  SizeY 30
+  OffsetBottom -30
+ }
+ Clipping False
+ {
+  FrameWidgetClass "{69A2AB62ADD50A6C}" : "{DD15734EB89D74E2}UI/layouts/Map/MapMarkerBase.layout" {
+   Name "rootFrame0"
+   Slot FrameWidgetSlot "{5D2691F3AE61A7FC}" {
+   }
+   {
+    VerticalLayoutWidgetClass "{5D56BA46E7717DBF}" {
+     Prefab "{5D56BA46E7717DBF}"
+     {
+      FrameWidgetClass "{5E3E82F0B6DE3AC9}" {
+       Prefab "{5E3E82F0B6DE3AC9}"
+       {
+        ImageWidgetClass "{5E3E82F09B48A9B8}" {
+         Prefab "{5E3E82F09B48A9B8}"
+         "Is Visible" 1
+        }
+       }
+      }
+      TextWidgetClass "{5D269372DA54B302}" {
+       Prefab "{5D269372DA54B302}"
+       Text ""
+      }
+     }
+    }
+   }
+  }
+  FrameWidgetClass "{69A2AB62ADD50A6F}" {
+   Name "SizeFrame"
+   Slot FrameWidgetSlot "{5E1EC62B6B3A089A}" {
+    PositionX -2.91
+    OffsetLeft -2.9
+    PositionY 15.455
+    OffsetTop 15.5
+    SizeX 800
+    OffsetRight -797.1
+    OffsetBottom -45.5
+    SizeToContent 1
+   }
+   {
+    SmartPanelWidgetClass "{69A2AB62ADD50A70}" {
+     Name "Background0"
+     Slot FrameWidgetSlot "{5E20DAC96557C7F3}" {
+      Anchor 0 0 1 1
+      PositionX 0
+      OffsetLeft 0
+      PositionY 0
+      OffsetTop 0
+      SizeX 0
+      OffsetRight 0
+      SizeY 0
+      OffsetBottom 0
+     }
+     Opacity 0.99
+     "Opacity Gamma" 0.615
+     Clipping Ancestor
+     Color 0.001 0.0014 0.0015 1
+     style rounded_4px
+    }
+    SizeLayoutWidgetClass "{69A2AB62ADD2F6B9}" {
+     Name "SizeLayout0"
+     Slot FrameWidgetSlot "{5E2C825DA2EDA3F6}" {
+      Anchor 0.5 0.5 0.5 0.5
+      PositionX 0
+      OffsetLeft 0
+      PositionY 0
+      OffsetTop 0
+      SizeX 800
+      OffsetRight -800
+      SizeY 645.293
+      OffsetBottom -645.3
+      Alignment 0.5 0.5
+      SizeToContent 1
+     }
+     AllowWidthOverride 1
+     WidthOverride 880
+     AllowHeightOverride 1
+     HeightOverride 1500
+     {
+      VerticalLayoutWidgetClass "{69A2AB62ADD2F6BA}" {
+       Name "MarkerEditVLayout"
+       Slot AlignableSlot "{5E2C825DA2FAB4C5}" {
+        HorizontalAlign 3
+        VerticalAlign 3
+       }
+       Clipping Ancestor
+       {
+        TextWidgetClass "{69A2AB6AEE8DC9D2}" {
+         Name "Text3"
+         Slot LayoutSlot "{5E4E834C8B9C24F8}" {
+          Padding 36 5 36 0
+         }
+         Text "Presets"
+        }
+        SizeLayoutWidgetClass "{69A2AB6A8032BC08}" {
+         Name "UserPresets"
+         Slot LayoutSlot "{5E387E3EA1ACB5EF}" {
+          Padding 36 5 36 0
+         }
+         "Up rule" Wrap
+         AllowHeightOverride 1
+         HeightOverride 48
+         {
+          VerticalLayoutWidgetClass "{69A2AB6A8032E891}" {
+           Name "UserIconSelector"
+           Slot AlignableSlot "{5E387E3EA1BF7BDA}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+           "Left rule" Stop
+           "Right rule" Stop
+           "Down rule" Stop
+           "Down target" "ColorEntry0"
+           {
+            HorizontalLayoutWidgetClass "{69A2AB6A8032E8AF}" : "{CF8EC7A0D310A8D9}UI/layouts/Map/MapColorSelectorLine.layout" {
+             Name "UserIconSelectorLine0"
+             Slot LayoutSlot "{5D9E8AF9DD80101B}" {
+             }
+            }
+           }
+          }
+         }
+        }
+        TextWidgetClass "{69A2AB64A858B8C5}" {
+         Name "Text0"
+         Slot LayoutSlot "{5E4E834C8B9C24F8}" {
+          Padding 36 5 36 0
+         }
+         Text "Military"
+        }
+        SizeLayoutWidgetClass "{69A2AB6B9D8E0AA1}" {
+         Name "MilitaryPresets"
+         Slot LayoutSlot "{5E387E3EA1ACB5EF}" {
+          Padding 36 5 36 0
+         }
+         "Up rule" Wrap
+         AllowHeightOverride 1
+         HeightOverride 48
+         {
+          VerticalLayoutWidgetClass "{69A2AB6B9D8E0ABE}" {
+           Name "MilitaryIconSelector"
+           Slot AlignableSlot "{5E387E3EA1BF7BDA}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+           "Left rule" Stop
+           "Right rule" Stop
+           "Down rule" Stop
+           "Down target" "ColorEntry0"
+           {
+            HorizontalLayoutWidgetClass "{69A2AB6B9D8E0ABD}" : "{CF8EC7A0D310A8D9}UI/layouts/Map/MapColorSelectorLine.layout" {
+             Name "MilitaryIconSelectorLine0"
+             Slot LayoutSlot "{5D9E8AF9DD80101B}" {
+             }
+            }
+           }
+          }
+         }
+        }
+        SizeLayoutWidgetClass "{69A2AB64A858A61E}" {
+         Name "FactionSelector"
+         Slot LayoutSlot "{5D9EB6F2F56614ED}" {
+          Padding 36 5 36 0
+         }
+         "Left rule" Wrap
+         "Right rule" Wrap
+         "Up target" "IconEntry1"
+         AllowHeightOverride 1
+         HeightOverride 40
+         {
+          OverlayWidgetClass "{69A2AB64A858A621}" {
+           Name "Overlay0"
+           Slot AlignableSlot "{5D9EB6F2600AA569}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69A2AB64A8583231}" {
+             Name "Background"
+             Slot OverlayWidgetSlot "{5DA681AA9D4814F4}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             Color 0.0075 0.0123 0.0144 1
+             style outline_rounded_4px
+            }
+            TextWidgetClass "{69A2AB64A8583233}" {
+             Name "TextSelection"
+             Slot OverlayWidgetSlot "{6567004C00DBED38}" {
+              HorizontalAlign 0
+              Padding 108 0 0 0
+             }
+             Color 0.761 0.386 0.08 1
+             Text "Selection"
+             "Font Size" 16
+             "Min Font Size" 16
+             FontProperties FontProperties "{5E2AC05E1460E161}" {
+              Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+             }
+            }
+            TextWidgetClass "{69A2AB64A85BD37E}" {
+             Name "TextDescription"
+             Slot OverlayWidgetSlot "{6567004C00DBEDC8}" {
+              HorizontalAlign 0
+              Padding 18 0 0 0
+             }
+             Text "#AR-MapMarker_Military_Identity"
+             "Font Size" 16
+             "Min Font Size" 16
+             FontProperties FontProperties "{5E2AC05E1460E161}" {
+              Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+             }
+            }
+            HorizontalLayoutWidgetClass "{69A2AB64A85BD37F}" {
+             Name "FactionSelectorHLayout"
+             Slot OverlayWidgetSlot "{5E2AC05EC630EBCE}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             "Left target" "EditBoxRoot"
+             "Up target" "IconSelector"
+             "Fill Origin" Right
+             {
+              ImageWidgetClass "{69A2AB64A85BF201}" {
+               Name "arrowL"
+               Slot LayoutSlot "{5E2AC05B7FEC20AF}" {
+                HorizontalAlign 2
+                VerticalAlign 1
+                SizeMode Fill
+                FillWeight 1
+               }
+               "Is Visible" 0
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowLeft"
+               Size 32 32
+              }
+              HorizontalLayoutWidgetClass "{69A2AB64A85B9AFD}" : "{CF8EC7A0D310A8D9}UI/layouts/Map/MapColorSelectorLine.layout" {
+               Name "FactionSelectorLine"
+               Slot LayoutSlot "{5D9E8AF9DD80101B}" {
+                HorizontalAlign 2
+                FillWeight 15
+               }
+               "Fill Origin" Right
+              }
+              ImageWidgetClass "{69A2AB64A85B9AFA}" {
+               Name "arrowR"
+               Slot LayoutSlot "{5E2AC05B7FEC20AF}" {
+                HorizontalAlign 2
+                VerticalAlign 1
+                FillWeight 1
+               }
+               "Is Visible" 0
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowRight"
+               Size 32 32
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        SizeLayoutWidgetClass "{69A2AB64A85B9A68}" {
+         Name "DimensionSelector"
+         Slot LayoutSlot "{5D9EB6F2F56614ED}" {
+          Padding 36 5 36 0
+         }
+         "Left rule" Wrap
+         "Right rule" Wrap
+         "Up target" "IconEntry1"
+         AllowHeightOverride 1
+         HeightOverride 40
+         {
+          OverlayWidgetClass "{69A2AB64A85B5002}" {
+           Name "Overlay0"
+           Slot AlignableSlot "{5D9EB6F2600AA569}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69A2AB64A85B670C}" {
+             Name "Background"
+             Slot OverlayWidgetSlot "{5DA681AA9D4814F4}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             Color 0.0075 0.0123 0.0144 1
+             style outline_rounded_4px
+            }
+            TextWidgetClass "{69A2AB64A85B670D}" {
+             Name "TextDescription"
+             Slot OverlayWidgetSlot "{6567004C00DBF202}" {
+              HorizontalAlign 0
+              Padding 18 0 0 0
+             }
+             Text "#AR-MapMarker_Military_Dimension"
+             "Font Size" 16
+             "Min Font Size" 16
+             FontProperties FontProperties "{5E2AC05E1460E161}" {
+              Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+             }
+            }
+            TextWidgetClass "{69A2AB64A85AE5DE}" {
+             Name "TextSelection"
+             Slot OverlayWidgetSlot "{6567004C00DBF237}" {
+              HorizontalAlign 0
+              Padding 108 0 0 0
+             }
+             Color 0.761 0.386 0.08 1
+             Text "Selection"
+             "Font Size" 16
+             "Min Font Size" 16
+             FontProperties FontProperties "{5E2AC05E1460E161}" {
+              Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+             }
+            }
+            HorizontalLayoutWidgetClass "{69A2AB64A85AE5D1}" {
+             Name "DimensionSelectorHLayout"
+             Slot OverlayWidgetSlot "{5E2AC05EC630EBCE}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             "Left target" "EditBoxRoot"
+             "Up target" "IconSelector"
+             "Fill Origin" Right
+             {
+              ImageWidgetClass "{69A2AB64A85AA5DC}" {
+               Name "arrowL"
+               Slot LayoutSlot "{5E2AC05B7FEC20AF}" {
+                HorizontalAlign 2
+                VerticalAlign 1
+                SizeMode Fill
+                FillWeight 1
+               }
+               "Is Visible" 0
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowLeft"
+               Size 32 32
+              }
+              HorizontalLayoutWidgetClass "{69A2AB64A85AA5DD}" : "{CF8EC7A0D310A8D9}UI/layouts/Map/MapColorSelectorLine.layout" {
+               Name "DimensionSelectorLine"
+               Slot LayoutSlot "{5D9E8AF9DD80101B}" {
+                HorizontalAlign 2
+                FillWeight 15
+               }
+               "Fill Origin" Right
+              }
+              ImageWidgetClass "{69A2AB64A85A5C6E}" {
+               Name "arrowR"
+               Slot LayoutSlot "{5E2AC05B7FEC20AF}" {
+                HorizontalAlign 2
+                VerticalAlign 1
+                FillWeight 1
+               }
+               "Is Visible" 0
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowRight"
+               Size 32 32
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69A2AB64A85A5DB0}" : "{4B5AE6E64037FFB4}UI/layouts/WidgetLibrary/ComboBox/WLib_ComboBox.layout" {
+         Name "ComboBox1"
+         Slot LayoutSlot "{5E4E8323CB797011}" {
+          HorizontalAlign 3
+          Padding 36 5 36 0
+         }
+         components {
+          SCR_ComboBoxComponent "{546B1D464BC32853}" {
+           m_sLabel "#AR-MapMarker_Military_Type 1"
+           m_fSizeWithLabel 44
+           m_sLabelLayout "{C5598C929C45420A}UI/layouts/Map/MapMarkerEditBoxLabel.layout"
+          }
+         }
+        }
+        ButtonWidgetClass "{69A2AB64A85A5D79}" : "{4B5AE6E64037FFB4}UI/layouts/WidgetLibrary/ComboBox/WLib_ComboBox.layout" {
+         Name "ComboBox2"
+         Slot LayoutSlot "{5E4E8323CB797011}" {
+          HorizontalAlign 3
+          Padding 36 5 36 0
+         }
+         components {
+          SCR_ComboBoxComponent "{546B1D464BC32853}" {
+           m_sLabel "#AR-MapMarker_Military_Type 2"
+           m_fSizeWithLabel 44
+           m_sLabelLayout "{C5598C929C45420A}UI/layouts/Map/MapMarkerEditBoxLabel.layout"
+          }
+         }
+        }
+        TextWidgetClass "{69A2AB6531C9A71C}" {
+         Name "Text1"
+         Slot LayoutSlot "{5E4E834C8B9C24F8}" {
+          Padding 36 5 36 0
+         }
+         Text "Civil"
+        }
+        VerticalLayoutWidgetClass "{69A2AB62ADD2AFC9}" : "{A971263DAE3AD8BC}UI/layouts/WidgetLibrary/TabView/WLib_TabViewHorizontal.layout" {
+         Name "MarkerEditTab"
+         Slot LayoutSlot "{5E227DFB128C9BAE}" {
+          HorizontalAlign 0
+          Padding 36 5 36 0
+         }
+         components {
+          SCR_TabViewComponent "{546B27D01CA8A38D}" {
+           m_bCycleMode 1
+           m_fTabWidth 116
+           m_fTabWidthTextHidden -1
+          }
+         }
+         {
+          SizeLayoutWidgetClass "{0000000041B59A6F}" {
+           Prefab "{0000000041B59A6F}"
+           {
+            HorizontalLayoutWidgetClass "{54ACA2928A1FCB02}" {
+             Prefab "{54ACA2928A1FCB02}"
+             Slot AlignableSlot "{54ACA293E438C97C}" {
+              Padding 0 0 0 0
+             }
+             {
+              ButtonWidgetClass "{5644CE82C669B056}" {
+               Prefab "{5644CE82C669B056}"
+               {
+                SizeLayoutWidgetClass "{54A0782A39F09C6C}" {
+                 Prefab "{54A0782A39F09C6C}"
+                 {
+                  OverlayWidgetClass "{000000005E70868E}" {
+                   Prefab "{000000005E70868E}"
+                   {
+                    RichTextWidgetClass "{553D05660AD2BC8E}" {
+                     Prefab "{553D05660AD2BC8E}"
+                     Slot OverlayWidgetSlot "{553D05660AD2BC60}" {
+                      Padding 0 0 0 0
+                     }
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              OverlayWidgetClass "{54ACA29336E9260F}" {
+               Prefab "{54ACA29336E9260F}"
+               {
+                ButtonWidgetClass "{5644CE827F74980C}" {
+                 Prefab "{5644CE827F74980C}"
+                 Slot OverlayWidgetSlot "{5644CE8278FF0B83}" {
+                  Padding 0 0 4 0
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          ImageWidgetClass "{00000000DB4F9EA9}" {
+           Prefab "{00000000DB4F9EA9}"
+           Slot LayoutSlot "{54871745AA809762}" {
+            SizeMode Auto
+           }
+          }
+         }
+        }
+        SizeLayoutWidgetClass "{69A2AB62ADD2AFCC}" {
+         Name "IconSelectorSize"
+         Slot LayoutSlot "{5E387E3EA1ACB5EF}" {
+          Padding 36 5 36 0
+         }
+         "Up rule" Wrap
+         AllowHeightOverride 1
+         HeightOverride 150
+         {
+          VerticalLayoutWidgetClass "{69A2AB62ADD25B6A}" {
+           Name "IconSelector"
+           Slot AlignableSlot "{5E387E3EA1BF7BDA}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+           "Left rule" Stop
+           "Right rule" Stop
+           "Down rule" Stop
+           "Down target" "ColorEntry0"
+           {
+            HorizontalLayoutWidgetClass "{69A2AB62ADD25B6B}" : "{CF8EC7A0D310A8D9}UI/layouts/Map/MapColorSelectorLine.layout" {
+             Name "IconSelectorLine0"
+             Slot LayoutSlot "{5D9E8AF9DD80101B}" {
+             }
+            }
+           }
+          }
+         }
+        }
+        TextWidgetClass "{69A2AB6AD53FEB0E}" {
+         Name "Text2"
+         Slot LayoutSlot "{5E4E834C8B9C24F8}" {
+          Padding 36 5 36 0
+         }
+         Text "Settings"
+        }
+        SizeLayoutWidgetClass "{69A2AB62ADD3CC17}" {
+         Name "ColorSelector"
+         Slot LayoutSlot "{5D9EB6F2F56614ED}" {
+          Padding 36 5 36 0
+         }
+         "Left rule" Wrap
+         "Right rule" Wrap
+         "Up rule" Stop
+         "Up target" "IconEntry1"
+         AllowHeightOverride 1
+         HeightOverride 40
+         {
+          OverlayWidgetClass "{69A2AB62ADD3CC18}" {
+           Name "Overlay0"
+           Slot AlignableSlot "{5D9EB6F2600AA569}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69A2AB62ADD3CC19}" {
+             Name "Background"
+             Slot OverlayWidgetSlot "{5DA681AA9D4814F4}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             Opacity 0.5
+             Color 0.0075 0.0123 0.0144 1
+             style outline_rounded_4px
+            }
+            TextWidgetClass "{69A2FD11A0000010}" {
+             Name "TextColorLabel"
+             Slot OverlayWidgetSlot "{69A2FD11A0000011}" {
+              HorizontalAlign 2
+              VerticalAlign 1
+              Padding 0 0 52 0
+             }
+             Text "Color text"
+             "Font Size" 16
+             "Min Font Size" 16
+             FontProperties FontProperties "{5E2AC05E1460E161}" {
+              Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+             }
+            }
+            SizeLayoutWidgetClass "{69A2FD11A0000001}" {
+             Name "TextColorBox"
+             Slot OverlayWidgetSlot "{69A2FD11A0000002}" {
+              HorizontalAlign 2
+              VerticalAlign 1
+              Padding 0 0 14 0
+             }
+             AllowWidthOverride 1
+             WidthOverride 28
+             AllowHeightOverride 1
+             HeightOverride 28
+             {
+              CheckBoxWidgetClass "{69A2FC3C2D5959F8}" {
+               Name "TextColorCheck"
+               Slot AlignableSlot "{69A2FC3C2D59580D}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+              }
+             }
+            }
+            TextWidgetClass "{69A2AB62ADD3B6F4}" {
+             Name "Text0"
+             Slot OverlayWidgetSlot "{6304C75C2A808035}" {
+              HorizontalAlign 0
+              Padding 20 0 0 0
+             }
+             Text "#ar-mapmarker_colorhint"
+             "Font Size" 16
+             "Min Font Size" 16
+             FontProperties FontProperties "{5E2AC05E1460E161}" {
+              Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+             }
+            }
+            HorizontalLayoutWidgetClass "{69A2AB62ADD3B6F7}" {
+             Name "ColorSelectorHLayout"
+             Slot OverlayWidgetSlot "{5E2AC05EC630EBCE}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 108 0 138 0
+             }
+             "Left target" "EditBoxRoot"
+             "Up target" "IconSelector"
+             "Fill Origin" Right
+             {
+              ImageWidgetClass "{69A2AB62ADD367B8}" {
+               Name "arrowL"
+               Slot LayoutSlot "{5E2AC05B7FEC20AF}" {
+                HorizontalAlign 2
+                VerticalAlign 1
+                SizeMode Fill
+                FillWeight 1
+               }
+               "Is Visible" 0
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowLeft"
+               Size 32 32
+              }
+              HorizontalLayoutWidgetClass "{69A2AB62ADD367B9}" : "{CF8EC7A0D310A8D9}UI/layouts/Map/MapColorSelectorLine.layout" {
+               Name "ColorSelectorLine"
+               Slot LayoutSlot "{5D9E8AF9DD80101B}" {
+                HorizontalAlign 2
+                VerticalAlign 1
+                Padding 40 0 0 0
+                FillWeight 15
+               }
+               "Fill Origin" Right
+              }
+              ImageWidgetClass "{69A2AB62ADD31838}" {
+               Name "arrowR"
+               Slot LayoutSlot "{5E2AC05B7FEC20AF}" {
+                HorizontalAlign 2
+                VerticalAlign 1
+                FillWeight 1
+               }
+               "Is Visible" 0
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowRight"
+               Size 32 32
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69A2AB62ADD3183F}" : "{0022F0B45ADBC5AC}UI/layouts/WidgetLibrary/EditBox/WLib_EditBox.layout" {
+         Name "EditBoxRoot"
+         Slot LayoutSlot "{5E20DAC8EB0F7180}" {
+          HorizontalAlign 3
+          Padding 36 5 36 0
+         }
+         components {
+          SCR_EditBoxComponent "{547290FFBD5B33E9}" {
+           m_sLabel "#AR-MapMarker_TextHint"
+           m_fSizeWithLabel 44
+           m_sLabelLayout "{C5598C929C45420A}UI/layouts/Map/MapMarkerEditBoxLabel.layout"
+          }
+         }
+         {
+          VerticalLayoutWidgetClass "{5AA4D27F39EB2514}" {
+           Prefab "{5AA4D27F39EB2514}"
+           {
+            SizeLayoutWidgetClass "{5538C205B27B0F5D}" {
+             Prefab "{5538C205B27B0F5D}"
+             {
+              OverlayWidgetClass "{55367D8E531FD623}" {
+               Prefab "{55367D8E531FD623}"
+               {
+                HorizontalLayoutWidgetClass "{55367D8E4592BC6E}" {
+                 Prefab "{55367D8E4592BC6E}"
+                 {
+                  OverlayWidgetClass "{5538C2059A570E94}" {
+                   Prefab "{5538C2059A570E94}"
+                   {
+                    HorizontalLayoutWidgetClass "{58D095EE846E2B93}" {
+                     Prefab "{58D095EE846E2B93}"
+                     {
+                      EditBoxWidgetClass "{5538C2058B18F877}" {
+                       Prefab "{5538C2058B18F877}"
+                       components {
+                        EditBoxFilterComponent "{5538D70DF38310BC}" {
+                         m_iCharacterLimit 16
+                        }
+                       }
+                       "Font Size" 16
+                      }
+                     }
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69A2AB62ADD318C3}" : "{4A41296C0E9A889F}UI/layouts/WidgetLibrary/WLib_Slider.layout" {
+         Name "SliderRoot"
+         Slot LayoutSlot "{5E3E82D7E541BB4E}" {
+          HorizontalAlign 3
+          Padding 36 5 36 0
+         }
+         components {
+          SCR_SliderComponent "{548294960C7399D9}" {
+           m_sLabel "#AR-KeybindSeparator_ManualCameraRotate"
+           m_fSizeWithLabel 44
+           m_sLabelLayout "{C5598C929C45420A}UI/layouts/Map/MapMarkerEditBoxLabel.layout"
+           m_fValue 0
+           m_fMinValue -180
+           m_fMaxValue 180
+           m_fStep 10
+           m_sFormatText "#AR-ValueUnit_Degrees"
+          }
+         }
+         {
+          SizeLayoutWidgetClass "{55387AC2CCC7E284}" {
+           Prefab "{55387AC2CCC7E284}"
+           Slot ButtonWidgetSlot "{55387AC2CCC7E2A4}" {
+            VerticalAlign 3
+           }
+           {
+            OverlayWidgetClass "{55367D8E531FD623}" {
+             Prefab "{55367D8E531FD623}"
+             {
+              HorizontalLayoutWidgetClass "{55367D8E4592BC6E}" {
+               Prefab "{55367D8E4592BC6E}"
+               {
+                HorizontalLayoutWidgetClass "{55387AC23D03E651}" {
+                 Prefab "{55387AC23D03E651}"
+                 {
+                  SliderWidgetClass "{55387AC2379477C0}" {
+                   Prefab "{55387AC2379477C0}"
+                   Slot LayoutSlot "{55387AC2379477E4}" {
+                   }
+                   minimum -180
+                   maximum 180
+                   step 10
+                   current 0
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69A2AB684BFE6EF7}" : "{4A41296C0E9A889F}UI/layouts/WidgetLibrary/WLib_Slider.layout" {
+         Name "SliderSize"
+         Slot LayoutSlot "{5E3E82D7E541BB4E}" {
+          HorizontalAlign 3
+          Padding 36 5 36 0
+         }
+         components {
+          SCR_SliderComponent "{548294960C7399D9}" {
+           m_sLabel "Size"
+           m_fSizeWithLabel 44
+           m_sLabelLayout "{C5598C929C45420A}UI/layouts/Map/MapMarkerEditBoxLabel.layout"
+           m_fValue 200
+           m_fMinValue 25
+           m_fMaxValue 500
+           m_fStep 10
+          }
+         }
+         {
+          SizeLayoutWidgetClass "{55387AC2CCC7E284}" {
+           Prefab "{55387AC2CCC7E284}"
+           Slot ButtonWidgetSlot "{55387AC2CCC7E2A4}" {
+            VerticalAlign 3
+           }
+           {
+            OverlayWidgetClass "{55367D8E531FD623}" {
+             Prefab "{55367D8E531FD623}"
+             {
+              HorizontalLayoutWidgetClass "{55367D8E4592BC6E}" {
+               Prefab "{55367D8E4592BC6E}"
+               {
+                HorizontalLayoutWidgetClass "{55387AC23D03E651}" {
+                 Prefab "{55387AC23D03E651}"
+                 {
+                  SliderWidgetClass "{55387AC2379477C0}" {
+                   Prefab "{55387AC2379477C0}"
+                   Slot LayoutSlot "{55387AC2379477E4}" {
+                   }
+                   minimum 25
+                   maximum 500
+                   step 10
+                   current 100
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69A2AB64A85A59B7}" : "{1446259344AFACD3}UI/layouts/Map/MapMilitaryMarkerEditBoxTimestamp.layout" {
+         Name "TimestampSpinBox"
+         Slot LayoutSlot "{62EAA56ECB38F895}" {
+          Padding 36 5 36 0
+         }
+        }
+        OverlayWidgetClass "{69A2DBA2DBD37113}" {
+         Name "Overlay0"
+         Slot LayoutSlot "{69A2DBA2DBD3712E}" {
+          Padding 36 10 36 10
+         }
+         Opacity 0.97
+         Color 0 0 0 1
+         {
+          SmartPanelWidgetClass "{69A2DBA2B5D19982}" {
+           Name "SmartPanel0"
+           Slot OverlayWidgetSlot "{69A2DBA2B5D19992}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+           Color 0.0037 0.0037 0.0037 0.6562
+           style full
+          }
+          HorizontalLayoutWidgetClass "{69A2AB68F9D463B7}" {
+           Name "Visibility"
+           Slot OverlayWidgetSlot "{69A2DBA1A74680DA}" {
+            HorizontalAlign 3
+           }
+           {
+            RichTextWidgetClass "{69A2AB74BA1E57BF}" {
+             Name "Text"
+             Slot LayoutSlot "{5DB89B776317E281}" {
+              HorizontalAlign 1
+              VerticalAlign 1
+              Padding 20 0 100 0
+             }
+             Text "Visibility:"
+             "Font Size" 18
+             "Min Font Size" 18
+            }
+            ButtonWidgetClass "{69A2AB695063E6BE}" : "{CB8563509DEF3E0E}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButtonSmall.layout" {
+             Name "ButtonLocal"
+             Slot LayoutSlot "{5E2C827999D9F551}" {
+              HorizontalAlign 3
+              VerticalAlign 1
+              Padding 0 0 15 0
+              SizeMode Fill
+              FillWeight 1
+             }
+             Color 0.0665 0.0704 0.0625 1
+             components {
+              SCR_InputButtonComponent "{5D346C3DD81D95CD}" {
+               m_sActionName ""
+               m_sLabel "Local"
+               m_bOverrideTextSize 1
+              }
+             }
+             {
+              HorizontalLayoutWidgetClass "{5DB89B776AA9CEFF}" {
+               Prefab "{5DB89B776AA9CEFF}"
+               Slot ButtonWidgetSlot "{5DB89B776AA9CEBD}" {
+               }
+               {
+                HorizontalLayoutWidgetClass "{5D8A71797D491473}" {
+                 Prefab "{5D8A71797D491473}"
+                 Slot LayoutSlot "{5DB89B74C13DF965}" {
+                 }
+                 {
+                  SizeLayoutWidgetClass "{5D8ACEF129D3EC88}" {
+                   Prefab "{5D8ACEF129D3EC88}"
+                   {
+                    OverlayWidgetClass "{5D8ACEF04D578362}" {
+                     Prefab "{5D8ACEF04D578362}"
+                     "Is Visible" 0
+                    }
+                   }
+                  }
+                 }
+                }
+                RichTextWidgetClass "{5DB89B776317E2A7}" {
+                 Prefab "{5DB89B776317E2A7}"
+                 Slot LayoutSlot "{5DB89B776317E281}" {
+                  HorizontalAlign 1
+                  VerticalAlign 1
+                  Padding 40 0 25 0
+                 }
+                 "Font Size" 24
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69A2AB68F9D463B3}" : "{CB8563509DEF3E0E}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButtonSmall.layout" {
+             Name "ButtonGroup"
+             Slot LayoutSlot "{5E2C827999D9F551}" {
+              HorizontalAlign 3
+              VerticalAlign 1
+              Padding 0 0 15 0
+              SizeMode Fill
+              FillWeight 1
+             }
+             Color 0.251 0.502 0 1
+             components {
+              SCR_InputButtonComponent "{5D346C3DD81D95CD}" {
+               m_sActionName ""
+               m_sLabel "Group"
+               m_bOverrideTextSize 1
+              }
+             }
+             {
+              HorizontalLayoutWidgetClass "{5DB89B776AA9CEFF}" {
+               Prefab "{5DB89B776AA9CEFF}"
+               {
+                HorizontalLayoutWidgetClass "{5D8A71797D491473}" {
+                 Prefab "{5D8A71797D491473}"
+                 {
+                  SizeLayoutWidgetClass "{5D8ACEF129D3EC88}" {
+                   Prefab "{5D8ACEF129D3EC88}"
+                   {
+                    OverlayWidgetClass "{5D8ACEF04D578362}" {
+                     Prefab "{5D8ACEF04D578362}"
+                     "Is Visible" 0
+                    }
+                   }
+                  }
+                 }
+                }
+                RichTextWidgetClass "{5DB89B776317E2A7}" {
+                 Prefab "{5DB89B776317E2A7}"
+                 Slot LayoutSlot "{5DB89B776317E281}" {
+                  HorizontalAlign 1
+                  VerticalAlign 1
+                  Padding 40 0 25 0
+                 }
+                 "Font Size" 24
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69A2AB688DC3812A}" : "{CB8563509DEF3E0E}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButtonSmall.layout" {
+             Name "ButtonSide"
+             Slot LayoutSlot "{5E2C827999D9F551}" {
+              HorizontalAlign 3
+              VerticalAlign 1
+              Padding 0 0 15 0
+              SizeMode Fill
+              FillWeight 1
+             }
+             Color 0.0697 0.2303 0.7454 1
+             components {
+              SCR_InputButtonComponent "{5D346C3DD81D95CD}" {
+               m_sActionName ""
+               m_sLabel "Side"
+               m_bOverrideTextSize 1
+              }
+             }
+             {
+              HorizontalLayoutWidgetClass "{5DB89B776AA9CEFF}" {
+               Prefab "{5DB89B776AA9CEFF}"
+               Slot ButtonWidgetSlot "{5DB89B776AA9CEBD}" {
+               }
+               {
+                HorizontalLayoutWidgetClass "{5D8A71797D491473}" {
+                 Prefab "{5D8A71797D491473}"
+                 {
+                  SizeLayoutWidgetClass "{5D8ACEF129D3EC88}" {
+                   Prefab "{5D8ACEF129D3EC88}"
+                   {
+                    OverlayWidgetClass "{5D8ACEF04D578362}" {
+                     Prefab "{5D8ACEF04D578362}"
+                     "Is Visible" 0
+                    }
+                   }
+                  }
+                 }
+                }
+                RichTextWidgetClass "{5DB89B776317E2A7}" {
+                 Prefab "{5DB89B776317E2A7}"
+                 Slot LayoutSlot "{5DB89B776317E281}" {
+                  Padding 40 0 25 0
+                 }
+                 "Font Size" 24
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69A2AB688D795075}" : "{CB8563509DEF3E0E}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButtonSmall.layout" {
+             Name "ButtonAll"
+             Slot LayoutSlot "{5E2C827999D9F551}" {
+              HorizontalAlign 3
+              VerticalAlign 1
+              Padding 0 0 15 0
+              SizeMode Fill
+              FillWeight 1
+             }
+             Color 0.5608 0.0706 0.0706 1
+             components {
+              SCR_InputButtonComponent "{5D346C3DD81D95CD}" {
+               m_sActionName ""
+               m_sLabel "Everyone"
+               m_bOverrideTextSize 1
+              }
+             }
+             {
+              HorizontalLayoutWidgetClass "{5DB89B776AA9CEFF}" {
+               Prefab "{5DB89B776AA9CEFF}"
+               {
+                HorizontalLayoutWidgetClass "{5D8A71797D491473}" {
+                 Prefab "{5D8A71797D491473}"
+                 {
+                  SizeLayoutWidgetClass "{5D8ACEF129D3EC88}" {
+                   Prefab "{5D8ACEF129D3EC88}"
+                   {
+                    OverlayWidgetClass "{5D8ACEF04D578362}" {
+                     Prefab "{5D8ACEF04D578362}"
+                     "Is Visible" 0
+                    }
+                   }
+                  }
+                 }
+                }
+                RichTextWidgetClass "{5DB89B776317E2A7}" {
+                 Prefab "{5DB89B776317E2A7}"
+                 Slot LayoutSlot "{5DB89B776317E281}" {
+                  Padding 40 0 25 0
+                 }
+                 "Font Size" 24
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          PanelWidgetClass "{69A2DBA75541D7F7}" {
+           Name "Panel0"
+           Slot OverlayWidgetSlot "{69A2FC3B42E59091}" {
+           }
+          }
+         }
+        }
+        HorizontalLayoutWidgetClass "{69A2AB62ADD318C2}" {
+         Name "HorizontalLayoutButtons"
+         Slot LayoutSlot "{5E209B35E8407E89}" {
+          Padding 36 10 36 20
+         }
+         {
+          ButtonWidgetClass "{69A2AB62ADD08227}" : "{CB8563509DEF3E0E}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButtonSmall.layout" {
+           Name "ButtonCancel"
+           Slot LayoutSlot "{5E2C8279F11A74BA}" {
+            HorizontalAlign 0
+            VerticalAlign 1
+            SizeMode Fill
+            FillWeight 5
+           }
+           components {
+            SCR_InputButtonComponent "{5D346C3DD81D95CD}" {
+             m_sActionName "MenuBack"
+             m_sLabel "#AR-Keybind_Cancel"
+             m_bOverrideTextSize 1
+            }
+           }
+          }
+          ButtonWidgetClass "{69A2AB6CE79F0DB8}" : "{CB8563509DEF3E0E}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButtonSmall.layout" {
+           Name "ButtonPrivate"
+           Slot LayoutSlot "{5E2C827999D9F551}" {
+            HorizontalAlign 2
+            VerticalAlign 1
+            Padding 20 0 0 0
+           }
+           "Is Enabled" 0
+           "Is Visible" 0
+           "Ignore Cursor" 1
+           components {
+            SCR_InputButtonComponent "{5D346C3DD81D95CD}" {
+             m_sActionName ""
+             m_sLabel "#AR-MapMarker_PlacePublic"
+             m_bOverrideTextSize 1
+            }
+           }
+          }
+          HorizontalLayoutWidgetClass "{69B4864C9F400A63}" {
+           Name "HideInfoRow"
+           Slot LayoutSlot "{69B4864C9F400A13}" {
+            Padding 0 0 20 0
+           }
+           {
+            TextWidgetClass "{69B4864EEC727D61}" {
+             Name "TextColorLabel1"
+             Slot LayoutSlot "{69B4864EEC727D53}" {
+              HorizontalAlign 1
+              VerticalAlign 1
+              Padding 0 0 10 0
+             }
+             Text "Hide Info"
+             "Font Size" 16
+             "Min Font Size" 16
+             FontProperties FontProperties "{5E2AC05E1460E161}" {
+              Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+             }
+            }
+            SizeLayoutWidgetClass "{69B4864EEC77041E}" {
+             Name "TextColorBox1"
+             Slot LayoutSlot "{69B4864EEC7705D1}" {
+              Padding 0 0 25 0
+             }
+             AllowWidthOverride 1
+             WidthOverride 28
+             AllowHeightOverride 1
+             HeightOverride 28
+             {
+              CheckBoxWidgetClass "{69B4864EEC70D34D}" {
+               Name "HideInfoCheck"
+               Slot AlignableSlot "{69A2FC3C2D59580D}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+              }
+             }
+            }
+           }
+          }
+          HorizontalLayoutWidgetClass "{69B4864C8BB1B096}" {
+           Name "GmLockRow"
+           Slot LayoutSlot "{69B4864C8BB1B086}" {
+            Padding 0 0 30 0
+           }
+           {
+            TextWidgetClass "{69B4864E7B689900}" {
+             Name "TextColorLabel0"
+             Slot LayoutSlot "{69B4864CC27C835E}" {
+              HorizontalAlign 1
+              VerticalAlign 1
+              Padding 0 0 10 0
+             }
+             Text "GM Locked"
+             "Font Size" 16
+             "Min Font Size" 16
+             FontProperties FontProperties "{5E2AC05E1460E161}" {
+              Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+             }
+            }
+            SizeLayoutWidgetClass "{69B4864E7B6F046D}" {
+             Name "TextColorBox0"
+             Slot LayoutSlot "{69B4864CC27C834D}" {
+              Padding 0 0 25 0
+             }
+             AllowWidthOverride 1
+             WidthOverride 28
+             AllowHeightOverride 1
+             HeightOverride 28
+             {
+              CheckBoxWidgetClass "{69B4864E7B6F046E}" {
+               Name "GmLockCheck"
+               Slot AlignableSlot "{69A2FC3C2D59580D}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+              }
+             }
+            }
+           }
+          }
+          ButtonWidgetClass "{69A2AB62ADD08223}" : "{CB8563509DEF3E0E}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButtonSmall.layout" {
+           Name "ButtonPublic"
+           Slot LayoutSlot "{5E2C827999D9F551}" {
+            HorizontalAlign 2
+            VerticalAlign 1
+            Padding 20 0 0 0
+           }
+           components {
+            SCR_InputButtonComponent "{5D346C3DD81D95CD}" {
+             m_sActionName "MenuSelect"
+             m_sLabel "#AR-MapMarker_PlacePublic"
+             m_bOverrideTextSize 1
+            }
+           }
+          }
+         }
+        }
+        ImageWidgetClass "{69A2AB6C636494C8}" {
+         Name "MarkerIcon"
+         Slot LayoutSlot "{69A2AB6C636494D1}" {
+         }
+         "Is Enabled" 0
+         "Is Visible" 0
+         IsPixelPerfect 0
+         Pivot 0 0
+        }
+        ImageWidgetClass "{69A2AB6C171838E5}" {
+         Name "MarkerIconGlow"
+         Slot LayoutSlot "{69A2AB6C636494D1}" {
+         }
+         "Is Enabled" 0
+         "Is Visible" 0
+         IsPixelPerfect 0
+        }
+        TextWidgetClass "{69A2AB6C06753345}" {
+         Name "MarkerText"
+         Slot LayoutSlot "{69A2AB6C06753353}" {
+         }
+         "Is Enabled" 0
+         "Is Visible" 0
+         IsPixelPerfect 0
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

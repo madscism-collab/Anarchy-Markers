@@ -1,0 +1,4855 @@
+FrameWidgetClass {
+ Name "MarkerEditRoot"
+ Slot FrameWidgetSlot "{5DA681954DE6635D}" {
+  Anchor 0 0 1 0
+  PositionX 0
+  OffsetLeft 0
+  PositionY 0
+  OffsetTop 0
+  SizeX 0
+  OffsetRight 0
+  SizeY 100
+  OffsetBottom -100
+ }
+ Clipping False
+ Color 0.6863 0.2588 0.2588 1
+ {
+  FrameWidgetClass "{69C29B6C63D6B59D}" {
+   Name "ToolbarWrapper"
+   Slot FrameWidgetSlot "{69C29B6C63D6B5A5}" {
+    Anchor 0.5 0 0.5 0
+    OffsetLeft 0
+    PositionY 30
+    OffsetTop 30
+    SizeX 520
+    OffsetRight -520
+    SizeY 50
+    OffsetBottom -80
+    Alignment 0.5 0
+    SizeToContent 1
+   }
+   {
+    SmartPanelWidgetClass "{69C29B6A30CB11F2}" {
+     Name "Background"
+     Slot FrameWidgetSlot "{69C29B6F149A5475}" {
+      Anchor 0 0 1 1
+      PositionX 0
+      OffsetLeft -5
+      PositionY 0
+      OffsetTop -5
+      SizeX 0
+      OffsetRight -5
+      SizeY -50
+      OffsetBottom -5
+     }
+     Opacity 0.95
+     Color 0.0118 0.0163 0.0252 1
+     style rounded_12px
+    }
+    HorizontalLayoutWidgetClass "{69C29B69BAFA5123}" {
+     Name "DrawSerttingsLayout"
+     Slot FrameWidgetSlot "{69C29B69BAFA51B6}" {
+      Anchor 0.5 0 0.5 0
+      PositionX 0
+      OffsetLeft 0
+      PositionY 0
+      OffsetTop 0
+      SizeX 520
+      OffsetRight -520
+      SizeY 40
+      OffsetBottom -40
+      Alignment 0.5 0
+      SizeToContent 1
+     }
+     {
+      ButtonWidgetClass "{69C29B7052DBE5F7}" {
+       Name "PencilButton"
+       Slot LayoutSlot "{69C29B7052DBE592}" {
+        VerticalAlign 1
+       }
+       Color 0.0231 0.0231 0.0231 1
+       {
+        FrameWidgetClass "{69C29B72D876512D}" {
+         Name "ButtonContentFrame"
+         Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+          HorizontalAlign 3
+          VerticalAlign 3
+         }
+         {
+          SmartPanelWidgetClass "{69C29B719D66F2EE}" {
+           Name "Background1"
+           Slot FrameWidgetSlot "{69C29B729EF76341}" {
+            PositionX 0
+            OffsetLeft 0
+            PositionY 0
+            OffsetTop 0
+            SizeX 105
+            OffsetRight -105
+            SizeY 40
+            OffsetBottom -40
+           }
+           Color 0.0123 0.0123 0.0123 1
+           style rounded_12px
+          }
+          HorizontalLayoutWidgetClass "{69C29B70F5285BFD}" {
+           Name "DrawSerttingsLayout0"
+           Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+            Anchor 0 0 0 0
+            PositionX 0
+            OffsetLeft 0
+            PositionY 0
+            OffsetTop 0
+            SizeX 100
+            OffsetRight -100
+            SizeY 40
+            OffsetBottom -40
+           }
+           {
+            ImageWidgetClass "{69C29B70F5285BF2}" {
+             Name "Image0"
+             Slot LayoutSlot "{69C29B70F5285B46}" {
+              HorizontalAlign 1
+              VerticalAlign 1
+              Padding 5 0 5 0
+             }
+             Texture "{9208F7B7CF9BA33E}pencil.edds"
+             Size 34 34
+            }
+            TextWidgetClass "{69C29B70470928FD}" {
+             Name "Text0"
+             Slot LayoutSlot "{69C29B75A636B028}" {
+              HorizontalAlign 1
+              VerticalAlign 1
+             }
+             Text "Pencil"
+             "Font Size" 22
+             "Min Font Size" 22
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      ButtonWidgetClass "{69C29B74C915AD25}" {
+       Name "EraseButton"
+       Slot LayoutSlot "{69C29B7052DBE592}" {
+        VerticalAlign 1
+        Padding 5 0 0 0
+       }
+       Color 0.0231 0.0231 0.0231 1
+       {
+        FrameWidgetClass "{69C29B74C915AD26}" {
+         Name "ButtonContentFrame"
+         Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+          HorizontalAlign 3
+          VerticalAlign 3
+         }
+         {
+          SmartPanelWidgetClass "{69C29B74C915AD27}" {
+           Name "Background1"
+           Slot FrameWidgetSlot "{69C29B729EF76341}" {
+            PositionX 0
+            OffsetLeft 0
+            PositionY 0
+            OffsetTop 0
+            SizeX 100
+            OffsetRight -100
+            SizeY 40
+            OffsetBottom -40
+           }
+           Color 0.0123 0.0123 0.0123 1
+           style rounded_12px
+          }
+          HorizontalLayoutWidgetClass "{69C29B74C915AD20}" {
+           Name "DrawSerttingsLayout0"
+           Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+            Anchor 0 0 0 0
+            PositionX 0
+            OffsetLeft 0
+            PositionY 0
+            OffsetTop 0
+            SizeX 100
+            OffsetRight -100
+            SizeY 40
+            OffsetBottom -40
+           }
+           {
+            ImageWidgetClass "{69C29B74C9158E66}" {
+             Name "Image0"
+             Slot LayoutSlot "{69C29B70F5285B46}" {
+              HorizontalAlign 1
+              VerticalAlign 1
+              Padding 5 0 5 0
+             }
+             Texture "{BB603F1FAA6C1359}erase.edds"
+             Size 34 34
+            }
+            TextWidgetClass "{69C29B74C9158E67}" {
+             Name "Text0"
+             Slot LayoutSlot "{69C29B74C915ADC1}" {
+              HorizontalAlign 1
+              VerticalAlign 1
+             }
+             Text "Erase"
+             "Font Size" 22
+             "Min Font Size" 22
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      ButtonWidgetClass "{69C8E77090823FA5}" {
+       Name "FillButton"
+       Slot LayoutSlot "{69C29B7052DBE592}" {
+        VerticalAlign 1
+        Padding 5 0 0 0
+       }
+       Color 0.0231 0.0231 0.0231 1
+       {
+        FrameWidgetClass "{69C8E77090823FA6}" {
+         Name "ButtonContentFrame"
+         Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+          HorizontalAlign 3
+          VerticalAlign 3
+         }
+         {
+          SmartPanelWidgetClass "{69C8E77090823FA8}" {
+           Name "Background1"
+           Slot FrameWidgetSlot "{69C29B729EF76341}" {
+            PositionX 0
+            OffsetLeft 0
+            PositionY 0
+            OffsetTop 0
+            SizeX 75
+            OffsetRight -75
+            SizeY 40
+            OffsetBottom -40
+           }
+           Color 0.0123 0.0123 0.0123 1
+           style rounded_12px
+          }
+          HorizontalLayoutWidgetClass "{69C8E77090821986}" {
+           Name "FillSerttingsLayout"
+           Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+            Anchor 0 0 0 0
+            PositionX 0
+            OffsetLeft 0
+            PositionY 0
+            OffsetTop 0
+            SizeX 75
+            OffsetRight -75
+            SizeY 40
+            OffsetBottom -40
+           }
+           {
+            ImageWidgetClass "{69C8E77090821987}" {
+             Name "Image0"
+             Slot LayoutSlot "{69C29B70F5285B46}" {
+              HorizontalAlign 1
+              VerticalAlign 1
+              Padding 5 0 5 0
+             }
+             Texture "{8A369759121E8F4E}fill.edds"
+             Size 34 34
+            }
+            TextWidgetClass "{69C8E7709085AB49}" {
+             Name "Text0"
+             Slot LayoutSlot "{69C29B74C915ADC1}" {
+              HorizontalAlign 1
+              VerticalAlign 1
+             }
+             Text "Fill"
+             "Font Size" 22
+             "Min Font Size" 22
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{69C29B79970080F0}" {
+       Name "SizeCombo"
+       Slot LayoutSlot "{69C29B439A84DAA9}" {
+        VerticalAlign 1
+        Padding 5 0 0 0
+       }
+       {
+        FrameWidgetClass "{69C29B7E4A8E2A3D}" {
+         Name "SizeDropdown"
+         Slot FrameWidgetSlot "{69C29B7E4A8E2BD8}" {
+          Anchor 0 1 1 1
+          PositionX -7.5
+          OffsetLeft 0
+          PositionY 13
+          OffsetTop 13
+          SizeX 0
+          OffsetRight 0
+          SizeY 0
+          OffsetBottom -13
+         }
+         "Is Visible" 0
+         {
+          SmartPanelWidgetClass "{69C973EA070F3C03}" {
+           Name "Background1"
+           Slot FrameWidgetSlot "{69C29B729EF76341}" {
+            Anchor 0 0 1 0
+            PositionX -3.012
+            OffsetLeft -3.012
+            PositionY -2.581
+            OffsetTop -2.581
+            SizeX 5.072
+            OffsetRight -2.06
+            SizeY 257.175
+            OffsetBottom -254.594
+           }
+           Opacity 0.95
+           Color 0.0116 0.016 0.0252 1
+           style rounded_12px
+          }
+          VerticalLayoutWidgetClass "{69C29B41377F14EA}" {
+           Name "VerticalLayout0"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            OffsetLeft 0
+            OffsetTop 0
+            SizeX 85
+            OffsetRight -85
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C29B4104B5BFBA}" {
+             Name "Size1"
+             Slot LayoutSlot "{69C29B439A84DAF7}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B4104B5BFBB}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B4104B50854}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 85
+                  OffsetRight -85
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B4104B50856}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{46DF3F67AC741C13}circle.edds"
+                   Size 8 8
+                  }
+                  TextWidgetClass "{69C29B4104B50857}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "2"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B40A4447D85}" {
+             Name "Size2"
+             Slot LayoutSlot "{69C29B439A84DA29}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B40A4447D8A}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B40A4447D8E}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 85
+                  OffsetRight -85
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B40A4446F9C}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{46DF3F67AC741C13}circle.edds"
+                   Size 15 15
+                  }
+                  TextWidgetClass "{69C29B40A4446F9E}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "5"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B4200C9E72D}" {
+             Name "Size3"
+             Slot LayoutSlot "{69C29B4200C9E7E1}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B4200C9F8DC}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B4200C9F8DF}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 85
+                  OffsetRight -85
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B4200C9F8DE}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{46DF3F67AC741C13}circle.edds"
+                   Size 20 20
+                  }
+                  TextWidgetClass "{69C29B4200C9D7D3}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "10"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B4202C91A9D}" {
+             Name "Size4"
+             Slot LayoutSlot "{69C29B4202C925DF}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B4202C91A9E}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B4202CAC2AE}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 85
+                  OffsetRight -85
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B4202CAC2A9}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{46DF3F67AC741C13}circle.edds"
+                   Size 25 25
+                  }
+                  TextWidgetClass "{69C29B4202CA4103}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "20"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B420544E7CD}" {
+             Name "Size5"
+             Slot LayoutSlot "{69C29B420544E417}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B420544E7CA}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B420544F7C8}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 85
+                  OffsetRight -85
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B420544F7CA}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{46DF3F67AC741C13}circle.edds"
+                   Size 34 34
+                  }
+                  TextWidgetClass "{69C29B4205449853}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "40"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69C29B79B1CFAEC6}" {
+         Name "SizeButton"
+         Slot FrameWidgetSlot "{69C29B79B1CFE15C}" {
+          Anchor 0 0 0 0
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 50
+          OffsetRight -50
+          SizeY 40
+          OffsetBottom -40
+          SizeToContent 1
+         }
+         Color 0.0231 0.0231 0.0231 1
+         {
+          FrameWidgetClass "{69C29B79B1CFAEC7}" {
+           Name "ButtonContentFrame"
+           Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+            HorizontalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69C29B79B1CFAEC4}" {
+             Name "Background1"
+             Slot FrameWidgetSlot "{69C29B729EF76341}" {
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 85
+              OffsetRight -85
+              SizeY 40
+              OffsetBottom -40
+             }
+             Color 0.0123 0.0123 0.0123 1
+             style rounded_12px
+            }
+            HorizontalLayoutWidgetClass "{69C29B79B1CFAEC5}" {
+             Name "Content"
+             Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+              Anchor 0 0 0 0
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 85
+              OffsetRight -85
+              SizeY 40
+              OffsetBottom -40
+             }
+             {
+              ImageWidgetClass "{69C29B79B1CFE1F5}" {
+               Name "Image0"
+               Slot LayoutSlot "{69C29B70F5285B46}" {
+                HorizontalAlign 1
+                VerticalAlign 1
+                Padding 5 0 5 0
+               }
+               "Inherit Color" 1
+               Texture "{46DF3F67AC741C13}circle.edds"
+               Size 34 34
+              }
+              TextWidgetClass "{69C29B7AEA415852}" {
+               Name "Text0"
+               Slot LayoutSlot "{69C29B74C915ADC1}" {
+                HorizontalAlign 1
+                VerticalAlign 1
+               }
+               Text "10"
+               "Font Size" 22
+               "Min Font Size" 22
+              }
+              ImageWidgetClass "{69C29B7C3406F2CB}" {
+               Name "Arrow"
+               Slot LayoutSlot "{69C29B439A84D8BE}" {
+                VerticalAlign 1
+                SizeMode Auto
+               }
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowDown"
+               Size 22 22
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{69C29B4353093FF7}" {
+       Name "ColorCombo"
+       Slot LayoutSlot "{69C29B4353090105}" {
+        VerticalAlign 1
+        Padding 5 0 0 0
+       }
+       {
+        FrameWidgetClass "{69C29B4353093FF6}" {
+         Name "ColorDropdown"
+         Slot FrameWidgetSlot "{69C29B7E4A8E2BD8}" {
+          Anchor 0 1 1 1
+          PositionX -7.5
+          OffsetLeft 0
+          PositionY 15
+          OffsetTop 15
+          SizeX 0
+          OffsetRight 0
+          SizeY 0
+          OffsetBottom -15
+          Alignment 5.05 0
+         }
+         "Is Visible" 0
+         {
+          SmartPanelWidgetClass "{69C973EE7B2AF8EA}" {
+           Name "Background"
+           Slot FrameWidgetSlot "{69C29B6F149A5475}" {
+            Anchor 0.5 0 0.5 0
+            PositionX -70.116
+            OffsetLeft -70.116
+            PositionY -5.794
+            OffsetTop -5.794
+            SizeX 660
+            OffsetRight -589.884
+            SizeY 360
+            OffsetBottom -354.206
+           }
+           Opacity 0.95
+           Color 0.0118 0.0163 0.0252 1
+           style rounded_12px
+          }
+          VerticalLayoutWidgetClass "{69C29B4353093FF3}" {
+           Name "VerticalLayout0"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            PositionX -65
+            OffsetLeft -65
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight 0
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C29B448D58BF97}" {
+             Name "Color0"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B448D58BF94}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B448D58F0B1}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B448D58F0BF}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B4353093FF2}" {
+             Name "Color1"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B435309173D}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B4353091732}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B4353091733}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B442775B86A}" {
+             Name "Color2"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B442775B86B}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B442775B868}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B442775043D}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B4428C0AEDC}" {
+             Name "Color3"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B4428C0B582}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B4428C0B57C}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B4428C0B57F}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B442BA46371}" {
+             Name "Color4"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B442BA46370}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B442BA46373}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B442BA46372}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B44D034933C}" {
+             Name "Color5"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B44D034933F}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B44D034BAE0}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B44D034BAE6}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B455AB1CC5E}" {
+             Name "Color6"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B455AB1CC5D}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B455AB1CC5C}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B455AB0274A}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          VerticalLayoutWidgetClass "{69C29B457B11EE4F}" {
+           Name "VerticalLayout1"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            OffsetLeft 0
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight -65
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C29B457B11EE4E}" {
+             Name "Color7"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B457B11EE49}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B457B11EE48}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B457B11EE4B}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B457B11EE4A}" {
+             Name "Color8"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B457B1165A0}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B457B1165BE}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B457B1141F9}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B457B1141FA}" {
+             Name "Color9"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B457B113916}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B457B113917}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B457B1ED0E7}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B457B1ED0E0}" {
+             Name "Color10"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B457B1EAA0A}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B457B1E55BD}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B457B1E55BC}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B457B1E1840}" {
+             Name "Color11"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B457B1E1843}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B457B1FF46A}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B457B1FF46B}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B457B1FFC9A}" {
+             Name "Color12"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B457B1FFC95}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B457B1FE5DA}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B457B1FE5DB}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B457B1F714B}" {
+             Name "Color13"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C29B457B1F61B0}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B457B1F61B3}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C29B457B1F070F}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          VerticalLayoutWidgetClass "{69C932CF26538A59}" {
+           Name "VerticalLayout2"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 65
+            OffsetLeft 65
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight -130
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C932CF26538A5A}" {
+             Name "Color14"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF265406D9}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF265406DF}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF2654F0DF}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF2654F0DE}" {
+             Name "Color15"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF26554E41}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF26554E42}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF26551A76}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF26551A77}" {
+             Name "Color16"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF2655868E}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF265586B1}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF2655BED5}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF26562A88}" {
+             Name "Color17"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF26562A89}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF265638FB}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF265638F8}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF26568759}" {
+             Name "Color18"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF26568758}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF26568ED9}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF26568EDE}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF265768A8}" {
+             Name "Color19"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF265768A9}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF2657E16E}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF26584CA6}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF26584CA5}" {
+             Name "Color20"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF26580965}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF26580964}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF2658EE64}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          VerticalLayoutWidgetClass "{69C932CF2906013E}" {
+           Name "VerticalLayout3"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 130
+            OffsetLeft 130
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight -195
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C932CF2906013D}" {
+             Name "Color21"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF2906013C}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF29060143}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF2906696E}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF2906696C}" {
+             Name "Color22"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF29066404}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF29066405}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF2906557D}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF2906557A}" {
+             Name "Color23"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF2907DE96}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF2907DE97}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF2907090B}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF29070908}" {
+             Name "Color24"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF29077CCC}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF29077CCD}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF2907484A}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF29074845}" {
+             Name "Color25"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF2904B810}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF2904B811}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF2904CDAC}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF2904CDAF}" {
+             Name "Color26"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF2904D7C6}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF2904D7C7}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF2904697D}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932CF2904425B}" {
+             Name "Color27"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932CF2904425C}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932CF2904425D}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932CF29058B53}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          VerticalLayoutWidgetClass "{69C932C8A633CDC2}" {
+           Name "VerticalLayout4"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 195
+            OffsetLeft 195
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight -260
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C932C8A633CDC3}" {
+             Name "Color28"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A633CDC0}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A633BD30}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A633BD31}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A633BD0E}" {
+             Name "Color29"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A63329B7}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A63329B6}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6333169}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A633316A}" {
+             Name "Color30"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A634B4FA}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A634B4FB}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6345AF7}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A635F8FC}" {
+             Name "Color31"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A635F8FB}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A635B9D1}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A635B9D0}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A635B016}" {
+             Name "Color32"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A635B015}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A63559E8}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A63559E9}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A636F8E3}" {
+             Name "Color33"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A6366B24}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A6366B2B}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6362165}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A6362164}" {
+             Name "Color34"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A637EA58}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A637EA5B}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A637F5AD}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          VerticalLayoutWidgetClass "{69C932C8A637F763}" {
+           Name "VerticalLayout5"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 260
+            OffsetLeft 260
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight -325
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C932C8A637F762}" {
+             Name "Color35"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A6379B1E}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A6370D40}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6370D43}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A628AF8D}" {
+             Name "Color36"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A628AF8C}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A628A872}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A628A87D}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A6289CC8}" {
+             Name "Color37"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A6289CC9}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A6287727}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6281907}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A6281904}" {
+             Name "Color38"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A629FAF9}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A629FAF8}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6299227}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A6299220}" {
+             Name "Color39"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A6291DBE}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A6291DBF}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62ACCEB}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A62A4C37}" {
+             Name "Color40"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62A4C34}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62A16EF}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62A16EE}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A62BC4E9}" {
+             Name "Color41"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62BC4F6}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62BD36F}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62BD36E}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          VerticalLayoutWidgetClass "{69C932C8A62BD20B}" {
+           Name "VerticalLayout6"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 325
+            OffsetLeft 325
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight -390
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C932C8A62BBD75}" {
+             Name "Color42"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62BBD74}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62B2FBC}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62B2FBF}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A62B34D8}" {
+             Name "Color43"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62B1D29}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62B1D28}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62CA48F}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A62CA480}" {
+             Name "Color44"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62CBC1B}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62CBC1A}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62CB054}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A62C49F1}" {
+             Name "Color45"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62C49F2}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62C2EAB}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62C2EAA}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A62C09A6}" {
+             Name "Color46"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62C09A1}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62DBE94}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62DBE95}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A62D42AF}" {
+             Name "Color47"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62D047D}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62D047E}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62EC04E}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A62EC04F}" {
+             Name "Color48"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62EAAE1}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62EAADE}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62E2EB3}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          VerticalLayoutWidgetClass "{69C932C8A62E315A}" {
+           Name "VerticalLayout7"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 390
+            OffsetLeft 390
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight -455
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C932C8A62E0C49}" {
+             Name "Color49"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62E0C4A}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62FA6BB}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62F7AEE}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A62F7AEF}" {
+             Name "Color50"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A62F0598}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62F059F}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6209A7D}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A6209A7C}" {
+             Name "Color51"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A6201A0A}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A6201A09}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6219512}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A6216478}" {
+             Name "Color52"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A6216479}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A62151A8}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A62151B7}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A622D09D}" {
+             Name "Color53"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A622D09C}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A6227808}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6226600}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A6226603}" {
+             Name "Color54"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A6222689}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A6222688}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A623F00A}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C8A623F00D}" {
+             Name "Color55"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C8A6238B3B}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C8A6238B3A}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C8A6232FC7}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          VerticalLayoutWidgetClass "{69C932C901176CD1}" {
+           Name "VerticalLayout8"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 455
+            OffsetLeft 455
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight -520
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C932C901176CD6}" {
+             Name "Color56"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C901176CD7}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C901176D96}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C901176D95}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C901176D94}" {
+             Name "Color57"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C901176C6B}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C90117C834}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C90117C835}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C90116398A}" {
+             Name "Color58"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C9011645BC}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C9011645BF}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C90116B9FF}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C90116B9FE}" {
+             Name "Color59"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C9011120A7}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C9011120A0}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C901114314}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C901114315}" {
+             Name "Color60"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C90111412A}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C901116767}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C901116764}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C901116543}" {
+             Name "Color61"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C901116542}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C90111CC03}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C90111CC0C}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C90111DB5F}" {
+             Name "Color62"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C90111DB5E}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C9011000AB}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C901107F5E}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          VerticalLayoutWidgetClass "{69C932C90110601E}" {
+           Name "VerticalLayout9"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 520
+            OffsetLeft 520
+            PositionY 0
+            OffsetTop 0
+            SizeX 65
+            OffsetRight -585
+            SizeY 30
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C932C90110CBC2}" {
+             Name "Color63"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C90110CBC1}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C9011358B5}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C9011358B4}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C9011344E7}" {
+             Name "Color64"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C9011344E0}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C90113A87E}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C90113C81E}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C90113C81F}" {
+             Name "Color65"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C90112336C}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C90112336F}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C9011295D0}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C9011295D1}" {
+             Name "Color66"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C90112FE1F}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C90112FE00}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C9011D4F01}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C9011D8EDF}" {
+             Name "Color67"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C9011D8EDE}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C9011DC59A}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C9011DC599}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C9011DE40A}" {
+             Name "Color68"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C9011DE40B}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C9011C5897}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C9011C5890}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C932C9011C7B47}" {
+             Name "Color69"
+             Slot LayoutSlot "{69C29B4353090191}" {
+             }
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69C932C9011C7B46}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C932C9011C6C3D}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 65
+                  OffsetRight -65
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69C932C9011C9159}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{E278DB118260244A}circleWhite.edds"
+                   Size 34 34
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69C29B43531600F1}" {
+         Name "ColorButton"
+         Slot FrameWidgetSlot "{69C29B79B1CFE15C}" {
+          Anchor 0 0 0 0
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 50
+          OffsetRight -50
+          SizeY 30
+          OffsetBottom -30
+          SizeToContent 1
+         }
+         Color 0.0231 0.0231 0.0231 1
+         {
+          FrameWidgetClass "{69C29B435315E23A}" {
+           Name "ButtonContentFrame"
+           Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+            HorizontalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69C29B435315E23B}" {
+             Name "Background1"
+             Slot FrameWidgetSlot "{69C29B729EF76341}" {
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 65
+              OffsetRight -65
+              SizeY 40
+              OffsetBottom -40
+             }
+             Color 0.0123 0.0123 0.0123 1
+             style rounded_12px
+            }
+            HorizontalLayoutWidgetClass "{69C29B435315E238}" {
+             Name "Content"
+             Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+              Anchor 0 0 0 0
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 65
+              OffsetRight -65
+              SizeY 40
+              OffsetBottom -40
+             }
+             {
+              ImageWidgetClass "{69C29B4353158388}" {
+               Name "Image0"
+               Slot LayoutSlot "{69C29B70F5285B46}" {
+                HorizontalAlign 1
+                VerticalAlign 1
+                Padding 5 0 5 0
+               }
+               "Inherit Color" 1
+               Texture "{E278DB118260244A}circleWhite.edds"
+               Size 34 34
+              }
+              ImageWidgetClass "{69C29B4353155F69}" {
+               Name "Arrow"
+               Slot LayoutSlot "{69C29B4353093FA7}" {
+                VerticalAlign 1
+                SizeMode Auto
+               }
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowDown"
+               Size 22 22
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{69C8E77542BE5835}" {
+       Name "OpacityCombo"
+       Slot LayoutSlot "{69C29B4353090105}" {
+        VerticalAlign 1
+        Padding 5 0 0 0
+       }
+       {
+        FrameWidgetClass "{69C8E77542BE69A6}" {
+         Name "OpacityDropdown"
+         Slot FrameWidgetSlot "{69C29B7E4A8E2BD8}" {
+          Anchor 0 1 1 1
+          PositionX -7.5
+          OffsetLeft 0
+          OffsetTop 0
+          SizeX 0
+          OffsetRight 0
+          SizeY 0
+          OffsetBottom 0
+         }
+         "Is Visible" 0
+         {
+          FrameWidgetClass "{69C8E7771272286F}" {
+           Name "OpacityDropdownFrame"
+           Slot FrameWidgetSlot "{69C8E7771272287E}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 0
+            OffsetLeft 0
+            PositionY 0
+            OffsetTop 0
+            SizeX 100
+            OffsetRight -100
+            SizeY 30
+            OffsetBottom -30
+            Alignment 0.5 -0.4
+            SizeToContent 1
+           }
+           {
+            SmartPanelWidgetClass "{69C8E7773D1215A1}" {
+             Name "Background1"
+             Slot FrameWidgetSlot "{69C29B729EF76341}" {
+              Anchor 0.5 0 0.5 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 320
+              OffsetRight -320
+              OffsetBottom -30
+              Alignment 0.5 0.1
+             }
+             Opacity 0.95
+             Color 0.0116 0.016 0.0252 1
+             style rounded_12px
+            }
+            SliderWidgetClass "{69C8E7758646CBE0}" {
+             Name "Slider0"
+             Slot FrameWidgetSlot "{69C8E77470FA3F33}" {
+              Anchor 1 0 1 0
+              PositionX -10
+              OffsetLeft -10
+              PositionY 2
+              OffsetTop 2
+              OffsetRight -90
+              SizeY 20
+              OffsetBottom -22
+              Alignment 1 0
+              SizeToContent 1
+             }
+             Size 300 20
+             current 100
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69C8E77247D36D0E}" {
+         Name "OpacityButton"
+         Slot FrameWidgetSlot "{69C8E775708184B9}" {
+          SizeToContent 1
+         }
+         Color 0.0231 0.0231 0.0231 1
+         {
+          FrameWidgetClass "{69C8E77247D36D0F}" {
+           Name "ButtonContentFrame"
+           Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69C8E77247D34E32}" {
+             Name "Background1"
+             Slot FrameWidgetSlot "{69C29B729EF76341}" {
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 110
+              OffsetRight -110
+              SizeY 40
+              OffsetBottom -40
+             }
+             Color 0.0123 0.0123 0.0123 1
+             style rounded_12px
+            }
+            HorizontalLayoutWidgetClass "{69C8E77247D34E2F}" {
+             Name "FillSerttingsLayout"
+             Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+              Anchor 0 0 0 0
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 110
+              OffsetRight -110
+              SizeY 40
+              OffsetBottom -40
+             }
+             {
+              ImageWidgetClass "{69C8E77247D34E29}" {
+               Name "Image0"
+               Slot LayoutSlot "{69C29B70F5285B46}" {
+                HorizontalAlign 1
+                VerticalAlign 1
+                Padding 5 0 0 0
+               }
+               Texture "{E33F8B395047914F}opacity.edds"
+               Size 34 34
+              }
+              TextWidgetClass "{69C8E77247D3EAA9}" {
+               Name "Text0"
+               Slot LayoutSlot "{69C29B74C915ADC1}" {
+                HorizontalAlign 1
+                VerticalAlign 1
+               }
+               Text "100%"
+               "Font Size" 22
+               "Min Font Size" 22
+              }
+              ImageWidgetClass "{69C8E772B2000453}" {
+               Name "Arrow"
+               Slot LayoutSlot "{69C29B4353093FA7}" {
+                VerticalAlign 1
+                SizeMode Auto
+               }
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowDown"
+               Size 22 22
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{69C29B46692677AA}" {
+       Name "VisibilityCombo"
+       Slot LayoutSlot "{69C29B439A84DAA9}" {
+        VerticalAlign 1
+        Padding 5 0 0 0
+       }
+       {
+        FrameWidgetClass "{69C29B4669267795}" {
+         Name "VisibilityDropdown"
+         Slot FrameWidgetSlot "{69C29B7E4A8E2BD8}" {
+          Anchor 0 1 1 1
+          PositionX -7.5
+          OffsetLeft 0
+          PositionY 15
+          OffsetTop 15
+          SizeX 0
+          OffsetRight 0
+          SizeY 0
+          OffsetBottom -15
+         }
+         "Is Visible" 0
+         {
+          SmartPanelWidgetClass "{69C973ED53391BC5}" {
+           Name "Background1"
+           Slot FrameWidgetSlot "{69C29B729EF76341}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 0.059
+            OffsetLeft 0.059
+            PositionY 15.935
+            OffsetTop 15.935
+            SizeX 138.842
+            OffsetRight -138.901
+            SizeY 210.501
+            OffsetBottom -226.436
+            Alignment 0.5 0.1
+           }
+           Opacity 0.95
+           Color 0.0116 0.016 0.0252 1
+           style rounded_12px
+          }
+          VerticalLayoutWidgetClass "{69C29B4669267794}" {
+           Name "VerticalLayout0"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            OffsetLeft 0
+            OffsetTop 0
+            SizeX 125
+            OffsetRight -125
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C29B466925C28E}" {
+             Name "VisibilityLocal"
+             Slot LayoutSlot "{69C29B439A84DAF7}" {
+             }
+             Color 0.3216 0.3216 0.3216 1
+             {
+              FrameWidgetClass "{69C29B466925C28D}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B466925C28C}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C29B4669251A89}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "Local"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B46692522C7}" {
+             Name "VisibilityGroup"
+             Slot LayoutSlot "{69C29B439A84DA29}" {
+             }
+             Color 0.0706 0.5608 0.1922 1
+             {
+              FrameWidgetClass "{69C29B46692522C6}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B4669257F30}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C29B466924C230}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "Group"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B466924C231}" {
+             Name "VisibilitySide"
+             Slot LayoutSlot "{69C29B4200C9E7E1}" {
+             }
+             Color 0 0.1255 0.502 1
+             {
+              FrameWidgetClass "{69C29B4669240E75}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B4669240E7A}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C29B466924383C}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "Side"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B4669246322}" {
+             Name "VisibilityEveryone"
+             Slot LayoutSlot "{69C29B4202C925DF}" {
+             }
+             Color 0.502 0.063 0.063 1
+             {
+              FrameWidgetClass "{69C29B46692388EF}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B46692388EC}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C29B466923F023}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "Everyone"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69C29B466922F56D}" {
+         Name "VisibilityButton"
+         Slot FrameWidgetSlot "{69C29B79B1CFE15C}" {
+          Anchor 0 0 0 0
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 125
+          OffsetRight -125
+          SizeY 30
+          OffsetBottom -30
+          SizeToContent 1
+         }
+         Color 0.0231 0.0231 0.0231 1
+         {
+          FrameWidgetClass "{69C29B466922F56E}" {
+           Name "ButtonContentFrame"
+           Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+            HorizontalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69C29B4669223B18}" {
+             Name "Background1"
+             Slot FrameWidgetSlot "{69C29B729EF76341}" {
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 125
+              OffsetRight -125
+              SizeY 40
+              OffsetBottom -40
+             }
+             Color 0.502 0.0627 0.0627 1
+             style rounded_12px
+            }
+            HorizontalLayoutWidgetClass "{69C29B4669223B19}" {
+             Name "Content"
+             Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+              Anchor 0 0 0 0
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 125
+              OffsetRight -125
+              SizeY 40
+              OffsetBottom -40
+             }
+             {
+              TextWidgetClass "{69C29B46692242DF}" {
+               Name "Text0"
+               Slot LayoutSlot "{69C29B74C915ADC1}" {
+                HorizontalAlign 1
+                VerticalAlign 1
+                SizeMode Fill
+               }
+               Text "Everyone"
+               "Font Size" 22
+               "Min Font Size" 22
+              }
+              ImageWidgetClass "{69C29B466921B4F8}" {
+               Name "Arrow"
+               Slot LayoutSlot "{69C29B439A84D8BE}" {
+                VerticalAlign 1
+                SizeMode Auto
+               }
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowDown"
+               Size 22 22
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{69C4A7D90F419DCC}" {
+       Name "SideCombo"
+       Slot LayoutSlot "{69C29B439A84DAA9}" {
+        VerticalAlign 1
+        Padding 10 0 0 0
+       }
+       "Is Visible" 0
+       {
+        FrameWidgetClass "{69C4A7D90F419DCD}" {
+         Name "VisibilityDropdown"
+         Slot FrameWidgetSlot "{69C29B7E4A8E2BD8}" {
+          Anchor 0 1 1 1
+          PositionX -7.5
+          OffsetTop 0
+          SizeX 0
+          OffsetRight 0
+          SizeY 0
+          OffsetBottom 0
+          SizeToContent 1
+         }
+         "Is Visible" 0
+         {
+          VerticalLayoutWidgetClass "{69C4A7D90F4668C2}" {
+           Name "VerticalLayout0"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            OffsetLeft 0
+            OffsetTop 0
+            SizeX 125
+            OffsetRight -125
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C4A7D90F4668C0}" {
+             Name "SideBLUFOR"
+             Slot LayoutSlot "{69C29B439A84DAF7}" {
+             }
+             Color 0 0.1255 0.502 1
+             {
+              FrameWidgetClass "{69C4A7D90F46D6FA}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C4A7D90F46D6E5}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C4A7D90F468284}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "BLUFOR"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C4A7D90F468285}" {
+             Name "SideOPFOR"
+             Slot LayoutSlot "{69C29B439A84DA29}" {
+             }
+             Color 0.4118 0 0 1
+             {
+              FrameWidgetClass "{69C4A7D90F46BE28}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C4A7D90F46BE2B}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C4A7D90F476AF4}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "OPFOR"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C4A7D90F476AF5}" {
+             Name "SideINDFOR"
+             Slot LayoutSlot "{69C29B4200C9E7E1}" {
+             }
+             Color 0 0.3725 0.0931 1
+             {
+              FrameWidgetClass "{69C4A7D90F473FCC}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C4A7D90F4791A8}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C4A7D90F4791AF}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "INDFOR"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69C4A7D90F44B938}" {
+         Name "VisibilityButton"
+         Slot FrameWidgetSlot "{69C29B79B1CFE15C}" {
+          Anchor 0 0 0 0
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 125
+          OffsetRight -125
+          SizeY 30
+          OffsetBottom -30
+          SizeToContent 1
+         }
+         style blank
+         {
+          FrameWidgetClass "{69C4A7D90F44B939}" {
+           Name "ButtonContentFrame"
+           Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+            HorizontalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69C4A7D90F44B936}" {
+             Name "Background1"
+             Slot FrameWidgetSlot "{69C29B729EF76341}" {
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 125
+              OffsetRight -125
+              SizeY 40
+              OffsetBottom -40
+             }
+             Color 0 0.1255 0.502 1
+             style rounded_12px
+            }
+            HorizontalLayoutWidgetClass "{69C4A7D90F4542C9}" {
+             Name "Content"
+             Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+              Anchor 0 0 0 0
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 125
+              OffsetRight -125
+              SizeY 40
+              OffsetBottom -40
+             }
+             {
+              TextWidgetClass "{69C4A7D90F4542C8}" {
+               Name "Text0"
+               Slot LayoutSlot "{69C29B74C915ADC1}" {
+                HorizontalAlign 1
+                VerticalAlign 1
+                SizeMode Fill
+               }
+               Text "Side"
+               "Font Size" 22
+               "Min Font Size" 22
+              }
+              ImageWidgetClass "{69C4A7D90F4542CB}" {
+               Name "Arrow"
+               Slot LayoutSlot "{69C29B439A84D8BE}" {
+                VerticalAlign 1
+                SizeMode Auto
+               }
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowDown"
+               Size 22 22
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      HorizontalLayoutWidgetClass "{69C4A7D8326C9BC6}" {
+       Name "GmLockRow"
+       Slot LayoutSlot "{69B4864C8BB1B086}" {
+        VerticalAlign 1
+        Padding 10 0 0 0
+       }
+       "Is Visible" 0
+       {
+        TextWidgetClass "{69C4A7D8326C9BC9}" {
+         Name "TextColorLabel0"
+         Slot LayoutSlot "{69B4864CC27C835E}" {
+          HorizontalAlign 1
+          VerticalAlign 1
+          Padding 0 0 5 0
+         }
+         Text "GM Locked"
+         "Font Size" 16
+         "Min Font Size" 16
+         FontProperties FontProperties "{5E2AC05E1460E161}" {
+          Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+         }
+        }
+        SizeLayoutWidgetClass "{69C4A7D8326C9BC8}" {
+         Name "TextColorBox0"
+         Slot LayoutSlot "{69B4864CC27C834D}" {
+         }
+         AllowWidthOverride 1
+         WidthOverride 28
+         AllowHeightOverride 1
+         HeightOverride 28
+         {
+          CheckBoxWidgetClass "{69C4A7D8326CECA3}" {
+           Name "GmLockCheck"
+           Slot AlignableSlot "{69A2FC3C2D59580D}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+          }
+         }
+        }
+       }
+      }
+      HorizontalLayoutWidgetClass "{69C4A7D8326CEB67}" {
+       Name "HideInfoRow"
+       Slot LayoutSlot "{69B4864C9F400A13}" {
+        VerticalAlign 1
+        Padding 10 0 0 0
+       }
+       "Is Visible" 0
+       {
+        TextWidgetClass "{69C4A7D8326C40E3}" {
+         Name "TextColorLabel1"
+         Slot LayoutSlot "{69B4864EEC727D53}" {
+          HorizontalAlign 1
+          VerticalAlign 1
+          Padding 0 0 5 0
+         }
+         Text "Hide Info"
+         "Font Size" 16
+         "Min Font Size" 16
+         FontProperties FontProperties "{5E2AC05E1460E161}" {
+          Font "{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt"
+         }
+        }
+        SizeLayoutWidgetClass "{69C4A7D8326C40E0}" {
+         Name "TextColorBox1"
+         Slot LayoutSlot "{69B4864EEC7705D1}" {
+         }
+         AllowWidthOverride 1
+         WidthOverride 28
+         AllowHeightOverride 1
+         HeightOverride 28
+         {
+          CheckBoxWidgetClass "{69C4A7D832638080}" {
+           Name "HideInfoCheck"
+           Slot AlignableSlot "{69A2FC3C2D59580D}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

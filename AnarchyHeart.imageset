@@ -1,0 +1,22 @@
+ImageSetClass {
+ RefSize 456 908
+ Textures {
+  ImageSetTextureClass "{69A6913D34B8932B}" {
+   screenSize FHD
+   size 456 908
+   path "{D93C93AD1AB4F0D8}AnarchyHeart-100_atlas.edds"
+  }
+ }
+ Images {
+  ImageSetDefClass anarchyHeart1 {
+   Pos 2 2
+   Size 450 450
+   Flags 0 0
+  }
+  ImageSetDefClass anarchyHeart2 {
+   Pos 2 454
+   Size 450 450
+   Flags 0 0
+  }
+ }
+}
