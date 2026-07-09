@@ -141,7 +141,9 @@ class SM_DrawingNet
 		int sent = 0;
 		foreach (SM_MapDrawingData d : all)
 		{
-			if (!d || !IsEligibleDrawing(playerId, d))
+			if (!d || SM_MapDrawingStore.IsLocalId(d.m_iId))	// Local strokes (id <= -2, listen-host only) never replicate
+				continue;
+			if (!IsEligibleDrawing(playerId, d))
 				continue;
 			pc.SM_SendDrawingAdd(d.m_iId, d.m_iOwnerId, d.PackMeta(), d.m_aPoints, d.m_sOwnerName);
 			sent++;
@@ -152,5 +154,331 @@ class SM_DrawingNet
 	protected static SCR_PlayerController GetController(int playerId)
 	{
 		return SCR_PlayerController.Cast(GetGame().GetPlayerManager().GetPlayerController(playerId));
+	}
+
+	// ==========================================================================
+	// Server-side handling of drawing operations. Shared by the instant RPCs
+	// (RpcAsk_Draw*) and the batched path (ProcessBatch) so both enforce the exact
+	// same rules. denyPc != null -> the player gets a deny popup (instant path);
+	// the batch path passes null (a rejected stroke just disappears on reconcile,
+	// no popup spam).
+	// ==========================================================================
+
+	// Add one stroke/fill. Returns the new id, or 0 if rejected.
+	static int ServerHandleAdd(int requesterId, array<int> meta, array<int> points, SCR_PlayerController denyPc)
+	{
+		SM_MarkerConfig drawCfg = SM_MarkerConfig.GetInstance();
+		if (!drawCfg.m_bAllowDrawing)
+			return 0;
+
+		int vis = SM_MapDrawingData.VisibilityFromMeta(meta);
+		if (vis < 0)
+			return 0;
+		// Local (PERSONAL) drawings are client-side only (SM_LocalDrawingPersistence).
+		// Our UI never sends them here; this guards against external API misuse.
+		if (vis == SM_EMarkerVisibility.PERSONAL)
+		{
+			SM_MarkerNet.Log(string.Format("IGNORE DRAW by %1: PERSONAL drawings are client-side only", SM_MarkerNet.Who(requesterId)));
+			return 0;
+		}
+		if (!drawCfg.IsVisibilityAllowed(vis))
+		{
+			if (denyPc)
+				denyPc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_CHANNEL_DISABLED, 0);
+			return 0;
+		}
+		if (!RegisterDrawAttempt(requesterId))	// rate limit
+		{
+			if (denyPc)
+				denyPc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_PER_MINUTE_LIMIT, drawCfg.m_iDrawPerMinuteLimit);
+			return 0;
+		}
+
+		SM_MapDrawingStore drawStore = SM_MapDrawingStore.GetInstance();
+		if (drawCfg.m_iDrawMaxTotal > 0 && drawStore.Count() >= drawCfg.m_iDrawMaxTotal)
+		{
+			if (denyPc)
+				denyPc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_TOTAL_LIMIT, drawCfg.m_iDrawMaxTotal);
+			return 0;
+		}
+		if (drawCfg.m_iDrawMaxPerPlayer > 0 && drawStore.CountByOwner(requesterId) >= drawCfg.m_iDrawMaxPerPlayer)
+		{
+			if (denyPc)
+				denyPc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_PER_PLAYER_LIMIT, drawCfg.m_iDrawMaxPerPlayer);
+			return 0;
+		}
+
+		// Trim points to the server limit (protects against an oversized stroke).
+		array<int> pts = points;
+		int maxVals = drawCfg.m_iDrawMaxPointsPerStroke * 2;
+		if (maxVals >= 4 && pts.Count() > maxVals)
+		{
+			array<int> trimmed = {};
+			for (int i = 0; i < maxVals; i++)
+				trimmed.Insert(pts[i]);
+			pts = trimmed;
+		}
+
+		// Channel: derived from the author's faction/group. Exception: a GM has no faction
+		// and picks the side for FACTION strokes himself, so his channel comes from meta.
+		bool isGm = SM_MarkerNet.IsPlayerGameMaster(requesterId);
+		int channel;
+		if (isGm && vis == SM_EMarkerVisibility.FACTION)
+			channel = SM_MapDrawingData.ChannelFromMeta(meta);
+		else
+			channel = ChannelFor(requesterId, vis);
+
+		string authorName = GetGame().GetPlayerManager().GetPlayerName(requesterId);
+		SM_MapDrawingData d = drawStore.ServerCreate(requesterId, meta, pts, channel, System.GetTickCount(), authorName);
+		if (!d)
+			return 0;
+
+		// GM-only flags are accepted from actual Game Masters only.
+		if (!isGm)
+		{
+			d.m_iGmLocked = 0;
+			d.m_iHideInfo = 0;
+		}
+
+		BroadcastAdd(d);
+		SM_MarkerNet.Log(string.Format("DRAW #%1 by %2 vis=%3 ch=%4 pts=%5",
+			d.m_iId, SM_MarkerNet.Who(requesterId), SM_MarkerNet.VisName(vis), channel, d.GetPointCount()));
+		return d.m_iId;
+	}
+
+	// Remove one whole stroke. Returns true if removed.
+	static bool ServerHandleRemove(int requesterId, int id, SCR_PlayerController denyPc)
+	{
+		SM_MapDrawingData d = SM_MapDrawingStore.GetInstance().FindById(id);
+		if (!d)
+			return false;
+		if (!CanErase(requesterId, d))
+		{
+			if (denyPc && d.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(requesterId))
+				denyPc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_LOCKED, 0);
+			SM_MarkerNet.Log(string.Format("DENY DRAW-ERASE #%1 by %2", id, SM_MarkerNet.Who(requesterId)));
+			return false;
+		}
+		SM_MapDrawingStore.GetInstance().ServerRemove(id);
+		BroadcastRemove(id);
+		SM_MarkerNet.Log(string.Format("DRAW-ERASE #%1 by %2", id, SM_MarkerNet.Who(requesterId)));
+		return true;
+	}
+
+	// Partial erase: replace the requester's OWN stroke with the leftover pieces.
+	// Piece meta (color/width/visibility/channel) comes from the trusted server record —
+	// the client only sends geometry, so attributes can't be forged.
+	static void ServerHandleErasePart(int requesterId, int id, array<int> framed, SCR_PlayerController denyPc)
+	{
+		if (!SM_MarkerConfig.GetInstance().m_bAllowDrawing)
+			return;
+		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
+		SM_MapDrawingData old = store.FindById(id);
+		if (!old)
+			return;
+		if (old.m_iOwnerId != requesterId)	// partial erase is strictly owner-only
+			return;
+		if (old.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(requesterId))
+		{
+			if (denyPc)
+				denyPc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_LOCKED, 0);
+			return;
+		}
+		if (!framed || framed.Count() < 1)
+			return;
+
+		int nPieces = framed[0];
+		if (nPieces < 1 || nPieces > MAX_ERASE_PIECES)
+			return;
+		int maxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
+
+		array<ref array<int>> pieces = {};
+		int pos = 1;
+		for (int p = 0; p < nPieces; p++)
+		{
+			if (pos >= framed.Count())
+				return;
+			int len = framed[pos];
+			pos++;
+			if (len < 2 || len > maxPts)
+				return;
+			if (pos + len * 2 > framed.Count())
+				return;
+			array<int> pts = {};
+			for (int k = 0; k < len * 2; k++)
+				pts.Insert(framed[pos + k]);
+			pos += len * 2;
+			pieces.Insert(pts);
+		}
+
+		array<int> meta = old.PackMeta();
+		int keepOwner   = old.m_iOwnerId;
+		int keepChannel = old.m_iChannel;
+		string keepName = old.m_sOwnerName;
+
+		store.ServerRemove(id);
+		BroadcastRemove(id);
+
+		int made = 0;
+		foreach (array<int> piecePts : pieces)
+		{
+			SM_MapDrawingData piece = store.ServerCreate(keepOwner, meta, piecePts, keepChannel, System.GetTickCount(), keepName);
+			if (piece)
+			{
+				BroadcastAdd(piece);
+				made++;
+			}
+		}
+		SM_MarkerNet.Log(string.Format("DRAW-ERASE-PART #%1 by %2 -> %3 pieces", id, SM_MarkerNet.Who(requesterId), made));
+	}
+
+	// Recolor a fill in place: remove + recreate with the same points and the new panel meta.
+	// The recoloring player becomes the new author. Same permissions as erasing.
+	static void ServerHandleRecolor(notnull SCR_PlayerController pc, int id, array<int> meta)
+	{
+		SM_MarkerConfig drawCfg = SM_MarkerConfig.GetInstance();
+		if (!drawCfg.m_bAllowDrawing)
+			return;
+
+		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
+		SM_MapDrawingData old = store.FindById(id);
+		if (!old || old.m_iFill == 0)
+			return;
+
+		int requesterId = pc.GetPlayerId();
+		if (!CanErase(requesterId, old))
+		{
+			if (old.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(requesterId))
+				pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_LOCKED, 0);
+			else
+				pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.FILL_BLOCKED, 0);
+			return;
+		}
+
+		SM_MapDrawingData req = new SM_MapDrawingData();
+		if (!req.UnpackMeta(meta))
+			return;
+
+		// Visibility can only be widened (Local < Group < Side < Global), same as markers.
+		// On a narrow attempt the old channel is kept, other changes still apply, player gets a popup.
+		int newVis = req.m_iVisibility;
+		bool narrowed = false;
+		if (newVis < old.m_iVisibility)
+		{
+			newVis = old.m_iVisibility;
+			narrowed = true;
+		}
+		if (newVis != old.m_iVisibility && !drawCfg.IsVisibilityAllowed(newVis))
+		{
+			pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_CHANNEL_DISABLED, 0);
+			return;
+		}
+
+		// Channel: unchanged visibility keeps the old channel; widening recalculates it from
+		// the requester. A GM picks the side for FACTION fills on the panel.
+		bool isGm = SM_MarkerNet.IsPlayerGameMaster(requesterId);
+		int channel = old.m_iChannel;
+		if (isGm && newVis == SM_EMarkerVisibility.FACTION)
+			channel = req.m_iChannel;
+		else if (newVis != old.m_iVisibility)
+			channel = ChannelFor(requesterId, newVis);
+
+		// New meta starts from the old (trusted) record; only the allowed fields come from the client.
+		SM_MapDrawingData tpl = old.SM_Clone();
+		tpl.m_iColor      = req.m_iColor;
+		tpl.m_iVisibility = newVis;
+		tpl.m_iChannel    = channel;
+		if (isGm)
+		{
+			tpl.m_iGmLocked = req.m_iGmLocked;
+			tpl.m_iHideInfo = req.m_iHideInfo;
+		}
+		array<int> newMeta = tpl.PackMeta();
+		array<int> pts = {};
+		pts.Copy(old.m_aPoints);
+		string newName = GetGame().GetPlayerManager().GetPlayerName(requesterId);
+
+		store.ServerRemove(id);
+		BroadcastRemove(id);
+
+		SM_MapDrawingData fresh = store.ServerCreate(requesterId, newMeta, pts, channel, System.GetTickCount(), newName);
+		if (fresh)
+			BroadcastAdd(fresh);
+		if (narrowed)
+			pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.FILL_NO_NARROW, 0);
+		SM_MarkerNet.Log(string.Format("FILL-RECOLOR #%1 by %2 vis=%3 ch=%4", id, SM_MarkerNet.Who(requesterId), SM_MarkerNet.VisName(newVis), channel));
+	}
+
+	// Process one client batch (RpcAsk_DrawBatch). Fills addRealIds with the real id of every
+	// ADD in order (0 = rejected) — the client uses it to drop its optimistic temp strokes.
+	static void ProcessBatch(SCR_PlayerController pc, array<int> blob, out array<int> addRealIds)
+	{
+		addRealIds = {};
+		if (!pc || !blob)
+			return;
+		int requesterId = pc.GetPlayerId();
+		int metaN = SM_MapDrawingData.META_COUNT;
+
+		int pos = 0;
+		int guard = 0;
+		while (pos < blob.Count() && guard < 100000)
+		{
+			guard++;
+			int type = blob[pos];
+			pos++;
+
+			if (type == SM_DrawOutbox.OP_ADD)
+			{
+				if (pos + metaN + 1 > blob.Count())
+					break;
+				array<int> meta = {};
+				for (int i = 0; i < metaN; i++)
+				{
+					meta.Insert(blob[pos]);
+					pos++;
+				}
+				int n = blob[pos];
+				pos++;
+				if (n < 0 || pos + n * 2 > blob.Count())
+					break;
+				array<int> pts = {};
+				for (int k = 0; k < n * 2; k++)
+				{
+					pts.Insert(blob[pos]);
+					pos++;
+				}
+				addRealIds.Insert(ServerHandleAdd(requesterId, meta, pts, null));
+			}
+			else if (type == SM_DrawOutbox.OP_REMOVE)
+			{
+				if (pos + 1 > blob.Count())
+					break;
+				int rid = blob[pos];
+				pos++;
+				ServerHandleRemove(requesterId, rid, null);
+			}
+			else if (type == SM_DrawOutbox.OP_ERASE_PART)
+			{
+				if (pos + 2 > blob.Count())
+					break;
+				int eid = blob[pos];
+				pos++;
+				int flen = blob[pos];
+				pos++;
+				if (flen < 0 || pos + flen > blob.Count())
+					break;
+				array<int> framed = {};
+				for (int i = 0; i < flen; i++)
+				{
+					framed.Insert(blob[pos]);
+					pos++;
+				}
+				ServerHandleErasePart(requesterId, eid, framed, null);
+			}
+			else
+			{
+				break;	// unknown op type -> corrupt blob, stop
+			}
+		}
 	}
 }

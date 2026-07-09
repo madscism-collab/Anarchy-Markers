@@ -15,7 +15,8 @@ class SM_MapDrawingStore
 	protected static ref SM_MapDrawingStore s_Instance;
 
 	protected ref array<ref SM_MapDrawingData> m_aDrawings = {};
-	protected int m_iNextId = 1;	// серверний лічильник id
+	protected int m_iNextId = 1;	// серверний лічильник id (завжди >= 1)
+	protected int m_iNextLocalId = -2;	// client-side id counter for Local drawings (-2 and below; -1 stays the sentinel)
 
 	protected ref ScriptInvokerBase<SM_DrawingChangeInvoker> m_OnAdded   = new ScriptInvokerBase<SM_DrawingChangeInvoker>();
 	protected ref ScriptInvokerBase<SM_DrawingRemoveInvoker> m_OnRemoved = new ScriptInvokerBase<SM_DrawingRemoveInvoker>();
@@ -30,9 +31,15 @@ class SM_MapDrawingStore
 	ScriptInvokerBase<SM_DrawingChangeInvoker> GetOnAdded()   { return m_OnAdded; }
 	ScriptInvokerBase<SM_DrawingRemoveInvoker> GetOnRemoved() { return m_OnRemoved; }
 
+	// Client-side Local stroke? (id <= -2). Server ids are >= 1, -1 = "unassigned" sentinel.
+	static bool IsLocalId(int id)
+	{
+		return id <= -2;
+	}
+
 	SM_MapDrawingData FindById(int id)
 	{
-		if (id < 0)
+		if (id == -1)	// "unassigned" sentinel
 			return null;
 		foreach (SM_MapDrawingData d : m_aDrawings)
 		{
@@ -108,7 +115,13 @@ class SM_MapDrawingStore
 	//! singleton, переживає Workbench Reload; без цього штрихи накопичувались би).
 	void ServerClear()
 	{
-		m_aDrawings.Clear();
+		// Only SERVER strokes (id >= 1). Local ones (id <= -2, listen-host only) are client-side —
+		// leave them alone (ServerClear doesn't fire invokers, the host would keep ghost visuals).
+		for (int i = m_aDrawings.Count() - 1; i >= 0; i--)
+		{
+			if (m_aDrawings[i] && !IsLocalId(m_aDrawings[i].m_iId))
+				m_aDrawings.Remove(i);
+		}
 		m_iNextId = 1;
 	}
 
@@ -143,6 +156,38 @@ class SM_MapDrawingStore
 				return;
 			}
 		}
+	}
+
+	// --- Client-side Local drawings (the Local channel): exist only on this client, never reach
+	// the server. Persisted in the client file (SM_LocalDrawingPersistence). Negative ids (<= -2)
+	// can't collide with server ids (>= 1). Strokes stay immutable — add/remove only. ---
+
+	//! Add a Local stroke: assign a negative id, insert, notify the renderer (same Added invoker).
+	SM_MapDrawingData LocalCreate(notnull SM_MapDrawingData data)
+	{
+		if (!data.IsValid())
+			return null;
+		data.m_iId = m_iNextLocalId;
+		m_iNextLocalId--;
+		m_aDrawings.Insert(data);
+		m_OnAdded.Invoke(data);
+		return data;
+	}
+
+	//! Remove ALL Local strokes (id <= -2), notifying the renderer. Called on mission start —
+	//! the static singleton survives Workbench Reload and would otherwise keep stale visuals.
+	void ClearLocals()
+	{
+		for (int i = m_aDrawings.Count() - 1; i >= 0; i--)
+		{
+			if (m_aDrawings[i] && IsLocalId(m_aDrawings[i].m_iId))
+			{
+				int id = m_aDrawings[i].m_iId;
+				m_aDrawings.Remove(i);
+				m_OnRemoved.Invoke(id);
+			}
+		}
+		m_iNextLocalId = -2;
 	}
 
 	//! Повне очищення зі сповіщенням рендеру по кожному штриху (зміна місії / новий сценарій).

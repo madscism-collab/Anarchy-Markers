@@ -120,6 +120,12 @@ class AM_MarkerAPI
 	//! Результат на клієнті прийде подією OnMarkerAdded; потрібен сам об'єкт — ServerPlaceMarker.
 	static bool RequestPlaceMarker(notnull SM_MapMarkerData data)
 	{
+		// Local (PERSONAL) markers are no longer server-side — they live in this machine's client
+		// file (SM_LocalMarkerPersistence), keyed by server code and faction. Needs a local player
+		// with a faction and an already-known server code, otherwise fails.
+		if (data.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
+			return SM_LocalMarkerPersistence.GetInstance().AddLocal(data.SM_Clone()) != 0;
+
 		if (Replication.IsServer())
 			return ServerPlaceMarker(data) != null;
 
@@ -200,6 +206,9 @@ class AM_MarkerAPI
 	static SM_MapMarkerData ServerPlaceMarker(notnull SM_MapMarkerData data)
 	{
 		if (!Replication.IsServer())
+			return null;
+		// Local (PERSONAL) markers are client-side only — the server store never holds them.
+		if (data.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
 			return null;
 
 		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
@@ -328,6 +337,10 @@ class AM_MarkerAPI
 	//! Додати штрих/заливку. data зручно збирати через NewDrawing нижче.
 	static bool RequestAddDrawing(notnull SM_MapDrawingData data)
 	{
+		// Local (PERSONAL) drawings are client-side (SM_LocalDrawingPersistence), never server-side.
+		if (data.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
+			return SM_LocalDrawingPersistence.GetInstance().AddLocal(data.SM_Clone()) != 0;
+
 		if (Replication.IsServer())
 			return ServerAddDrawing(data) != null;
 
@@ -361,6 +374,9 @@ class AM_MarkerAPI
 	static SM_MapDrawingData ServerAddDrawing(notnull SM_MapDrawingData data)
 	{
 		if (!Replication.IsServer())
+			return null;
+		// Local (PERSONAL) drawings are client-side only — the server store never holds them.
+		if (data.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
 			return null;
 
 		int channel = data.m_iChannel;

@@ -11,6 +11,8 @@ class SM_MapMarkerPersistence
 	protected string m_sSaveFile;
 	protected string m_sBackupFile;
 	protected bool   m_bLoaded;
+	protected string m_sCode;	// random code of this game (stored in the marker file) — sent to clients, who key
+								// their Local markers by it. A new game (ClearForNewScenario) gets a new code.
 	protected const string SAVE_DIR = "$profile:SavingMarkers";
 	protected const int AUTOSAVE_INTERVAL_MS = 60000;	// запасний автосейв раз на хвилину
 	protected const int SAVE_DEBOUNCE_MS = 3000;		// затримка перед збереженням після зміни
@@ -28,6 +30,40 @@ class SM_MapMarkerPersistence
 		s_Instance = null;
 	}
 
+	// This game's code (replicated to clients). Empty until InitServer/EnsureCode.
+	string GetCode()
+	{
+		return m_sCode;
+	}
+
+	// Shared random code generator (24 chars, a-z0-9). Also used by the drawing persistence.
+	// Not cryptographic — good enough to tell games/servers apart.
+	static string SM_GenerateCode()
+	{
+		string charset = "0123456789abcdefghijklmnopqrstuvwxyz";
+		int n = charset.Length();
+		string code = "";
+		for (int i = 0; i < 24; i++)
+		{
+			int idx = Math.RandomInt(0, n);
+			code = code + charset.Substring(idx, 1);
+		}
+		return code;
+	}
+
+	// Make sure a code exists: if Load didn't produce one (fresh file, or an old save without
+	// the field) — generate it now.
+	protected void EnsureCode()
+	{
+		if (m_sCode == "")
+		{
+			m_sCode = SM_GenerateCode();
+			Print(string.Format("[SM] Generated new marker server code: %1", m_sCode), LogLevel.NORMAL);
+			if (SM_MarkerConfig.GetInstance().m_bPersist)
+				Save();	// pin the code to the file so it stays stable across restarts
+		}
+	}
+
 	// Сервер: готує ім'я файлу, завантажує мітки й запускає автозбереження.
 	void InitServer()
 	{
@@ -42,6 +78,7 @@ class SM_MapMarkerPersistence
 		m_sBackupFile.Replace(".json", "_backup.json");
 
 		Load();
+		EnsureCode();	// after Load: generate the code if the file didn't have one yet
 
 		// Підписуємось на зміни сховища ПІСЛЯ Load, бо ServerLoad не фаєрить інвокери —
 		// інакше саме завантаження одразу б тригерило збереження. Тепер будь-яка зміна
@@ -103,13 +140,25 @@ class SM_MapMarkerPersistence
 
 		JsonSaveContext ctx = new JsonSaveContext();
 		ctx.WriteValue("version", VERSION);
-		ctx.WriteValue("count", markers.Count());
+		ctx.WriteValue("code", m_sCode);	// this game's code — clients key their Local markers by it
+
+		// Count server markers only (id >= 1). On a listen-host the store also holds Local ones
+		// (id <= -2), but those belong to the client file — they never go into the server JSON.
+		int serverCount = 0;
+		foreach (SM_MapMarkerData mc : markers)
+		{
+			if (mc && !SM_MapMarkerStore.IsLocalId(mc.m_iId))
+				serverCount++;
+		}
+		ctx.WriteValue("count", serverCount);
 
 		int written = 0;
 		for (int i = 0; i < markers.Count(); i++)
 		{
 			SM_MapMarkerData m = markers[i];
 			if (!m)
+				continue;
+			if (SM_MapMarkerStore.IsLocalId(m.m_iId))	// Local marker — not the server's, skip
 				continue;
 
 			ctx.StartObject(string.Format("m_%1", written));
@@ -149,6 +198,9 @@ class SM_MapMarkerPersistence
 			m_bLoaded = true;
 			return;
 		}
+
+		m_sCode = "";
+		ctx.ReadValue("code", m_sCode);	// may be missing in old saves -> stays "", EnsureCode generates one
 
 		int count;
 		ctx.ReadValue("count", count);
@@ -363,8 +415,9 @@ class SM_MapMarkerPersistence
 		Save();						// зафіксувати поточні мітки у файл (раптом останні зміни не збереглись)
 		SM_RotateEndBackups();		// ротація: копія поточного → _end1, старі зсуваються
 		SM_MapMarkerStore.GetInstance().ServerClear();
-		Save();						// перезаписати порожнім — нова гра почне без міток
-		Print("[SM] Scenario ended — markers cleared for new game (backup kept).", LogLevel.NORMAL);
+		m_sCode = SM_GenerateCode();	// new game = new code: clients treat it as a "new server" and won't show old Local markers
+		Save();						// перезаписати порожнім + новий код — нова гра почне без міток
+		Print(string.Format("[SM] Scenario ended — markers cleared, new code %1 (backup kept).", m_sCode), LogLevel.NORMAL);
 	}
 
 	// Ім'я файлу-бекапу завершення: SM_Markers2_<місія>_endN.json (N=1 найновіший).
@@ -401,14 +454,29 @@ modded class SCR_BaseGameMode
 	{
 		super.OnGameModeStart();
 
-		SM_MapMarkerPersistence.ResetInstance();
-		SM_DrawingPersistence.ResetInstance();
+		SM_ResetSessionState();
 
 		if (Replication.IsServer())
 		{
 			// невелика затримка, щоб MissionHeader точно встиг з'явитись
 			GetGame().GetCallqueue().CallLater(SM_InitMarkerPersistence, 1000, false);
 		}
+	}
+
+	// Drop everything a previous session may have left behind. All of this state is static
+	// and survives mission changes and Workbench Reload, so a new game mode must start clean.
+	// Server persistence re-initializes in SM_InitMarkerPersistence; the client-side Local
+	// storages activate later — on a client when the server codes arrive (RpcDo_ServerCodes),
+	// on a listen-host via SM_HostSyncLocal.
+	protected void SM_ResetSessionState()
+	{
+		SM_MapMarkerPersistence.ResetInstance();
+		SM_DrawingPersistence.ResetInstance();
+		SM_LocalMarkerPersistence.ResetInstance();	// flushes unsaved Local data before dropping
+		SM_LocalDrawingPersistence.ResetInstance();
+		SM_DrawOutbox.Reset();						// pending draw batches of the old session
+		SM_MapMarkerStore.GetInstance().ClearLocals();	// leftover Local visuals in the stores
+		SM_MapDrawingStore.GetInstance().ClearLocals();
 	}
 
 	protected void SM_InitMarkerPersistence()

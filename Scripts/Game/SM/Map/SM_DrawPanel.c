@@ -114,8 +114,12 @@ class SM_DrawPanel
 	protected Widget m_wHintA;			// A — Select (лише коли в панелі)
 	protected Widget m_wHintB;			// B — Back (лише коли в панелі)
 	protected int    m_iHintMode = -1;	// 0 приховано; 1 idle (вгорі-центр); 2 канвас+інструмент (ліворуч); 3 у панелі (ліворуч, +A/B)
-	protected ref array<ButtonWidget> m_aSizeItems = {};	// Size1..Size5 (для заміни текстур під інструмент)
+	protected ref array<ButtonWidget> m_aSizeItems = {};	// Size1..Size6 (Size6 = 100 m, eraser-only; also for the per-tool texture swap)
 	protected int m_iSizeTexTool = -1;	// який інструмент відображають кружечки зараз
+	protected Widget m_wSizeDropdownBg;	// size dropdown background — grows +50 on Y while Size6 is shown (eraser)
+	// Size dropdown background height (from layout: 5 items = 257) and +50 for the 6th item (eraser).
+	protected const float SIZE_BG_H_BASE   = 257;
+	protected const float SIZE_BG_H_ERASER = 307;
 
 	protected ButtonWidget m_wPencil;
 	protected ButtonWidget m_wErase;
@@ -201,12 +205,14 @@ class SM_DrawPanel
 		Wire(m_wErase,  ACT_ERASER, 0);
 		Wire(m_wFill,   ACT_FILL,   0);	// Wire ігнорує null
 
-		// Ширина: опенер + 5 пунктів (Size1..Size5 → idx 0..4)
+		// Width: opener + 6 items (Size1..Size5 = idx 0..4 for all tools; Size6 = idx 5, 100 m, ERASER-ONLY).
 		m_wSizeOpener   = ButtonWidget.Cast(m_wRoot.FindAnyWidget("SizeButton"));
 		m_wSizeDropdown = m_wRoot.FindAnyWidget("SizeDropdown");
+		if (m_wSizeDropdown)
+			m_wSizeDropdownBg = m_wSizeDropdown.FindAnyWidget("Background1");
 		Wire(m_wSizeOpener, ACT_OPEN_SIZE, 0);
 		m_aSizeItems.Clear();
-		for (int i = 0; i < 5; i++)
+		for (int i = 0; i <= SM_DrawCanvas.WIDTH_IDX_MAX_ERASER; i++)
 		{
 			ButtonWidget sb = ButtonWidget.Cast(m_wRoot.FindAnyWidget("Size" + (i + 1).ToString()));
 			Wire(sb, ACT_WIDTH, i);
@@ -524,6 +530,7 @@ class SM_DrawPanel
 		m_wMapFrame = null;
 		m_wPencil = null; m_wErase = null;
 		m_wSizeDropdown = null; m_wColorDropdown = null; m_wVisDropdown = null;
+		m_wSizeDropdownBg = null;
 		m_wSizeOpener = null; m_wColorOpener = null; m_wVisOpener = null;
 		m_wOpacityDropdown = null; m_wOpacityOpener = null; m_wOpacitySlider = null;
 		m_wHintBox = null; m_wHintR1 = null; m_wHintA = null; m_wHintB = null;
@@ -1096,6 +1103,7 @@ class SM_DrawPanel
 			case 2: return 20;
 			case 3: return 25;
 			case 4: return 34;
+			case 5: return 34;	// Size6 (100 m, eraser): the opener cell caps at 34px (the dropdown circle is 45 in layout)
 		}
 		return 34;
 	}
@@ -1171,12 +1179,26 @@ class SM_DrawPanel
 		// Кружечки розміру відображають інструмент: олівець — заливка (circle), гумка — контур (circleLine).
 		if (tool != m_iSizeTexTool)
 		{
+			bool eraser = (tool == 1);
+
 			ResourceName tex = TEX_CIRCLE;
-			if (tool == 1)
+			if (eraser)
 				tex = TEX_CIRCLE_LINE;
 			SwapChildTexture(m_wSizeOpener, tex);
 			foreach (ButtonWidget sb : m_aSizeItems)
 				SwapChildTexture(sb, tex);
+
+			// The 100 m item (Size6) shows for the eraser only; the dropdown background grows +50 on Y.
+			if (m_aSizeItems.Count() > SM_DrawCanvas.WIDTH_IDX_MAX_ERASER && m_aSizeItems[SM_DrawCanvas.WIDTH_IDX_MAX_ERASER])
+				m_aSizeItems[SM_DrawCanvas.WIDTH_IDX_MAX_ERASER].SetVisible(eraser);
+			if (m_wSizeDropdownBg)
+			{
+				if (eraser)
+					FrameSlot.SetSizeY(m_wSizeDropdownBg, SIZE_BG_H_ERASER);
+				else
+					FrameSlot.SetSizeY(m_wSizeDropdownBg, SIZE_BG_H_BASE);
+			}
+
 			m_iSizeTexTool = tool;
 		}
 

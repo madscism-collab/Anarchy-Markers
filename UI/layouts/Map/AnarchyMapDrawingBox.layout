@@ -291,20 +291,19 @@ FrameWidgetClass {
           SizeY 0
           OffsetBottom -13
          }
-         "Is Visible" 0
          {
           SmartPanelWidgetClass "{69C973EA070F3C03}" {
            Name "Background1"
            Slot FrameWidgetSlot "{69C29B729EF76341}" {
             Anchor 0 0 1 0
             PositionX -3.012
-            OffsetLeft -3.012
+            OffsetLeft -3
             PositionY -2.581
-            OffsetTop -2.581
+            OffsetTop -2.6
             SizeX 5.072
-            OffsetRight -2.06
-            SizeY 257.175
-            OffsetBottom -254.594
+            OffsetRight -2.1
+            SizeY 257
+            OffsetBottom -254.4
            }
            Opacity 0.95
            Color 0.0116 0.016 0.0252 1
@@ -595,6 +594,62 @@ FrameWidgetClass {
               }
              }
             }
+            ButtonWidgetClass "{69D2B5DA9C1D77BA}" {
+             Name "Size6"
+             Slot LayoutSlot "{69C29B420544E417}" {
+             }
+             "Is Visible" 0
+             Color 0.0231 0.0231 0.0231 0
+             {
+              FrameWidgetClass "{69D2B5DA9C1D77BB}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69D2B5DA9C1A9467}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 85
+                  OffsetRight -85
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  ImageWidgetClass "{69D2B5DA9C1A9461}" {
+                   Name "Image0"
+                   Slot LayoutSlot "{69C29B70F5285B46}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    Padding 5 0 5 0
+                    SizeMode Fill
+                   }
+                   Texture "{46DF3F67AC741C13}circle.edds"
+                   Size 45 45
+                  }
+                  TextWidgetClass "{69D2B5DA9C1A25C9}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "100"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
            }
           }
          }
@@ -628,8 +683,8 @@ FrameWidgetClass {
               OffsetLeft 0
               PositionY 0
               OffsetTop 0
-              SizeX 85
-              OffsetRight -85
+              SizeX 95
+              OffsetRight -95
               SizeY 40
               OffsetBottom -40
              }
@@ -644,8 +699,8 @@ FrameWidgetClass {
               OffsetLeft 0
               PositionY 0
               OffsetTop 0
-              SizeX 85
-              OffsetRight -85
+              SizeX 95
+              OffsetRight -95
               SizeY 40
               OffsetBottom -40
              }
@@ -664,19 +719,23 @@ FrameWidgetClass {
               TextWidgetClass "{69C29B7AEA415852}" {
                Name "Text0"
                Slot LayoutSlot "{69C29B74C915ADC1}" {
-                HorizontalAlign 1
                 VerticalAlign 1
+                Padding 0 0 0 0
+                SizeMode Fill
                }
-               Text "10"
+               Text "100"
                "Font Size" 22
                "Min Font Size" 22
+               Offset -3 0
               }
               ImageWidgetClass "{69C29B7C3406F2CB}" {
                Name "Arrow"
                Slot LayoutSlot "{69C29B439A84D8BE}" {
+                HorizontalAlign 2
                 VerticalAlign 1
-                SizeMode Auto
+                SizeMode Fill
                }
+               "Z Order" 1
                Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
                Image "sortArrowDown"
                Size 22 22
@@ -4185,7 +4244,7 @@ FrameWidgetClass {
                }
                Text "100%"
                "Font Size" 22
-               "Min Font Size" 22
+               "Min Font Size" 18
               }
               ImageWidgetClass "{69C8E772B2000453}" {
                Name "Arrow"

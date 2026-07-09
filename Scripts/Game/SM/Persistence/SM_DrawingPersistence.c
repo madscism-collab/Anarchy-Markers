@@ -13,6 +13,8 @@ class SM_DrawingPersistence
 	protected string m_sSaveFile;
 	protected string m_sBackupFile;
 	protected bool   m_bLoaded;
+	protected string m_sCode;	// random code of this game (separate from the marker code) — sent to clients,
+								// who key their Local drawings by it. A new game gets a new code.
 	protected const string SAVE_DIR = "$profile:SavingMarkers";
 	protected const int AUTOSAVE_INTERVAL_MS = 60000;
 	protected const int SAVE_DEBOUNCE_MS = 3000;
@@ -30,6 +32,24 @@ class SM_DrawingPersistence
 		s_Instance = null;
 	}
 
+	// This game's drawing code (replicated to clients). Empty until InitServer/EnsureCode.
+	string GetCode()
+	{
+		return m_sCode;
+	}
+
+	// Make sure a code exists after Load (same generator the marker persistence uses).
+	protected void EnsureCode()
+	{
+		if (m_sCode == "")
+		{
+			m_sCode = SM_MapMarkerPersistence.SM_GenerateCode();
+			Print(string.Format("[SM] Generated new drawing server code: %1", m_sCode), LogLevel.NORMAL);
+			if (SM_MarkerConfig.GetInstance().m_bDrawPersist)
+				Save();
+		}
+	}
+
 	void InitServer()
 	{
 		if (!Replication.IsServer())
@@ -41,6 +61,7 @@ class SM_DrawingPersistence
 		m_sBackupFile.Replace(".json", "_backup.json");
 
 		Load();
+		EnsureCode();	// after Load: generate the code if the file didn't have one yet
 
 		// Підписуємось ПІСЛЯ Load (ServerLoad не фаєрить інвокери — інакше саме завантаження
 		// тригерило б збереження). Тепер будь-який доданий/стертий штрих зберігається.
@@ -87,13 +108,24 @@ class SM_DrawingPersistence
 
 		JsonSaveContext ctx = new JsonSaveContext();
 		ctx.WriteValue("version", VERSION);
-		ctx.WriteValue("count", drawings.Count());
+		ctx.WriteValue("code", m_sCode);	// this game's code — clients key their Local drawings by it
+
+		// Server strokes only (id >= 1). Local ones (id <= -2) belong to the client file.
+		int serverCount = 0;
+		foreach (SM_MapDrawingData dc : drawings)
+		{
+			if (dc && !SM_MapDrawingStore.IsLocalId(dc.m_iId))
+				serverCount++;
+		}
+		ctx.WriteValue("count", serverCount);
 
 		int written = 0;
 		for (int i = 0; i < drawings.Count(); i++)
 		{
 			SM_MapDrawingData d = drawings[i];
 			if (!d)
+				continue;
+			if (SM_MapDrawingStore.IsLocalId(d.m_iId))	// Local-штрих — не серверний, пропускаємо
 				continue;
 			ctx.StartObject(string.Format("d_%1", written));
 			d.SerializeTo(ctx);
@@ -129,6 +161,9 @@ class SM_DrawingPersistence
 			m_bLoaded = true;	// файлу ще нема — стартуємо з порожнього
 			return;
 		}
+
+		m_sCode = "";
+		ctx.ReadValue("code", m_sCode);	// may be missing in old saves -> EnsureCode generates one
 
 		int count;
 		ctx.ReadValue("count", count);
@@ -175,8 +210,9 @@ class SM_DrawingPersistence
 		Save();
 		SM_RotateEndBackups();
 		SM_MapDrawingStore.GetInstance().ServerClear();
+		m_sCode = SM_MapMarkerPersistence.SM_GenerateCode();	// new game = new code (clients won't show old Local drawings)
 		Save();
-		Print("[SM] Scenario ended — drawings cleared (backup kept).", LogLevel.NORMAL);
+		Print(string.Format("[SM] Scenario ended — drawings cleared, new code %1 (backup kept).", m_sCode), LogLevel.NORMAL);
 	}
 
 	protected string SM_EndBackupName(int i)

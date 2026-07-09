@@ -18,7 +18,8 @@ class SM_MapMarkerStore
 	protected static ref SM_MapMarkerStore s_Instance;
 
 	protected ref array<ref SM_MapMarkerData> m_aMarkers = {};
-	protected int m_iNextId = 1;	// серверний лічильник id
+	protected int m_iNextId = 1;	// серверний лічильник id (завжди >= 1)
+	protected int m_iNextLocalId = -2;	// client-side id counter for Local markers (-2 and below; -1 stays the "unassigned" sentinel)
 
 	// На ці інвокери підписується рендер (адаптер мапи)
 	protected ref ScriptInvokerBase<SM_MarkerChangeInvoker> m_OnMarkerAdded   = new ScriptInvokerBase<SM_MarkerChangeInvoker>();
@@ -36,9 +37,15 @@ class SM_MapMarkerStore
 	ScriptInvokerBase<SM_MarkerChangeInvoker> GetOnMarkerChanged() { return m_OnMarkerChanged; }
 	ScriptInvokerBase<SM_MarkerRemoveInvoker> GetOnMarkerRemoved() { return m_OnMarkerRemoved; }
 
+	// Client-side Local record? (id <= -2). Server ids are >= 1, -1 = "unassigned" sentinel.
+	static bool IsLocalId(int id)
+	{
+		return id <= -2;
+	}
+
 	SM_MapMarkerData FindById(int id)
 	{
-		if (id < 0)
+		if (id == -1)	// sentinel only — real markers have id >= 1 (server) or <= -2 (Local)
 			return null;
 
 		foreach (SM_MapMarkerData m : m_aMarkers)
@@ -150,7 +157,14 @@ class SM_MapMarkerStore
 	// накопичувались би з кожним перезапуском (дублі id, роздуте збереження).
 	void ServerClear()
 	{
-		m_aMarkers.Clear();
+		// Only SERVER markers (id >= 1). Local ones (id <= -2, listen-host only) belong to
+		// SM_LocalMarkerPersistence — leave them alone here, otherwise the host would keep
+		// ghost visuals (ServerClear doesn't fire invokers).
+		for (int i = m_aMarkers.Count() - 1; i >= 0; i--)
+		{
+			if (m_aMarkers[i] && !IsLocalId(m_aMarkers[i].m_iId))
+				m_aMarkers.Remove(i);
+		}
 		m_iNextId = 1;
 	}
 
@@ -205,6 +219,50 @@ class SM_MapMarkerStore
 				return;
 			}
 		}
+	}
+
+	// --- Client-side Local markers (the Local channel): they exist only on this client and
+	// never reach the server. Persisted in the client file (SM_LocalMarkerPersistence), not
+	// the server JSON. Negative ids (<= -2) can't collide with server ids (>= 1) anywhere. ---
+
+	// Add a Local marker: assign a negative id, insert, notify the renderer (same Added invoker).
+	SM_MapMarkerData LocalCreate(notnull SM_MapMarkerData data)
+	{
+		data.m_iId = m_iNextLocalId;
+		m_iNextLocalId--;
+		m_aMarkers.Insert(data);
+		m_OnMarkerAdded.Invoke(data);
+		return data;
+	}
+
+	// Remove ALL Local markers (id <= -2), notifying the renderer. Called on mission start —
+	// the store is a static singleton and survives Workbench Reload, so without this the old
+	// session's Local visuals would linger/duplicate.
+	void ClearLocals()
+	{
+		for (int i = m_aMarkers.Count() - 1; i >= 0; i--)
+		{
+			if (m_aMarkers[i] && IsLocalId(m_aMarkers[i].m_iId))
+			{
+				int id = m_aMarkers[i].m_iId;
+				m_aMarkers.Remove(i);
+				m_OnMarkerRemoved.Invoke(id);
+			}
+		}
+		m_iNextLocalId = -2;
+	}
+
+	// Update the editable fields of an existing Local marker (stays Local). id/owner untouched.
+	bool LocalUpdate(int id, notnull SM_MapMarkerData src)
+	{
+		SM_MapMarkerData m = FindById(id);
+		if (!m)
+			return false;
+		int keepId = m.m_iId;
+		m.CopyFrom(src);
+		m.m_iId = keepId;
+		m_OnMarkerChanged.Invoke(m);
+		return true;
 	}
 
 	// Повне очищення зі сповіщенням рендеру по кожній мітці (зміна місії / новий сценарій).

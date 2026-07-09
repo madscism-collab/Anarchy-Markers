@@ -20,8 +20,22 @@ modded class SCR_PlayerController
 	{
 		super.OnControlledEntityChanged(from, to);
 
-		if (!to || Replication.IsServer())	// на сервері/хості сховище авторитетне — клієнтський синк не потрібен
+		if (!to)
 			return;
+
+		if (Replication.IsServer())
+		{
+			// Listen-host/SP: the server store is authoritative (no client sync needed), but the
+			// host's local player still keeps his Local markers in the client-side file — activate
+			// them straight from the server persistence code, no RPC. Covers respawn and the host
+			// switching sides.
+			if (GetGame().GetPlayerController() == this)
+			{
+				GetGame().GetCallqueue().Remove(SM_HostSyncLocal);
+				GetGame().GetCallqueue().CallLater(SM_HostSyncLocal, SM_SYNC_DELAY_MS, false);
+			}
+			return;
+		}
 
 		// Підписка на зміну групи (наживо, без респавна) — один раз.
 		if (!m_bSMGroupSubscribed)
@@ -72,9 +86,35 @@ modded class SCR_PlayerController
 		m_iSMLastFaction = f;
 		m_iSMLastGroup = g;
 		SM_MarkerNet.Log(string.Format("CLIENT channel changed (faction=%1 group=%2) -> clear + resync", f, g));
-		SM_MapMarkerStore.GetInstance().Clear();	// прибрати застарілі мітки старого каналу
-		SM_MapDrawingStore.GetInstance().Clear();	// так само застарілі малюнки
-		SM_RequestSync();	// сервер надішле лише ті, які тепер дозволено бачити
+		SM_DrawOutbox.Flush();	// send any buffered draw ops of the old faction before dropping the queue
+		SM_DrawOutbox.Reset();
+		SM_MapMarkerStore.GetInstance().Clear();	// drop stale markers of the old channel (incl. Local visuals)
+		SM_MapDrawingStore.GetInstance().Clear();	// same for drawings
+		SM_RequestSync();	// the server resends only what we're now allowed to see
+
+		// Local markers/drawings: show the NEW faction's slice (same server code, other side).
+		string fk = SM_LocalMarkerPersistence.GetLocalFactionKey();
+		SM_LocalMarkerPersistence.GetInstance().ReactivateForFaction(fk);
+		SM_LocalDrawingPersistence.GetInstance().ReactivateForFaction(fk);
+	}
+
+	// Public trigger for host-side Local activation (map layer calls it on map open —
+	// on the host the regular server sync is a no-op).
+	void SM_RequestHostLocalSync()
+	{
+		if (Replication.IsServer())
+			SM_HostSyncLocal();
+	}
+
+	// Listen-host/SP: activate the local player's Local markers/drawings straight from the
+	// server persistence codes (no RPC round-trip).
+	protected void SM_HostSyncLocal()
+	{
+		if (!Replication.IsServer())
+			return;
+		string fk = SM_LocalMarkerPersistence.GetLocalFactionKey();
+		SM_LocalMarkerPersistence.GetInstance().SetCodeAndActivate(SM_MapMarkerPersistence.GetInstance().GetCode(), fk);
+		SM_LocalDrawingPersistence.GetInstance().SetCodeAndActivate(SM_DrawingPersistence.GetInstance().GetCode(), fk);
 	}
 
 	void ~SCR_PlayerController()
@@ -85,7 +125,10 @@ modded class SCR_PlayerController
 			SCR_AIGroup.GetOnPlayerRemoved().Remove(SM_OnGroupChanged);
 		}
 		if (GetGame() && GetGame().GetCallqueue())
+		{
 			GetGame().GetCallqueue().Remove(SM_CheckResync);
+			GetGame().GetCallqueue().Remove(SM_HostSyncLocal);
+		}
 	}
 
 	// --- Клієнт -> сервер: запити (кличе адаптер мапи на власному PC) ---
@@ -287,66 +330,16 @@ modded class SCR_PlayerController
 		}
 	}
 
-	// --- RPC клієнт -> сервер (this = серверна копія PC того, хто просить) ---
+	// --- RPC client -> server (this = server-side copy of the requester's PC). Thin stubs only:
+	// all rules/validation live in SM_MarkerNet.ServerHandle* so the whole server logic sits in
+	// one manager class (same layout as SM_DrawingNet for drawings). ---
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_Place(array<int> packed, string text)
 	{
 		if (!Replication.IsServer())
 			return;
-
-		int requesterId = GetPlayerId();
-		SM_MarkerConfig cfg = SM_MarkerConfig.GetInstance();
-		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
-
-		// Анти-спам: рахуємо спробу за хвилину (веде попередження для адмінів) і застосовуємо ліміт.
-		if (!SM_MarkerNet.RegisterPlaceAttempt(requesterId))
-		{
-			SM_MarkerNet.Log(string.Format("DENY PLACE by %1: per-minute limit %2 reached", SM_MarkerNet.Who(requesterId), cfg.m_iPerMinuteLimit));
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.PER_MINUTE_LIMIT, cfg.m_iPerMinuteLimit);
-			return;
-		}
-
-		// Канал дозволено? (перевіряємо до створення — клієнтський UI це теж блокує, тут страховка)
-		int wantVis = SM_MapMarkerData.VisibilityFromPacked(packed);
-		if (!cfg.IsVisibilityAllowed(wantVis))
-		{
-			SM_MarkerNet.Log(string.Format("DENY PLACE by %1: channel %2 disabled by config", SM_MarkerNet.Who(requesterId), SM_MarkerNet.VisName(wantVis)));
-			return;
-		}
-
-		// Ліміти кількості міток (0 = без обмеження)
-		if (cfg.m_iTotalLimit > 0 && store.Count() >= cfg.m_iTotalLimit)
-		{
-			SM_MarkerNet.Log(string.Format("DENY PLACE by %1: total limit %2 reached", SM_MarkerNet.Who(requesterId), cfg.m_iTotalLimit));
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.TOTAL_LIMIT, cfg.m_iTotalLimit);
-			return;
-		}
-		if (cfg.m_iPerPlayerLimit > 0 && store.CountByOwner(requesterId) >= cfg.m_iPerPlayerLimit)
-		{
-			SM_MarkerNet.Log(string.Format("DENY PLACE by %1: per-player limit %2 reached", SM_MarkerNet.Who(requesterId), cfg.m_iPerPlayerLimit));
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.PER_PLAYER_LIMIT, cfg.m_iPerPlayerLimit);
-			return;
-		}
-
-		SM_MapMarkerData data = store.ServerCreate(requesterId, packed, text);
-		if (!data)
-			return;
-
-		if (cfg.m_bShowLastEditor)
-			data.m_sLastEditor = GetGame().GetPlayerManager().GetPlayerName(requesterId);	// ім'я автора (для тултіпа, переживає рестарт)
-		if (data.m_iDate != 0)
-			SM_MarkerNet.GetGameTime(data.m_iDate, data.m_iTime);	// час ставить сервер (за конфігом: сценарій/реальний)
-		// Зазвичай канал задає сервер за фракцією того, хто ставить. Але GM фракції не має й сам обирає
-		// сторону для Side-мітки — тоді лишаємо канал із даних (його надсилає GM-дропдаун).
-		if (!(SM_MarkerNet.IsPlayerGameMaster(requesterId) && data.m_iVisibility == SM_EMarkerVisibility.FACTION))
-			SM_MarkerNet.AssignChannel(requesterId, data);
-		SM_MarkerNet.BroadcastUpsert(data);
-
-		// у лозі видно vis/channel і що повертає faction/group API (найризикованіше місце)
-		SM_MarkerNet.Log(string.Format("PLACE #%1 by %2 vis=%3 ch=%4 (faction=%5 group=%6) kind=%7",
-			data.m_iId, SM_MarkerNet.Who(requesterId), SM_MarkerNet.VisName(data.m_iVisibility), data.m_iChannel,
-			SM_MarkerNet.GetPlayerFactionIndex(requesterId), SM_MarkerNet.GetPlayerGroupId(requesterId), data.m_iKind));
+		SM_MarkerNet.ServerHandlePlace(this, packed, text);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
@@ -354,31 +347,7 @@ modded class SCR_PlayerController
 	{
 		if (!Replication.IsServer())
 			return;
-
-		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
-		SM_MapMarkerData m = store.FindById(id);
-		if (!m)
-			return;
-		if (!SM_MarkerNet.CanModify(GetPlayerId(), m))
-		{
-			SM_MarkerNet.Log(string.Format("DENY MOVE #%1 by %2 (vis=%3 ch=%4)", id, SM_MarkerNet.Who(GetPlayerId()), SM_MarkerNet.VisName(m.m_iVisibility), m.m_iChannel));
-			if (m.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(GetPlayerId()))
-				SM_SendPlaceDenied(SM_EPlaceDenyReason.MARKER_LOCKED, 0);
-			return;
-		}
-
-		m.m_iLastEditorId = GetPlayerId();	// хто посунув = останній редактор
-		if (SM_MarkerConfig.GetInstance().m_bShowLastEditor)
-			m.m_sLastEditor = GetGame().GetPlayerManager().GetPlayerName(GetPlayerId());
-		// якщо в мітки є позначка часу — оновлюємо її до ServerMove
-		if (m.m_iDate != 0)
-			SM_MarkerNet.GetGameTime(m.m_iDate, m.m_iTime);
-
-		if (!store.ServerMove(id, posX, posY))
-			return;
-
-		SM_MarkerNet.BroadcastUpsert(m);	// шлемо повні дані (позиція + час + редактор)
-		SM_MarkerNet.Log(string.Format("MOVE #%1 by %2 -> (%3, %4)", id, SM_MarkerNet.Who(GetPlayerId()), posX, posY));
+		SM_MarkerNet.ServerHandleMove(this, id, posX, posY);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
@@ -386,48 +355,7 @@ modded class SCR_PlayerController
 	{
 		if (!Replication.IsServer())
 			return;
-
-		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
-		SM_MapMarkerData m = store.FindById(id);
-		if (!m)
-			return;
-		if (!SM_MarkerNet.CanModify(GetPlayerId(), m))
-		{
-			SM_MarkerNet.Log(string.Format("DENY EDIT #%1 by %2 (vis=%3 ch=%4)", id, SM_MarkerNet.Who(GetPlayerId()), SM_MarkerNet.VisName(m.m_iVisibility), m.m_iChannel));
-			if (m.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(GetPlayerId()))
-				SM_SendPlaceDenied(SM_EPlaceDenyReason.MARKER_LOCKED, 0);
-			return;
-		}
-
-		int oldVis = m.m_iVisibility;	// запам'ятовуємо до оновлення (ServerUpdate перезапише полем клієнта)
-
-		if (!store.ServerUpdate(id, packed, text))
-			return;
-
-		int reqVis = m.m_iVisibility;	// що попросив клієнт (до обрізання)
-
-		// Видимість можна лише розширити (Local < Group < Side < Global), звузити не можна.
-		// Це серверний захист — навіть якщо клієнт якось обійшов заблоковані кнопки.
-		if (m.m_iVisibility < oldVis)
-		{
-			m.m_iVisibility = oldVis;
-			SM_MarkerNet.Log(string.Format("EDIT #%1: narrow blocked, kept %2 (req %3)", id, SM_MarkerNet.VisName(oldVis), SM_MarkerNet.VisName(reqVis)));
-		}
-
-		// Канал заборонено конфігом? — лишаємо попередній (страховка поверх клієнтського UI).
-		if (!SM_MarkerConfig.GetInstance().IsVisibilityAllowed(m.m_iVisibility))
-			m.m_iVisibility = oldVis;
-
-		m.m_iLastEditorId = GetPlayerId();	// хто редагував = останній редактор (перекриває значення з клієнта)
-		if (SM_MarkerConfig.GetInstance().m_bShowLastEditor)
-			m.m_sLastEditor = GetGame().GetPlayerManager().GetPlayerName(GetPlayerId());
-		if (m.m_iDate != 0)
-			SM_MarkerNet.GetGameTime(m.m_iDate, m.m_iTime);	// час ставить сервер (за конфігом)
-		// GM сам обирає сторону для Side-мітки — лишаємо канал із даних; інакше рахуємо за фракцією власника.
-		if (!(SM_MarkerNet.IsPlayerGameMaster(GetPlayerId()) && m.m_iVisibility == SM_EMarkerVisibility.FACTION))
-			SM_MarkerNet.AssignChannel(m.m_iOwnerId, m);	// видимість могла змінитись — перерахуємо канал
-		SM_MarkerNet.BroadcastUpsertOrRemove(m);	// заодно приберемо "привид" у тих, кому вже не видно
-		SM_MarkerNet.Log(string.Format("EDIT #%1 by %2 vis %3->%4 ch=%5", id, SM_MarkerNet.Who(GetPlayerId()), SM_MarkerNet.VisName(oldVis), SM_MarkerNet.VisName(m.m_iVisibility), m.m_iChannel));
+		SM_MarkerNet.ServerHandleEdit(this, id, packed, text);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
@@ -435,25 +363,7 @@ modded class SCR_PlayerController
 	{
 		if (!Replication.IsServer())
 			return;
-
-		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
-		SM_MapMarkerData m = store.FindById(id);
-		if (!m)
-			return;
-		if (!SM_MarkerNet.CanModify(GetPlayerId(), m))
-		{
-			SM_MarkerNet.Log(string.Format("DENY REMOVE #%1 by %2 (vis=%3 ch=%4)", id, SM_MarkerNet.Who(GetPlayerId()), SM_MarkerNet.VisName(m.m_iVisibility), m.m_iChannel));
-			if (m.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(GetPlayerId()))
-				SM_SendPlaceDenied(SM_EPlaceDenyReason.MARKER_LOCKED, 0);
-			return;
-		}
-
-		// Хто що видалив (модерація на випадок грифу) — вмикається конфігом.
-		if (SM_MarkerConfig.GetInstance().m_bLogDeleter)
-			Print(string.Format("[SM] REMOVE #%1 by %2 (text: '%3')", id, SM_MarkerNet.Who(GetPlayerId()), m.m_sText), LogLevel.NORMAL);
-
-		store.ServerRemove(id);
-		SM_MarkerNet.BroadcastRemove(id);	// видалення по id шлемо всім
+		SM_MarkerNet.ServerHandleRemove(this, id);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
@@ -467,7 +377,11 @@ modded class SCR_PlayerController
 
 		// Спершу шлемо дозволені канали (щоб діалог одразу блокував заборонені кнопки), тоді мітки.
 		SM_MarkerConfig cfg = SM_MarkerConfig.GetInstance();
-		SM_SendConfig(cfg.m_bAllowLocal, cfg.m_bAllowGroup, cfg.m_bAllowSide, cfg.m_bAllowGlobal, cfg.m_bVanillaFactionNames, cfg.m_bAllowPointer, cfg.m_bAllowCopyLast);
+		SM_SendConfig(cfg.m_bAllowLocal, cfg.m_bAllowGroup, cfg.m_bAllowSide, cfg.m_bAllowGlobal, cfg.m_bVanillaFactionNames, cfg.m_bAllowPointer, cfg.m_bAllowCopyLast, cfg.m_iDrawBatchIntervalMs);
+
+		// This game's codes (separate for markers and drawings) — the client uses them to
+		// activate its own Local markers/drawings for this server.
+		SM_SendServerCodes(SM_MapMarkerPersistence.GetInstance().GetCode(), SM_DrawingPersistence.GetInstance().GetCode());
 
 		SM_MarkerNet.SendAllTo(this);
 		SM_DrawingNet.SendAllDrawingsTo(this);	// малюнки тим самим синком
@@ -489,17 +403,35 @@ modded class SCR_PlayerController
 	}
 
 	// Сервер -> клієнт: налаштування, потрібні клієнту (дозволені канали, назви фракцій, вказівник, копія останньої).
-	void SM_SendConfig(bool allowLocal, bool allowGroup, bool allowSide, bool allowGlobal, bool vanillaFactionNames, bool allowPointer, bool allowCopyLast)
+	void SM_SendConfig(bool allowLocal, bool allowGroup, bool allowSide, bool allowGlobal, bool vanillaFactionNames, bool allowPointer, bool allowCopyLast, int drawBatchMs)
 	{
-		Rpc(RpcDo_Config, allowLocal, allowGroup, allowSide, allowGlobal, vanillaFactionNames, allowPointer, allowCopyLast);
+		Rpc(RpcDo_Config, allowLocal, allowGroup, allowSide, allowGlobal, vanillaFactionNames, allowPointer, allowCopyLast, drawBatchMs);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
-	protected void RpcDo_Config(bool allowLocal, bool allowGroup, bool allowSide, bool allowGlobal, bool vanillaFactionNames, bool allowPointer, bool allowCopyLast)
+	protected void RpcDo_Config(bool allowLocal, bool allowGroup, bool allowSide, bool allowGlobal, bool vanillaFactionNames, bool allowPointer, bool allowCopyLast, int drawBatchMs)
 	{
 		if (Replication.IsServer())
 			return;
-		SM_MarkerConfig.GetInstance().SetClientFlags(allowLocal, allowGroup, allowSide, allowGlobal, vanillaFactionNames, allowPointer, allowCopyLast);
+		SM_MarkerConfig.GetInstance().SetClientFlags(allowLocal, allowGroup, allowSide, allowGlobal, vanillaFactionNames, allowPointer, allowCopyLast, drawBatchMs);
+	}
+
+	// Server -> client: this game's codes (separate for markers and drawings). The client keys
+	// its Local files by them and activates the slice for its current faction.
+	void SM_SendServerCodes(string markerCode, string drawCode)
+	{
+		Rpc(RpcDo_ServerCodes, markerCode, drawCode);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ServerCodes(string markerCode, string drawCode)
+	{
+		if (Replication.IsServer())
+			return;	// the host reads the codes straight from server persistence (SM_HostSyncLocal)
+
+		string factionKey = SM_LocalMarkerPersistence.GetLocalFactionKey();
+		SM_LocalMarkerPersistence.GetInstance().SetCodeAndActivate(markerCode, factionKey);
+		SM_LocalDrawingPersistence.GetInstance().SetCodeAndActivate(drawCode, factionKey);
 	}
 
 	// --- RPC сервер -> клієнт (виконується у власника цього PC) ---
@@ -647,86 +579,13 @@ modded class SCR_PlayerController
 	}
 
 	//------------------------------------------------------------------------------
+	// Instant path (batching disabled, or the host): delegates to the shared SM_DrawingNet handlers.
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_DrawAdd(array<int> meta, array<int> points)
 	{
 		if (!Replication.IsServer())
 			return;
-
-		int requesterId = GetPlayerId();
-		SM_MarkerConfig drawCfg = SM_MarkerConfig.GetInstance();
-		if (!drawCfg.m_bAllowDrawing)
-			return;
-
-		int vis = SM_MapDrawingData.VisibilityFromMeta(meta);
-		if (vis < 0)
-			return;
-		if (!drawCfg.IsVisibilityAllowed(vis))	// канал заборонено в конфізі
-		{
-			SM_MarkerNet.Log(string.Format("DENY DRAW by %1: channel %2 disabled by config",
-				SM_MarkerNet.Who(requesterId), SM_MarkerNet.VisName(vis)));
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_CHANNEL_DISABLED, 0);
-			return;
-		}
-		if (!SM_DrawingNet.RegisterDrawAttempt(requesterId))	// анти-спам
-		{
-			SM_MarkerNet.Log(string.Format("DENY DRAW by %1: per-minute limit %2 reached",
-				SM_MarkerNet.Who(requesterId), drawCfg.m_iDrawPerMinuteLimit));
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_PER_MINUTE_LIMIT, drawCfg.m_iDrawPerMinuteLimit);
-			return;
-		}
-
-		SM_MapDrawingStore drawStore = SM_MapDrawingStore.GetInstance();
-		if (drawCfg.m_iDrawMaxTotal > 0 && drawStore.Count() >= drawCfg.m_iDrawMaxTotal)
-		{
-			SM_MarkerNet.Log(string.Format("DENY DRAW by %1: total limit %2 reached",
-				SM_MarkerNet.Who(requesterId), drawCfg.m_iDrawMaxTotal));
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_TOTAL_LIMIT, drawCfg.m_iDrawMaxTotal);
-			return;
-		}
-		if (drawCfg.m_iDrawMaxPerPlayer > 0 && drawStore.CountByOwner(requesterId) >= drawCfg.m_iDrawMaxPerPlayer)
-		{
-			SM_MarkerNet.Log(string.Format("DENY DRAW by %1: per-player limit %2 reached",
-				SM_MarkerNet.Who(requesterId), drawCfg.m_iDrawMaxPerPlayer));
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_PER_PLAYER_LIMIT, drawCfg.m_iDrawMaxPerPlayer);
-			return;
-		}
-
-		// Обрізати точки до серверного ліміту (захист від роздутого штриха).
-		array<int> pts = points;
-		int maxVals = drawCfg.m_iDrawMaxPointsPerStroke * 2;
-		if (maxVals >= 4 && pts.Count() > maxVals)
-		{
-			array<int> trimmed = {};
-			for (int i = 0; i < maxVals; i++)
-				trimmed.Insert(pts[i]);
-			pts = trimmed;
-		}
-
-		// Канал: зазвичай сервер за фракцією/групою автора. Але GM фракції не має й сам обирає
-		// сторону для Side-штриха — тоді канал беремо з meta (вибір зевса на панелі), як у міток.
-		bool isGm = SM_MarkerNet.IsPlayerGameMaster(requesterId);
-		int channel;
-		if (isGm && vis == SM_EMarkerVisibility.FACTION)
-			channel = SM_MapDrawingData.ChannelFromMeta(meta);
-		else
-			channel = SM_DrawingNet.ChannelFor(requesterId, vis);
-
-		string authorName = GetGame().GetPlayerManager().GetPlayerName(requesterId);
-		SM_MapDrawingData d = drawStore.ServerCreate(requesterId, meta, pts, channel, System.GetTickCount(), authorName);
-		if (!d)
-			return;
-
-		// Прапорці зевса (lock / hide info) приймаємо ЛИШЕ від справжнього GM — гравець їх підробити не може.
-		if (!isGm)
-		{
-			d.m_iGmLocked = 0;
-			d.m_iHideInfo = 0;
-		}
-
-		SM_DrawingNet.BroadcastAdd(d);
-		SM_MarkerNet.Log(string.Format("DRAW #%1 by %2 vis=%3 ch=%4 pts=%5",
-			d.m_iId, SM_MarkerNet.Who(requesterId), SM_MarkerNet.VisName(vis), channel, d.GetPointCount()));
+		SM_DrawingNet.ServerHandleAdd(GetPlayerId(), meta, points, this);	// this -> deny popups go to the player
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
@@ -734,176 +593,57 @@ modded class SCR_PlayerController
 	{
 		if (!Replication.IsServer())
 			return;
-
-		SM_MapDrawingData d = SM_MapDrawingStore.GetInstance().FindById(id);
-		if (!d)
-			return;
-		if (!SM_DrawingNet.CanErase(GetPlayerId(), d))
-		{
-			if (d.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(GetPlayerId()))
-				SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_LOCKED, 0);	// пояснити гравцю: залочено зевсом
-			SM_MarkerNet.Log(string.Format("DENY DRAW-ERASE #%1 by %2", id, SM_MarkerNet.Who(GetPlayerId())));
-			return;
-		}
-
-		SM_MapDrawingStore.GetInstance().ServerRemove(id);
-		SM_DrawingNet.BroadcastRemove(id);
-		SM_MarkerNet.Log(string.Format("DRAW-ERASE #%1 by %2", id, SM_MarkerNet.Who(GetPlayerId())));
+		SM_DrawingNet.ServerHandleRemove(GetPlayerId(), id, this);
 	}
 
-	// Часткове стирання: замінити штрих на шматки. ЛИШЕ власник (гумка ріже тільки своє);
-	// мета шматків (колір/ширина/видимість/канал) береться з ІСНУЮЧОГО запису на сервері —
-	// клієнт передає лише геометрію, підробити атрибути не може. Один RPC на операцію,
-	// тож анти-спам ліміт додавань це не зачіпає.
+	// Batched draw/erase ops (see SM_DrawOutbox): the client buffers operations and sends them
+	// as one packet. The server processes them in order and returns the real id of every ADD
+	// back to the author (reconcile).
+	void SM_DrawSendBatch(int seq, array<int> blob)
+	{
+		Rpc(RpcAsk_DrawBatch, seq, blob);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_DrawBatch(int seq, array<int> blob)
+	{
+		if (!Replication.IsServer())
+			return;
+		array<int> realIds = {};
+		SM_DrawingNet.ProcessBatch(this, blob, realIds);
+		SM_SendDrawReconcile(seq, realIds);
+	}
+
+	void SM_SendDrawReconcile(int seq, array<int> realIds)
+	{
+		Rpc(RpcDo_DrawReconcile, seq, realIds);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_DrawReconcile(int seq, array<int> realIds)
+	{
+		if (Replication.IsServer())
+			return;
+		SM_DrawOutbox.OnReconcile(seq, realIds);
+	}
+
+	// Partial erase: replace a stroke with the pieces left outside the eraser. Owner-only;
+	// piece meta is taken from the trusted server record (client sends geometry only).
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_DrawErasePart(int id, array<int> framed)
 	{
 		if (!Replication.IsServer())
 			return;
-		if (!SM_MarkerConfig.GetInstance().m_bAllowDrawing)
-			return;
-
-		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
-		SM_MapDrawingData old = store.FindById(id);
-		if (!old)
-			return;
-		if (old.m_iOwnerId != GetPlayerId())	// часткове — суворо власник
-			return;
-		// Залочений зевсом штрих гравець не ріже (навіть власник); GM — може.
-		if (old.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(GetPlayerId()))
-		{
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_LOCKED, 0);
-			return;
-		}
-		if (!framed || framed.Count() < 1)
-			return;
-
-		// Розібрати кадр: [nPieces, len1, pts..., len2, pts...] з жорсткими лімітами.
-		int nPieces = framed[0];
-		if (nPieces < 1 || nPieces > SM_DrawingNet.MAX_ERASE_PIECES)
-			return;
-		int maxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
-
-		array<ref array<int>> pieces = {};
-		int pos = 1;
-		for (int p = 0; p < nPieces; p++)
-		{
-			if (pos >= framed.Count())
-				return;	// зіпсований кадр
-			int len = framed[pos];
-			pos++;
-			if (len < 2 || len > maxPts)
-				return;
-			if (pos + len * 2 > framed.Count())
-				return;
-			array<int> pts = {};
-			for (int k = 0; k < len * 2; k++)
-				pts.Insert(framed[pos + k]);
-			pos += len * 2;
-			pieces.Insert(pts);
-		}
-
-		// Мета зі старого запису (довірена). Канал/власника/автора переносимо як були.
-		array<int> meta = old.PackMeta();
-		int keepOwner   = old.m_iOwnerId;
-		int keepChannel = old.m_iChannel;
-		string keepName = old.m_sOwnerName;
-
-		store.ServerRemove(id);
-		SM_DrawingNet.BroadcastRemove(id);
-
-		int made = 0;
-		foreach (array<int> piecePts : pieces)
-		{
-			SM_MapDrawingData piece = store.ServerCreate(keepOwner, meta, piecePts, keepChannel, System.GetTickCount(), keepName);
-			if (piece)
-			{
-				SM_DrawingNet.BroadcastAdd(piece);
-				made++;
-			}
-		}
-		SM_MarkerNet.Log(string.Format("DRAW-ERASE-PART #%1 by %2 -> %3 pieces", id, SM_MarkerNet.Who(GetPlayerId()), made));
+		SM_DrawingNet.ServerHandleErasePart(GetPlayerId(), id, framed, this);
 	}
 
-	// Перефарбування заливки: remove + create з тими ж точками і новою метою панелі.
-	// Перефарбувач стає новим автором, канал рахуємо як для свіжого штриха.
+	// Recolor a fill with the current panel settings (fill tool clicked on an existing fill).
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_DrawRecolor(int id, array<int> meta)
 	{
 		if (!Replication.IsServer())
 			return;
-		SM_MarkerConfig drawCfg = SM_MarkerConfig.GetInstance();
-		if (!drawCfg.m_bAllowDrawing)
-			return;
-
-		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
-		SM_MapDrawingData old = store.FindById(id);
-		if (!old || old.m_iFill == 0)
-			return;
-
-		// Права ті самі, що на стирання.
-		int requesterId = GetPlayerId();
-		if (!SM_DrawingNet.CanErase(requesterId, old))
-		{
-			if (old.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(requesterId))
-				SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_LOCKED, 0);
-			else
-				SM_SendPlaceDenied(SM_EPlaceDenyReason.FILL_BLOCKED, 0);
-			return;
-		}
-
-		SM_MapDrawingData req = new SM_MapDrawingData();
-		if (!req.UnpackMeta(meta))
-			return;
-
-		// Видимість можна лише розширити (Local < Group < Side < Global), як у міток.
-		// Спроба звузити: канал лишається старим, решта (колір тощо) застосовується, гравцю — попап.
-		int newVis = req.m_iVisibility;
-		bool narrowed = false;
-		if (newVis < old.m_iVisibility)
-		{
-			newVis = old.m_iVisibility;
-			narrowed = true;
-		}
-		if (newVis != old.m_iVisibility && !drawCfg.IsVisibilityAllowed(newVis))
-		{
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_CHANNEL_DISABLED, 0);
-			return;
-		}
-
-		// Канал: при незмінній видимості лишаємо старий; при розширенні рахуємо за автором.
-		// Зевс для Side сам обирає сторону на панелі.
-		bool isGm = SM_MarkerNet.IsPlayerGameMaster(requesterId);
-		int channel = old.m_iChannel;
-		if (isGm && newVis == SM_EMarkerVisibility.FACTION)
-			channel = req.m_iChannel;
-		else if (newVis != old.m_iVisibility)
-			channel = SM_DrawingNet.ChannelFor(requesterId, newVis);
-
-		// Нова мета — зі старого (довіреного) запису; від клієнта беремо лише дозволене.
-		SM_MapDrawingData tpl = old.SM_Clone();
-		tpl.m_iColor      = req.m_iColor;
-		tpl.m_iVisibility = newVis;
-		tpl.m_iChannel    = channel;
-		if (isGm)
-		{
-			tpl.m_iGmLocked = req.m_iGmLocked;
-			tpl.m_iHideInfo = req.m_iHideInfo;
-		}
-		array<int> newMeta = tpl.PackMeta();
-		array<int> pts = {};
-		pts.Copy(old.m_aPoints);
-		string newName = GetGame().GetPlayerManager().GetPlayerName(requesterId);
-
-		store.ServerRemove(id);
-		SM_DrawingNet.BroadcastRemove(id);
-
-		SM_MapDrawingData fresh = store.ServerCreate(requesterId, newMeta, pts, channel, System.GetTickCount(), newName);
-		if (fresh)
-			SM_DrawingNet.BroadcastAdd(fresh);
-		if (narrowed)
-			SM_SendPlaceDenied(SM_EPlaceDenyReason.FILL_NO_NARROW, 0);
-		SM_MarkerNet.Log(string.Format("FILL-RECOLOR #%1 by %2 vis=%3 ch=%4", id, SM_MarkerNet.Who(requesterId), SM_MarkerNet.VisName(newVis), channel));
+		SM_DrawingNet.ServerHandleRecolor(this, id, meta);
 	}
 
 	//------------------------------------------------------------------------------
@@ -1199,6 +939,177 @@ class SM_MarkerNet
 		return grp.GetGroupID();
 	}
 
+	// ==========================================================================
+	// Server-side handling of player marker requests. The RpcAsk_* stubs on
+	// SCR_PlayerController delegate here so every rule (rate limits, permissions,
+	// channel assignment) lives in this one manager class. pc = the requesting
+	// player's controller — used for identity and for deny popups.
+	// ==========================================================================
+
+	static void ServerHandlePlace(notnull SCR_PlayerController pc, array<int> packed, string text)
+	{
+		int requesterId = pc.GetPlayerId();
+		SM_MarkerConfig cfg = SM_MarkerConfig.GetInstance();
+		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
+
+		// Sliding-window rate limit; also feeds the admin spam warning.
+		if (!RegisterPlaceAttempt(requesterId))
+		{
+			Log(string.Format("DENY PLACE by %1: per-minute limit %2 reached", Who(requesterId), cfg.m_iPerMinuteLimit));
+			pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.PER_MINUTE_LIMIT, cfg.m_iPerMinuteLimit);
+			return;
+		}
+
+		int wantVis = SM_MapMarkerData.VisibilityFromPacked(packed);
+
+		// Local (PERSONAL) markers never reach the server anymore — they live in the client's
+		// own file (SM_LocalMarkerPersistence). Our UI doesn't send them here; this guards
+		// against external API misuse so the server store stays free of Local markers.
+		if (wantVis == SM_EMarkerVisibility.PERSONAL)
+		{
+			Log(string.Format("IGNORE PLACE by %1: PERSONAL markers are client-side only", Who(requesterId)));
+			return;
+		}
+
+		// Channel allowed? The client UI blocks this too — server check is the safety net.
+		if (!cfg.IsVisibilityAllowed(wantVis))
+		{
+			Log(string.Format("DENY PLACE by %1: channel %2 disabled by config", Who(requesterId), VisName(wantVis)));
+			return;
+		}
+
+		// Marker count limits (0 = unlimited)
+		if (cfg.m_iTotalLimit > 0 && store.Count() >= cfg.m_iTotalLimit)
+		{
+			Log(string.Format("DENY PLACE by %1: total limit %2 reached", Who(requesterId), cfg.m_iTotalLimit));
+			pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.TOTAL_LIMIT, cfg.m_iTotalLimit);
+			return;
+		}
+		if (cfg.m_iPerPlayerLimit > 0 && store.CountByOwner(requesterId) >= cfg.m_iPerPlayerLimit)
+		{
+			Log(string.Format("DENY PLACE by %1: per-player limit %2 reached", Who(requesterId), cfg.m_iPerPlayerLimit));
+			pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.PER_PLAYER_LIMIT, cfg.m_iPerPlayerLimit);
+			return;
+		}
+
+		SM_MapMarkerData data = store.ServerCreate(requesterId, packed, text);
+		if (!data)
+			return;
+
+		if (cfg.m_bShowLastEditor)
+			data.m_sLastEditor = GetGame().GetPlayerManager().GetPlayerName(requesterId);	// author name for the tooltip (survives restarts)
+		if (data.m_iDate != 0)
+			GetGameTime(data.m_iDate, data.m_iTime);	// timestamp set by the server (scenario or real time per config)
+		// Channel is normally derived from the placer's faction. A GM has no faction and picks
+		// the side for FACTION markers himself — then the channel from the GM dropdown is kept.
+		if (!(IsPlayerGameMaster(requesterId) && data.m_iVisibility == SM_EMarkerVisibility.FACTION))
+			AssignChannel(requesterId, data);
+		BroadcastUpsert(data);
+
+		// The log shows vis/channel and what the faction/group API returned (the riskiest spot).
+		Log(string.Format("PLACE #%1 by %2 vis=%3 ch=%4 (faction=%5 group=%6) kind=%7",
+			data.m_iId, Who(requesterId), VisName(data.m_iVisibility), data.m_iChannel,
+			GetPlayerFactionIndex(requesterId), GetPlayerGroupId(requesterId), data.m_iKind));
+	}
+
+	static void ServerHandleMove(notnull SCR_PlayerController pc, int id, int posX, int posY)
+	{
+		int requesterId = pc.GetPlayerId();
+		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
+		SM_MapMarkerData m = store.FindById(id);
+		if (!m)
+			return;
+		if (!CanModify(requesterId, m))
+		{
+			Log(string.Format("DENY MOVE #%1 by %2 (vis=%3 ch=%4)", id, Who(requesterId), VisName(m.m_iVisibility), m.m_iChannel));
+			if (m.m_iGmLocked != 0 && !IsPlayerGameMaster(requesterId))
+				pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.MARKER_LOCKED, 0);
+			return;
+		}
+
+		m.m_iLastEditorId = requesterId;	// whoever moved it is the last editor
+		if (SM_MarkerConfig.GetInstance().m_bShowLastEditor)
+			m.m_sLastEditor = GetGame().GetPlayerManager().GetPlayerName(requesterId);
+		if (m.m_iDate != 0)
+			GetGameTime(m.m_iDate, m.m_iTime);	// refresh the timestamp before ServerMove
+
+		if (!store.ServerMove(id, posX, posY))
+			return;
+
+		BroadcastUpsert(m);	// send full data (position + timestamp + editor)
+		Log(string.Format("MOVE #%1 by %2 -> (%3, %4)", id, Who(requesterId), posX, posY));
+	}
+
+	static void ServerHandleEdit(notnull SCR_PlayerController pc, int id, array<int> packed, string text)
+	{
+		int requesterId = pc.GetPlayerId();
+		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
+		SM_MapMarkerData m = store.FindById(id);
+		if (!m)
+			return;
+		if (!CanModify(requesterId, m))
+		{
+			Log(string.Format("DENY EDIT #%1 by %2 (vis=%3 ch=%4)", id, Who(requesterId), VisName(m.m_iVisibility), m.m_iChannel));
+			if (m.m_iGmLocked != 0 && !IsPlayerGameMaster(requesterId))
+				pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.MARKER_LOCKED, 0);
+			return;
+		}
+
+		int oldVis = m.m_iVisibility;	// remember before ServerUpdate overwrites it with the client's value
+
+		if (!store.ServerUpdate(id, packed, text))
+			return;
+
+		int reqVis = m.m_iVisibility;	// what the client asked for (before clamping)
+
+		// Visibility can only be widened (Local < Group < Side < Global), never narrowed.
+		// Server-side protection even if the client somehow bypassed the disabled buttons.
+		if (m.m_iVisibility < oldVis)
+		{
+			m.m_iVisibility = oldVis;
+			Log(string.Format("EDIT #%1: narrow blocked, kept %2 (req %3)", id, VisName(oldVis), VisName(reqVis)));
+		}
+
+		// Channel disabled by config? Keep the previous one (safety net over the client UI).
+		if (!SM_MarkerConfig.GetInstance().IsVisibilityAllowed(m.m_iVisibility))
+			m.m_iVisibility = oldVis;
+
+		m.m_iLastEditorId = requesterId;	// overrides whatever the client sent
+		if (SM_MarkerConfig.GetInstance().m_bShowLastEditor)
+			m.m_sLastEditor = GetGame().GetPlayerManager().GetPlayerName(requesterId);
+		if (m.m_iDate != 0)
+			GetGameTime(m.m_iDate, m.m_iTime);
+		// A GM picks the side for FACTION markers himself — keep the channel from the data;
+		// otherwise recalculate from the owner (visibility may have changed).
+		if (!(IsPlayerGameMaster(requesterId) && m.m_iVisibility == SM_EMarkerVisibility.FACTION))
+			AssignChannel(m.m_iOwnerId, m);
+		BroadcastUpsertOrRemove(m);	// also removes the "ghost" from players who can no longer see it
+		Log(string.Format("EDIT #%1 by %2 vis %3->%4 ch=%5", id, Who(requesterId), VisName(oldVis), VisName(m.m_iVisibility), m.m_iChannel));
+	}
+
+	static void ServerHandleRemove(notnull SCR_PlayerController pc, int id)
+	{
+		int requesterId = pc.GetPlayerId();
+		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
+		SM_MapMarkerData m = store.FindById(id);
+		if (!m)
+			return;
+		if (!CanModify(requesterId, m))
+		{
+			Log(string.Format("DENY REMOVE #%1 by %2 (vis=%3 ch=%4)", id, Who(requesterId), VisName(m.m_iVisibility), m.m_iChannel));
+			if (m.m_iGmLocked != 0 && !IsPlayerGameMaster(requesterId))
+				pc.SM_SendPlaceDenied(SM_EPlaceDenyReason.MARKER_LOCKED, 0);
+			return;
+		}
+
+		// Who deleted what (moderation trail for griefing) — enabled via config.
+		if (SM_MarkerConfig.GetInstance().m_bLogDeleter)
+			Print(string.Format("[SM] REMOVE #%1 by %2 (text: '%3')", id, Who(requesterId), m.m_sText), LogLevel.NORMAL);
+
+		store.ServerRemove(id);
+		BroadcastRemove(id);	// removal by id goes to everyone
+	}
+
 	// Розіслати мітку всім, кому її видно (включно з автором).
 	static void BroadcastUpsert(notnull SM_MapMarkerData m)
 	{
@@ -1324,7 +1235,9 @@ class SM_MarkerNet
 		int sent = 0;
 		foreach (SM_MapMarkerData m : all)
 		{
-			if (!m || !IsEligible(playerId, m))
+			if (!m || SM_MapMarkerStore.IsLocalId(m.m_iId))	// Local markers (id <= -2, listen-host only) never replicate
+				continue;
+			if (!IsEligible(playerId, m))
 				continue;
 
 			pc.SM_SendUpsert(m.m_iId, m.m_iOwnerId, m.PackInts(), m.m_sText, m.m_sLastEditor);

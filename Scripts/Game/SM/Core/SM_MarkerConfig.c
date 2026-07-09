@@ -69,6 +69,12 @@ class SM_MarkerConfig
 	//     як і з мітками, командна мапа спільна; залочені зевсом штрихи гравці не стирають ніколи.
 	//     Стирає лише той, кому штрих взагалі видно (канал); часткове різання гумкою — завжди лише своїх.
 	bool m_bDrawEraseOthers = true;
+	// 26. Batch server-channel draw/erase ops: the client buffers them and sends one packet
+	//     every N ms (fewer RPCs -> lighter on FPS, esp. mass-erasing / always-open tablet).
+	//     The author sees own strokes instantly (optimistic); others after the packet is sent.
+	//     The Local channel is always instant. 0 = off (send immediately, the old behavior).
+	//     Replicated to clients.
+	int  m_iDrawBatchIntervalMs = 3000;
 
 	protected const string DIR      = "$profile:SavingMarkers";
 	protected const string FILE     = "$profile:SavingMarkers/SM_Config.cfg";
@@ -118,6 +124,8 @@ class SM_MarkerConfig
 		if (m_iDrawMaxTotal < 0)      m_iDrawMaxTotal = 0;
 		if (m_iDrawPerMinuteLimit < 0) m_iDrawPerMinuteLimit = 0;
 		if (m_iDrawRdpEpsilon < 0)    m_iDrawRdpEpsilon = 0;
+		if (m_iDrawBatchIntervalMs < 0) m_iDrawBatchIntervalMs = 0;
+		if (m_iDrawBatchIntervalMs > 0 && m_iDrawBatchIntervalMs < 250) m_iDrawBatchIntervalMs = 250;	// sub-250ms is effectively instant, just extra overhead
 	}
 
 	// --- Читання текстового .cfg (key=value, # — коментар) ---
@@ -179,6 +187,7 @@ class SM_MarkerConfig
 		else if (key == "drawPerPlayerPerMinute") m_iDrawPerMinuteLimit   = val.ToInt();
 		else if (key == "drawRdpEpsilonMeters")   m_iDrawRdpEpsilon       = val.ToInt();
 		else if (key == "drawEraseOthersAllowed") m_bDrawEraseOthers      = ParseBool(val);
+		else if (key == "drawBatchIntervalMs")    m_iDrawBatchIntervalMs  = val.ToInt();
 	}
 
 	protected bool ParseBool(string v)
@@ -222,6 +231,7 @@ class SM_MarkerConfig
 		ctx.ReadValue("drawMaxTotal",            m_iDrawMaxTotal);
 		ctx.ReadValue("drawPerPlayerPerMinute",  m_iDrawPerMinuteLimit);
 		ctx.ReadValue("drawRdpEpsilonMeters",    m_iDrawRdpEpsilon);
+		ctx.ReadValue("drawBatchIntervalMs",     m_iDrawBatchIntervalMs);
 	}
 
 	// --- Запис читабельного .cfg: кожен параметр в окремому рядку + англійський коментар ---
@@ -298,6 +308,11 @@ class SM_MarkerConfig
 		h.WriteLine("# Allow players to erase OTHER players' strokes entirely (Del/eraser). Only strokes they can see.");
 		h.WriteLine("# GM-locked strokes can never be erased by players. Partial erasing is always own-strokes-only.");
 		h.WriteLine("drawEraseOthersAllowed=" + B2S(m_bDrawEraseOthers));
+		h.WriteLine("# Batch server-channel drawing/erasing: client buffers ops and sends them in one packet every N ms");
+		h.WriteLine("# (fewer RPCs -> lighter on FPS, esp. mass-erasing or an always-open tablet). The author sees own");
+		h.WriteLine("# strokes instantly (optimistic); others see them after the packet is sent. Local channel is always");
+		h.WriteLine("# instant. 0 = off (send immediately, as before). Replicated to clients.");
+		h.WriteLine("drawBatchIntervalMs=" + m_iDrawBatchIntervalMs.ToString());
 
 		h.Close();
 	}
@@ -317,7 +332,7 @@ class SM_MarkerConfig
 
 	// Клієнт: застосувати реплікований із сервера набір налаштувань, потрібних діалогу
 	// (дозволені канали + чи ванільні назви фракцій).
-	void SetClientFlags(bool local, bool group, bool side, bool global, bool vanillaFactionNames, bool allowPointer, bool allowCopyLast)
+	void SetClientFlags(bool local, bool group, bool side, bool global, bool vanillaFactionNames, bool allowPointer, bool allowCopyLast, int drawBatchMs)
 	{
 		m_bAllowLocal  = local;
 		m_bAllowGroup  = group;
@@ -326,5 +341,6 @@ class SM_MarkerConfig
 		m_bVanillaFactionNames = vanillaFactionNames;
 		m_bAllowPointer = allowPointer;
 		m_bAllowCopyLast = allowCopyLast;
+		m_iDrawBatchIntervalMs = drawBatchMs;
 	}
 }

@@ -117,8 +117,11 @@ class SM_DrawCanvas
 	protected const ResourceName CURSOR_TEX_PENCIL = "{E278DB118260244A}circleWhite.edds";
 	protected const ResourceName CURSOR_TEX_ERASER = "{B72B0A3DAD46568C}circleLine.edds";
 
-	// 5 пресетів ширини у СВІТОВИХ метрах (паперова поведінка: товщина прив'язана до землі,
+	// Пресети ширини у СВІТОВИХ метрах (паперова поведінка: товщина прив'язана до землі,
 	// тож широка лінія завжди закриває велику ділянку; на екрані товщає при наближенні).
+	// idx 0..4 are shared (pencil/eraser/fill); idx 5 (100 m) is ERASER-ONLY (bulk erasing).
+	static const int WIDTH_IDX_MAX_PENCIL = 4;	// regular tools: up to idx 4 (40 m)
+	static const int WIDTH_IDX_MAX_ERASER = 5;	// eraser: extra idx 5 (100 m)
 	static float WidthMeters(int idx)
 	{
 		switch (idx)
@@ -128,13 +131,14 @@ class SM_DrawCanvas
 			case 2: return 10;
 			case 3: return 20;
 			case 4: return 40;
+			case 5: return 100;	// eraser-only
 		}
 		return 5;
 	}
 	static int ClampWidthIdx(int i)
 	{
 		if (i < 0) return 0;
-		if (i > 4) return 4;
+		if (i > WIDTH_IDX_MAX_ERASER) return WIDTH_IDX_MAX_ERASER;
 		return i;
 	}
 
@@ -240,7 +244,13 @@ class SM_DrawCanvas
 	// --- Стан пензля ---
 	bool IsActive()           { return m_bActive; }
 	void SetActive(bool a)    { m_bActive = a; if (!a) CancelStroke(); }
-	void SetTool(int t)       { m_iTool = t; }
+	void SetTool(int t)
+	{
+		m_iTool = t;
+		// The 100 m preset (idx 5) is eraser-only — clamp back to 40 m when switching to pencil/fill.
+		if (t != 1 && s_iWidthIdx > WIDTH_IDX_MAX_PENCIL)
+			s_iWidthIdx = WIDTH_IDX_MAX_PENCIL;
+	}
 	int  GetTool()            { return m_iTool; }
 	void SetColor(int argb)   { s_iColor = argb; }
 	int  GetColor()           { return s_iColor; }
@@ -256,6 +266,8 @@ class SM_DrawCanvas
 	// Кадрова робота — кличе Update шару. Працює лише коли є що зробити.
 	void Tick()
 	{
+		SM_DrawOutbox.Tick();	// flush the buffered draw/erase batch when its interval is up
+
 		if (!m_wCanvas || !m_Map)
 			return;
 
@@ -488,14 +500,10 @@ class SM_DrawCanvas
 			if (SM_GmState.s_bDrawHideInfo)
 				tmp.m_iHideInfo = 1;
 		}
-		array<int> meta = tmp.PackMeta();
-
-		SCR_PlayerController pc = SCR_PlayerController.Cast(GetGame().GetPlayerController());
-		if (pc)
-			pc.SM_DrawRequestAdd(meta, simplified);
+		SM_DrawAddOrLocal(tmp, simplified);	// Local (PERSONAL) -> client file; everything else -> server
 
 		m_aCapture.Clear();
-		m_aPreviewCmds.Clear();	// закоммічений штрих прийде по мережі
+		m_aPreviewCmds.Clear();	// the committed stroke comes back via the store (network, or right away if Local)
 	}
 
 	// Заливка: клік у замкнуту область → flood fill по видимих малюнках (штрихи+заливки як межі).
@@ -547,6 +555,13 @@ class SM_DrawCanvas
 					restamp.m_iHideInfo = 1;
 			}
 
+			// Local-CHANNEL fill (not an optimistic server temp): recolor/escalation is fully client-side.
+			if (SM_MapDrawingStore.IsLocalId(hit.m_iId) && !SM_DrawOutbox.IsServerTemp(hit.m_iId))
+			{
+				SM_LocalRecolorFill(hit, restamp);
+				return;
+			}
+
 			bool changed = hit.m_iColor != restamp.m_iColor || hit.m_iVisibility != restamp.m_iVisibility;
 			if (m_bEditorMap)
 				changed = changed
@@ -591,7 +606,106 @@ class SM_DrawCanvas
 			if (SM_GmState.s_bDrawHideInfo)
 				tmp.m_iHideInfo = 1;
 		}
-		pc.SM_DrawRequestAdd(tmp.PackMeta(), res.m_aContour);
+		SM_DrawAddOrLocal(tmp, res.m_aContour);	// Local (PERSONAL) -> client file; everything else -> server
+	}
+
+	// Add a stroke/fill: Local (PERSONAL visibility) goes to the client file, never the server;
+	// everything else goes through SM_DrawOutbox (batching + optimistic echo, or instant when
+	// batching is off).
+	protected void SM_DrawAddOrLocal(notnull SM_MapDrawingData tmp, notnull array<int> points)
+	{
+		if (tmp.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
+		{
+			// Local = the player's private drawing: channel/GM flags don't apply.
+			SCR_PlayerController pc = SCR_PlayerController.Cast(GetGame().GetPlayerController());
+			tmp.m_iChannel  = -1;
+			tmp.m_iGmLocked = 0;
+			tmp.m_iHideInfo = 0;
+			if (pc)
+				tmp.m_iOwnerId = pc.GetPlayerId();
+			tmp.SetPoints(points);
+			SM_LocalDrawingPersistence.GetInstance().AddLocal(tmp);
+			return;
+		}
+
+		tmp.SetPoints(points);
+		SM_DrawOutbox.SubmitAdd(tmp);	// server channel: batched/optimistic
+	}
+
+	// Recolor/escalate an OWN Local fill. Visibility can only be widened (matches the server rule).
+	// Stays PERSONAL -> new Local fill; widened -> hand it to the server (Local -> Side escalation).
+	protected void SM_LocalRecolorFill(notnull SM_MapDrawingData hit, notnull SM_MapDrawingData restamp)
+	{
+		SCR_PlayerController pc = SCR_PlayerController.Cast(GetGame().GetPlayerController());
+
+		int newVis = restamp.m_iVisibility;
+		if (newVis < hit.m_iVisibility)
+			newVis = hit.m_iVisibility;	// widen-only (Local=0 is the lowest, so this is always >=)
+
+		array<int> pts = {};
+		pts.Copy(hit.m_aPoints);
+
+		SM_LocalDrawingPersistence.GetInstance().RemoveLocal(hit.m_iId);
+
+		SM_MapDrawingData fresh = new SM_MapDrawingData();
+		fresh.m_iColor      = restamp.m_iColor;
+		fresh.m_iWidthIdx   = restamp.m_iWidthIdx;
+		fresh.m_iVisibility = newVis;
+		fresh.m_iChannel    = -1;
+		fresh.m_iFill       = 1;
+		fresh.SetPoints(pts);
+
+		if (newVis == SM_EMarkerVisibility.PERSONAL)
+		{
+			if (pc)
+				fresh.m_iOwnerId = pc.GetPlayerId();
+			SM_LocalDrawingPersistence.GetInstance().AddLocal(fresh);
+		}
+		else
+		{
+			SM_DrawOutbox.SubmitAdd(fresh);	// escalation to the server (batched/optimistic)
+		}
+	}
+
+	// Erase/cut an OWN Local stroke: remove the original, re-add the pieces outside the eraser
+	// circle as new Local strokes. framed: [pieceCount, len1(points), x,z,..., len2, ...] —
+	// same format the server path uses.
+	protected void SM_LocalEraseStroke(notnull SM_MapDrawingData d, notnull array<int> framed)
+	{
+		int color = d.m_iColor;
+		int width = d.m_iWidthIdx;
+		int vis   = d.m_iVisibility;
+		int owner = d.m_iOwnerId;
+
+		SM_LocalDrawingPersistence.GetInstance().RemoveLocal(d.m_iId);
+		if (framed.IsEmpty())
+			return;	// стерли все
+
+		int nPieces = framed[0];
+		int pos = 1;
+		for (int p = 0; p < nPieces; p++)
+		{
+			if (pos >= framed.Count())
+				break;
+			int len = framed[pos];
+			pos++;
+			if (len < 2 || pos + len * 2 > framed.Count())
+				break;
+			array<int> pts = {};
+			for (int k = 0; k < len * 2; k++)
+				pts.Insert(framed[pos + k]);
+			pos += len * 2;
+
+			SM_MapDrawingData piece = new SM_MapDrawingData();
+			piece.m_iColor      = color;
+			piece.m_iWidthIdx   = width;
+			piece.m_iVisibility = vis;
+			piece.m_iChannel    = -1;
+			piece.m_iFill       = 0;
+			piece.m_iOwnerId    = owner;
+			piece.SetPoints(pts);
+			SM_LocalDrawingPersistence.GetInstance().AddLocal(piece);
+		}
 	}
 
 	// Гумка (фотошопна): стирає лише те, ЧОГО ТОРКАЄТЬСЯ круг гумки. Для ВЛАСНИХ штрихів —
@@ -629,29 +743,42 @@ class SM_DrawCanvas
 			if (d.m_iFill != 0)
 				continue;	// гумка заливки НЕ чіпає (інакше зачепиш заливку під лініями, які правиш); видалення — Del/X
 
+			// Local-CHANNEL stroke (id <= -2, but NOT an optimistic server temp): cut/erase it in
+			// the client file. Server temps (also negative) don't land here — SM_DrawOutbox below.
+			if (SM_MapDrawingStore.IsLocalId(d.m_iId) && !SM_DrawOutbox.IsServerTemp(d.m_iId))
+			{
+				array<int> lframed = {};
+				int lchange = SplitStrokeByEraser(d, wx, wz, thrSq, lframed);
+				if (lchange == 0)
+					continue;	// not touched
+				m_ErasedThisDrag.Insert(d.m_iId);
+				SM_LocalEraseStroke(d, lframed);
+				continue;
+			}
+
 			if (d.m_iOwnerId != myId)
 			{
-				// Чужий штрих: власник-не-я → часткове різати не можемо (права в сервера).
-				// GM може стерти цілком — шлемо повне видалення, сервер перевірить права.
+				// Someone else's stroke: partial cutting isn't ours to do (server owns the rights).
+				// A GM can erase it whole — send a full remove, the server validates.
 				if (WorldDistSqToStroke(d, wx, wz) <= thrSq)
 				{
 					m_ErasedThisDrag.Insert(d.m_iId);
-					pc.SM_DrawRequestRemove(d.m_iId);
+					SM_DrawOutbox.SubmitRemove(d.m_iId);	// batched/optimistic (or instant)
 				}
 				continue;
 			}
 
-			// Власний штрих: обчислюємо шматки, що лишаються поза кругом гумки.
+			// Own stroke (real or optimistic temp): compute the pieces outside the eraser circle.
 			array<int> framed = {};
 			int change = SplitStrokeByEraser(d, wx, wz, thrSq, framed);
 			if (change == 0)
-				continue;	// не торкнулись
+				continue;	// not touched
 
 			m_ErasedThisDrag.Insert(d.m_iId);
 			if (framed.IsEmpty())
-				pc.SM_DrawRequestRemove(d.m_iId);	// стерли все
+				SM_DrawOutbox.SubmitRemove(d.m_iId);		// everything got erased
 			else
-				pc.SM_DrawRequestErasePart(d.m_iId, framed);	// заміна штриха на шматки
+				SM_DrawOutbox.SubmitErasePart(d.m_iId, framed);	// replace the stroke with pieces (a temp splits locally)
 		}
 	}
 
@@ -743,35 +870,48 @@ class SM_DrawCanvas
 		int cwx = curWX;
 		int cwz = curWZ;
 
-		// Вибір «з верхнього шару» — як рендер: штрихи малюються НАД заливками, новіші (більший id)
-		// над старішими. Тому серед влучань беремо штрих із найбільшим id; якщо жодного штриха
-		// не влучили — заливку з найбільшим id.
+		// Pick "from the top layer", matching the renderer: strokes draw ABOVE fills, newer
+		// (higher id) above older. So among the hits take the stroke with the highest id, and
+		// only if no stroke was hit — the fill with the highest id.
+		// Careful: Local strokes have NEGATIVE ids (<= -2), so "-1 = none" plus a plain > compare
+		// would never let a Local win. Track presence with separate flags instead; among Local
+		// ids "newer" is still the higher (less negative) id.
 		int bestStrokeId = -1;
 		int bestFillId = -1;
+		bool haveStroke = false;
+		bool haveFill = false;
 		foreach (SM_MapDrawingData d : all)
 		{
 			if (!d || d.GetPointCount() < 1)
 				continue;
 			if (d.m_iFill != 0)
 			{
-				// Заливка: влучання = курсор всередині полігона.
+				// Fill: a hit = cursor inside the polygon.
 				if (!haveWorld || !SM_MapFloodFill.PointInPolygon(d.m_aPoints, cwx, cwz))
 					continue;
-				if (d.m_iId > bestFillId)
+				if (!haveFill || d.m_iId > bestFillId)
+				{
 					bestFillId = d.m_iId;
+					haveFill = true;
+				}
 			}
 			else
 			{
 				float thr = WidthPxForZoom(d.m_iWidthIdx, ppm) * 0.5 + slackPx;
 				if (ScreenDistSqToStroke(d, px, py) > thr * thr)
 					continue;
-				if (d.m_iId > bestStrokeId)
+				if (!haveStroke || d.m_iId > bestStrokeId)
+				{
 					bestStrokeId = d.m_iId;
+					haveStroke = true;
+				}
 			}
 		}
-		if (bestStrokeId >= 0)
+		if (haveStroke)
 			return bestStrokeId;
-		return bestFillId;
+		if (haveFill)
+			return bestFillId;
+		return -1;	// nothing hit
 	}
 
 	//! Дані штриха за id (для тултіпа автора).

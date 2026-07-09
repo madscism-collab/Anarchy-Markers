@@ -375,11 +375,16 @@ modded class SCR_MapMarkersUI
 		// OnControlledEntityChanged тоді ще не спрацював). Ідемпотентно: сервер дошле лише дозволене, дублів нема по id.
 		SCR_PlayerController syncPc = SM_LocalPC();
 		if (syncPc)
+		{
 			syncPc.SM_RequestSync();
+			syncPc.SM_RequestHostLocalSync();	// listen-host/SP: server sync is a no-op — activate own Locals from the persistence code
+		}
 	}
 
 	override void OnMapClose(MapConfiguration config)
 	{
+		SM_DrawOutbox.Flush();	// the map is closing and Tick stops — send whatever draw ops are still buffered
+
 		SM_GmState.s_OnMarkerViewChanged.Remove(SM_OnGmViewChanged);
 		if (m_bSMEditorUIHidden)
 			SM_SetEditorUIHidden(false);	// мапа закрилась із відкритим діалогом — відписатись/повернути UI
@@ -510,14 +515,14 @@ modded class SCR_MapMarkersUI
 		WorkspaceWidget ws = GetGame().GetWorkspace();
 
 		SM_PollMouse();		// натиск/утримання/відпуск ЛКМ (до позиціонування цього кадру)
-		s_bSMCarrying = (m_iSMCarryId >= 0);	// для SM_DisableRadial: ПКМ під час перенесення не відкриває радіалку
+		s_bSMCarrying = (m_iSMCarryId != -1);	// для SM_DisableRadial: ПКМ під час перенесення не відкриває радіалку
 		SM_UpdateHint();
 		SM_UpdateTooltip();	// «Edited by» при наведенні
 		if (SM_IsEditorMap())
 			SM_UpdatePlacePrompt();	// підказка «оберіть точку» біля курсора (режим Create Marker)
 
 		// Тягнута мітка слідує за курсором — оновлюємо ЩОКАДРУ (це одна мітка).
-		if (m_iSMCarryId >= 0)
+		if (m_iSMCarryId != -1)
 		{
 			int curWX, curWY;
 			if (SM_GetCursorWorld(curWX, curWY))
@@ -572,7 +577,7 @@ modded class SCR_MapMarkersUI
 		{
 			if (m_PreviewVisual)
 				SM_EndPreview();
-			if (m_iSMHiddenMarkerId >= 0)
+			if (m_iSMHiddenMarkerId != -1)
 			{
 				SM_SetMarkerVisible(m_iSMHiddenMarkerId, true);
 				SM_MarkerVisual hv = m_mSMVisuals.Get(m_iSMHiddenMarkerId);
@@ -832,10 +837,44 @@ modded class SCR_MapMarkersUI
 		if (!cpc)
 			return;
 		SM_MapMarkerData copy = m_SMLastTemplate.SM_Clone();
-		copy.m_iId = -1;		// нова мітка — id призначить сервер
+		copy.m_iId = -1;		// нова мітка — id призначить сервер (або LocalCreate для Local)
 		copy.m_iPosX = cwx;
 		copy.m_iPosY = cwy;
-		cpc.SM_RequestPlace(copy.PackInts(), copy.m_sText);
+
+		// A Local copy stays client-side; anything else goes to the server.
+		if (copy.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
+		{
+			copy.m_iOwnerId = cpc.GetPlayerId();
+			SM_LocalMarkerPersistence.GetInstance().AddLocal(copy);
+		}
+		else
+			cpc.SM_RequestPlace(copy.PackInts(), copy.m_sText);
+	}
+
+	// Commit a marker move: Local (id <= -2) moves in the client file, server ones via RPC.
+	protected void SM_DoMoveMarker(int id, int wx, int wy)
+	{
+		if (SM_MapMarkerStore.IsLocalId(id))
+		{
+			SM_LocalMarkerPersistence.GetInstance().MoveLocal(id, wx, wy);
+			return;
+		}
+		SCR_PlayerController pc = SM_LocalPC();
+		if (pc)
+			pc.SM_RequestMove(id, wx, wy);
+	}
+
+	// Delete a marker: Local (id <= -2) from the client file, server ones via RPC. (Called after the GM-lock check.)
+	protected void SM_DeleteMarkerById(int id)
+	{
+		if (SM_MapMarkerStore.IsLocalId(id))
+		{
+			SM_LocalMarkerPersistence.GetInstance().RemoveLocal(id);
+			return;
+		}
+		SCR_PlayerController pc = SM_LocalPC();
+		if (pc)
+			pc.SM_RequestRemove(id);
 	}
 
 	// Модифікатор копії «останньої мітки» (Alt). Власний input-екшен AM_CopyModifier (фільтр
@@ -1389,7 +1428,7 @@ modded class SCR_MapMarkersUI
 			baseState = 5;	// пад: фокус у панелі малювання (навігація меню)
 		else if (m_bSMPointing)
 			baseState = 6;
-		else if (m_iSMCarryId >= 0)
+		else if (m_iSMCarryId != -1)
 			baseState = 1;	// перенесення мітки
 		else if (m_DrawCanvas && m_DrawCanvas.IsActive() && m_DrawCanvas.GetTool() == 0)
 			baseState = 3;	// малювання: олівець
@@ -1532,7 +1571,7 @@ modded class SCR_MapMarkersUI
 			est = 1000;	// відкритий діалог — без підказок
 		else if (!SM_GmState.s_bMarkerView)
 			est = 1001;	// видимість вимкнена — без підказок
-		else if (m_iSMCarryId >= 0)
+		else if (m_iSMCarryId != -1)
 			est = 1002;	// несемо мітку
 		else
 			est = 1003;	// звичайний GM-перегляд
@@ -1621,7 +1660,7 @@ modded class SCR_MapMarkersUI
 			return;
 
 		// Не показуємо під час діалогу/перенесення
-		if (m_MarkerEditRoot || m_iSMCarryId >= 0)
+		if (m_MarkerEditRoot || m_iSMCarryId != -1)
 		{
 			SM_HideTooltip();
 			return;
@@ -1731,7 +1770,7 @@ modded class SCR_MapMarkersUI
 		bool ttHaveW = SM_GetCursorWorld(ttwx, ttwy);
 		int strokeId = m_DrawCanvas.FindStrokeAtScreen(
 			ws.DPIScale(SCR_MapCursorInfo.x), ws.DPIScale(SCR_MapCursorInfo.y), ttwx, ttwy, ttHaveW);
-		if (strokeId < 0)
+		if (strokeId == -1)	// -1 = нічого не влучили (Local-штрихи мають негативні id <= -2 — теж валідні)
 		{
 			SM_HideTooltip();
 			return;
@@ -2099,7 +2138,7 @@ modded class SCR_MapMarkersUI
 			m_bSMWasCreatePending = false;
 
 			// --- Alt+ЛКМ — копія останньої мітки зевса в точці курсора (Ctrl у редакторі зайнятий мапою) ---
-			if (down && !m_bSMLmbDown && m_iSMCarryId < 0
+			if (down && !m_bSMLmbDown && m_iSMCarryId == -1
 				&& SM_CopyModifierDown() && m_SMLastTemplate
 				&& SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
 			{
@@ -2126,7 +2165,7 @@ modded class SCR_MapMarkersUI
 			}
 
 			// --- УТРИМАННЯ на мітці ≥ HOLD → підняти (тягнути) ---
-			if (down && m_iSMCarryId < 0 && m_iSMPressMarkerId >= 0
+			if (down && m_iSMCarryId == -1 && m_iSMPressMarkerId != -1
 				&& (now - m_fSMPressTime) >= SM_HOLD_SEC && SM_CursorNearPress())
 			{
 				m_iSMCarryId = m_iSMPressMarkerId;	// у редакторі зевс — lock його не стримує
@@ -2141,15 +2180,11 @@ modded class SCR_MapMarkersUI
 				{
 					m_bSMPickedThisPress = false;	// це відпуск підняття — мітка лишається "в руці"
 				}
-				else if (m_iSMCarryId >= 0)
+				else if (m_iSMCarryId != -1)
 				{
 					int wx, wy;
 					if (SM_GetCursorWorld(wx, wy))
-					{
-						SCR_PlayerController pc = SM_LocalPC();
-						if (pc)
-							pc.SM_RequestMove(m_iSMCarryId, wx, wy);	// підтвердити переміщення
-					}
+						SM_DoMoveMarker(m_iSMCarryId, wx, wy);	// commit the move (Local or server)
 					m_iSMCarryId = -1;
 					m_iSMPressMarkerId = -1;
 				}
@@ -2267,7 +2302,7 @@ modded class SCR_MapMarkersUI
 		if (SM_CanAcceptMapClick())
 		{
 			// --- Alt+ЛКМ (фронт натиску) — поставити копію останньої мітки гравця і спожити натиск ---
-			if (down && !m_bSMLmbDown && m_iSMCarryId < 0 && !m_bSMPointing
+			if (down && !m_bSMLmbDown && m_iSMCarryId == -1 && !m_bSMPointing
 				&& SM_CopyModifierDown() && m_SMLastTemplate
 				&& SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
 			{
@@ -2295,7 +2330,7 @@ modded class SCR_MapMarkersUI
 			}
 
 			// --- УТРИМАННЯ на мітці (на місці) ≥ SM_HOLD_SEC → підняти ---
-			if (down && m_iSMCarryId < 0 && m_iSMPressMarkerId >= 0
+			if (down && m_iSMCarryId == -1 && m_iSMPressMarkerId != -1
 				&& (now - m_fSMPressTime) >= SM_HOLD_SEC && SM_CursorNearPress())
 			{
 				SM_MapMarkerData pm = SM_MapMarkerStore.GetInstance().FindById(m_iSMPressMarkerId);
@@ -2313,7 +2348,7 @@ modded class SCR_MapMarkersUI
 			}
 
 			// --- УТРИМАННЯ на ПУСТОМУ місці ≥ SM_POINT_HOLD_SEC → режим «вказівник» (показати пальцем) ---
-			if (down && m_iSMCarryId < 0 && !m_bSMPointing && m_iSMPressMarkerId < 0
+			if (down && m_iSMCarryId == -1 && !m_bSMPointing && m_iSMPressMarkerId == -1
 				&& (now - m_fSMPressTime) >= SM_POINT_HOLD_SEC
 				&& SM_MarkerConfig.GetInstance().m_bAllowPointer)	// вимкнено в конфізі — не входимо в режим
 			{
@@ -2369,16 +2404,12 @@ modded class SCR_MapMarkersUI
 					// це відпуск утримання-підняття → мітка лишається «в руці», ставимо наступним кліком
 					m_bSMPickedThisPress = false;
 				}
-				else if (m_iSMCarryId >= 0)
+				else if (m_iSMCarryId != -1)
 				{
 					// поставити (підтвердити переміщення)
 					int wx, wy;
 					if (SM_GetCursorWorld(wx, wy))
-					{
-						SCR_PlayerController pc = SM_LocalPC();
-						if (pc)
-							pc.SM_RequestMove(m_iSMCarryId, wx, wy);
-					}
+						SM_DoMoveMarker(m_iSMCarryId, wx, wy);	// Local or server
 					m_iSMCarryId = -1;
 					m_iSMPressMarkerId = -1;
 				}
@@ -2512,20 +2543,18 @@ modded class SCR_MapMarkersUI
 		if (SM_CanAcceptMapClick())
 		{
 			// --- Y: копія останньої мітки в точку курсора ---
-			if (placeEdge && m_iSMCarryId < 0 && !m_bSMPointing
+			if (placeEdge && m_iSMCarryId == -1 && !m_bSMPointing
 				&& m_SMLastTemplate && SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
 			{
 				SM_PlaceCopyAtCursor();
 			}
 			// --- X: видалити мітку під курсором (залочену зевсом не чіпаємо); нема мітки — штрих малюнка ---
-			else if (delEdge && m_iSMCarryId < 0 && !m_bSMPointing)
+			else if (delEdge && m_iSMCarryId == -1 && !m_bSMPointing)
 			{
 				SM_MarkerVisual du = SM_FindMarkerUnderCursor();
 				if (du && du.m_Data && !SM_BlockedByLock(du.m_Data))
 				{
-					SCR_PlayerController dpc = SM_LocalPC();
-					if (dpc)
-						dpc.SM_RequestRemove(du.m_Data.m_iId);
+					SM_DeleteMarkerById(du.m_Data.m_iId);	// Local or server
 				}
 				else if (!du || !du.m_Data)
 				{
@@ -2547,7 +2576,7 @@ modded class SCR_MapMarkersUI
 			}
 
 			// --- A УТРИМАННЯ на мітці ≥ HOLD → підняти (далі слідує за курсором; відпуск поставить) ---
-			if (confirm && m_iSMCarryId < 0 && m_iSMPressMarkerId >= 0
+			if (confirm && m_iSMCarryId == -1 && m_iSMPressMarkerId != -1
 				&& (now - m_fSMPressTime) >= SM_HOLD_SEC && SM_CursorNearPress())
 			{
 				SM_MapMarkerData pm = SM_MapMarkerStore.GetInstance().FindById(m_iSMPressMarkerId);
@@ -2564,7 +2593,7 @@ modded class SCR_MapMarkersUI
 			}
 
 			// --- A УТРИМАННЯ на ПУСТОМУ ≥ SM_POINT_HOLD_SEC → вказівник (показати пальцем) ---
-			if (confirm && m_iSMCarryId < 0 && !m_bSMPointing && m_iSMPressMarkerId < 0
+			if (confirm && m_iSMCarryId == -1 && !m_bSMPointing && m_iSMPressMarkerId == -1
 				&& (now - m_fSMPressTime) >= SM_POINT_HOLD_SEC
 				&& SM_MarkerConfig.GetInstance().m_bAllowPointer)
 			{
@@ -2609,14 +2638,14 @@ modded class SCR_MapMarkersUI
 						lpc.SM_RequestPointStop();
 					}
 				}
-				else if (m_iSMCarryId >= 0)
+				else if (m_iSMCarryId != -1)
 				{
 					int wx, wy;
 					if (SM_GetCursorWorld(wx, wy))
 					{
 						SCR_PlayerController mpc = SM_LocalPC();
 						if (mpc)
-							mpc.SM_RequestMove(m_iSMCarryId, wx, wy);	// підтвердити переміщення
+							SM_DoMoveMarker(m_iSMCarryId, wx, wy);	// commit the move (Local or server)
 					}
 					m_iSMCarryId = -1;
 				}
@@ -2648,7 +2677,7 @@ modded class SCR_MapMarkersUI
 	{
 		if (SM_TryPanelBack())	// пад-B у панелі часто приходить як MapContextualMenu (фокус на нашій STOP-кнопці)
 			return;
-		if (m_iSMCarryId >= 0)
+		if (m_iSMCarryId != -1)
 			m_iSMCarryId = -1;	// наступний кадр позиціонує з m_Data (оригінал)
 	}
 
@@ -2716,16 +2745,29 @@ modded class SCR_MapMarkersUI
 		bool dHaveW = SM_GetCursorWorld(dwx, dwy);
 		int strokeId = m_DrawCanvas.FindStrokeAtScreen(
 			xws.DPIScale(SCR_MapCursorInfo.x), xws.DPIScale(SCR_MapCursorInfo.y), dwx, dwy, dHaveW);
-		if (strokeId < 0)
+		if (strokeId == -1)
 			return;
 		SCR_PlayerController spc = SM_LocalPC();
 		if (!spc)
 			return;
+		SM_DeleteStrokeById(strokeId, spc);
+	}
+
+	// Delete a whole stroke by id: Local (id <= -2) from the client file; server ones via the
+	// outbox (GM-locked -> local message, no RPC).
+	protected void SM_DeleteStrokeById(int strokeId, notnull SCR_PlayerController pc)
+	{
+		// Local CHANNEL (not an optimistic server temp) -> client file.
+		if (SM_MapDrawingStore.IsLocalId(strokeId) && !SM_DrawOutbox.IsServerTemp(strokeId))
+		{
+			SM_LocalDrawingPersistence.GetInstance().RemoveLocal(strokeId);
+			return;
+		}
 		SM_MapDrawingData sdel = SM_DrawCanvas.GetStrokeData(strokeId);
 		if (sdel && sdel.m_iGmLocked != 0 && !SM_IsEditorMap())
-			spc.SM_ShowPlaceDenied(SM_EPlaceDenyReason.DRAW_LOCKED, 0);
+			pc.SM_ShowPlaceDenied(SM_EPlaceDenyReason.DRAW_LOCKED, 0);	// GM-locked — hands off (no optimistic removal)
 		else
-			spc.SM_DrawRequestRemove(strokeId);
+			SM_DrawOutbox.SubmitRemove(strokeId);	// batched/optimistic (a temp just gets cancelled)
 	}
 
 	// Пад-режим панелі: інструмент мапи щойно тогльнувся (напр. подвійний тап хрестовини =
@@ -2774,18 +2816,11 @@ modded class SCR_MapMarkersUI
 					bool pdHaveW = SM_GetCursorWorld(pdwx, pdwy);
 					int strokeId = m_DrawCanvas.FindStrokeAtScreen(
 						dws.DPIScale(SCR_MapCursorInfo.x), dws.DPIScale(SCR_MapCursorInfo.y), pdwx, pdwy, pdHaveW);
-					if (strokeId >= 0)
+					if (strokeId != -1)
 					{
 						SCR_PlayerController dpc = SM_LocalPC();
 						if (dpc)
-						{
-							// Залочений зевсом штрих — гравцю одразу пояснюємо локально (без зайвого RPC).
-							SM_MapDrawingData sdel = SM_DrawCanvas.GetStrokeData(strokeId);
-							if (sdel && sdel.m_iGmLocked != 0 && !SM_IsEditorMap())
-								dpc.SM_ShowPlaceDenied(SM_EPlaceDenyReason.DRAW_LOCKED, 0);
-							else
-								dpc.SM_DrawRequestRemove(strokeId);
-						}
+							SM_DeleteStrokeById(strokeId, dpc);	// Local or server (with the GM-lock check)
 					}
 				}
 			}
@@ -2795,9 +2830,15 @@ modded class SCR_MapMarkersUI
 		if (SM_BlockedByLock(vis.m_Data))	// залочена зевсом — гравець не видаляє (повідомлення + звук)
 			return;
 
+		int delId = vis.m_Data.m_iId;
+		if (SM_MapMarkerStore.IsLocalId(delId))
+		{
+			SM_LocalMarkerPersistence.GetInstance().RemoveLocal(delId);	// Local — erase from the client file
+			return;
+		}
 		SCR_PlayerController pc = SM_LocalPC();
 		if (pc)
-			pc.SM_RequestRemove(vis.m_Data.m_iId);	// сервер видаляє по ID і синкає всім
+			pc.SM_RequestRemove(delId);	// сервер видаляє по ID і синкає всім
 	}
 
 	// Чи курсор біля точки натискання (в межах порога) — щоб відрізнити клік/утримання від перетягування.
@@ -5122,10 +5163,38 @@ modded class SCR_MapMarkersUI
 			m_SMLastTemplate = d.SM_Clone();
 			m_SMLastTemplate.m_sText = text;
 
-			if (m_iSMEditId >= 0)
-				pc.SM_RequestEdit(m_iSMEditId, d.PackInts(), text);
+			d.m_sText    = text;				// Local ops read the text from d itself (the server path passes it separately)
+			d.m_iOwnerId = pc.GetPlayerId();	// Local marker owner = the local player (the server path overrides owner anyway)
+
+			bool editingLocal = (m_iSMEditId != -1) && SM_MapMarkerStore.IsLocalId(m_iSMEditId);
+
+			if (editingLocal)
+			{
+				if (d.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
+				{
+					// Stays Local — update the client file, the server is not involved.
+					SM_LocalMarkerPersistence.GetInstance().UpdateLocal(m_iSMEditId, d);
+				}
+				else
+				{
+					// ESCALATION Local -> Side/Group/Global: erase from the client file and hand it
+					// to the server (it becomes a normal server marker with a server-side owner).
+					SM_LocalMarkerPersistence.GetInstance().RemoveLocal(m_iSMEditId);
+					pc.SM_RequestPlace(d.PackInts(), text);
+				}
+			}
+			else if (m_iSMEditId != -1)
+			{
+				pc.SM_RequestEdit(m_iSMEditId, d.PackInts(), text);	// editing a server marker
+			}
+			else if (d.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
+			{
+				SM_LocalMarkerPersistence.GetInstance().AddLocal(d);	// new Local marker — client file, not the server
+			}
 			else
-				pc.SM_RequestPlace(d.PackInts(), text);
+			{
+				pc.SM_RequestPlace(d.PackInts(), text);	// new server marker
+			}
 		}
 
 		m_iSMEditId = -1;
@@ -5155,7 +5224,7 @@ modded class SCR_MapMarkersUI
 
 		// Повертаємо видимість реальної мітки, яку ховали на час редагування.
 		// (При підтвердженні редагування її все одно перебудує SM_OnMarkerChanged — SetVisible(true) нешкідливий.)
-		if (m_iSMHiddenMarkerId >= 0)
+		if (m_iSMHiddenMarkerId != -1)
 		{
 			SM_SetMarkerVisible(m_iSMHiddenMarkerId, true);
 			// Її віджет лишився на СТАРІЙ екранній позиції (мапа панорамувалась під час редагування,
