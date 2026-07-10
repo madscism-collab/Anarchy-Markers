@@ -7,9 +7,10 @@
 // (it's client-only and instant anyway). interval=0 -> batching off, send immediately.
 //
 // Reconcile: the server returns the real id of every ADD in order; the client then drops
-// its optimistic temp (the real stroke already arrived via broadcast). Removes and partial
-// erases apply optimistically (the stroke disappears at once); leftovers/corrections come
-// back from the server broadcast.
+// its optimistic temp (the real stroke already arrived via broadcast). A whole remove hides
+// the stroke at once. A partial erase shows the leftover pieces at once (as temps) and drops
+// the original, so only the erased part disappears — no whole-stroke flicker; the server's
+// authoritative pieces arrive via broadcast and the temps are dropped on reconcile.
 
 // One queued operation. Encoded into the flat int blob only at send time — that way an
 // unsent add can simply be dropped from the queue when the player erases it again.
@@ -21,6 +22,7 @@ class SM_DrawOpRec
 	ref array<int> m_aMeta;		// ADD
 	ref array<int> m_aPoints;	// ADD (x,z pairs)
 	ref array<int> m_aFramed;	// ERASE_PART
+	ref array<int> m_aPieceTemps;	// ERASE_PART: optimistic leftover-piece temps to drop on reconcile
 }
 
 class SM_DrawOutbox
@@ -36,6 +38,7 @@ class SM_DrawOutbox
 	protected static float s_fNextFlush = 0;						// next flush time (System.GetTickCount ms)
 	protected static int s_iSeq = 1;								// batch counter
 	protected static ref map<int, ref array<int>> s_mSentTemps = new map<int, ref array<int>>();	// seq -> ADD temp ids, in order
+	protected static ref map<int, ref array<int>> s_mSentErasePieces = new map<int, ref array<int>>();	// seq -> optimistic erase-piece temps to drop on reconcile
 	protected static ref set<int> s_ServerTemps = new set<int>();	// live optimistic temps (to tell them apart from Local-channel ids)
 	protected static ref set<int> s_KillOnReconcile = new set<int>();	// temps erased AFTER sending -> also remove the real stroke on reconcile
 
@@ -68,6 +71,7 @@ class SM_DrawOutbox
 		s_iPendingInts = 0;
 		s_fNextFlush = 0;
 		s_mSentTemps.Clear();
+		s_mSentErasePieces.Clear();
 		s_ServerTemps.Clear();
 		s_KillOnReconcile.Clear();
 	}
@@ -154,15 +158,60 @@ class SM_DrawOutbox
 			return;
 		}
 
-		SM_MapDrawingStore.GetInstance().ApplyRemove(id);	// optimistic: original vanishes; pieces come back via broadcast
+		// Optimistic: show the leftover pieces RIGHT AWAY (as temps) and drop the original, so
+		// only the erased part disappears — no whole-stroke flicker while the server round-trips.
+		// The server does the authoritative split (OP_ERASE_PART); our temps are dropped on
+		// reconcile once its real pieces have arrived via broadcast.
+		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
+		array<int> pieceTemps = {};
+		SM_MapDrawingData old = store.FindById(id);
+		if (old)
+			MakeErasePieces(old, framed, pieceTemps);
+		store.ApplyRemove(id);
+
 		SM_DrawOpRec op = new SM_DrawOpRec();
-		op.m_iType   = OP_ERASE_PART;
-		op.m_iRefId  = id;
-		op.m_aFramed = {};
+		op.m_iType       = OP_ERASE_PART;
+		op.m_iRefId      = id;
+		op.m_aFramed     = {};
 		op.m_aFramed.Copy(framed);
+		op.m_aPieceTemps = pieceTemps;
 		s_aOps.Insert(op);
 		s_iPendingInts += 3 + framed.Count();
 		Arm();
+	}
+
+	// Build the leftover pieces as optimistic temp strokes (store-only, negative ids, marked as
+	// server temps so a follow-up eraser stroke treats them as own). Returns their temp ids in
+	// outTemps. These are dropped on reconcile — the server's real pieces replace them.
+	protected static void MakeErasePieces(notnull SM_MapDrawingData old, notnull array<int> framed, array<int> outTemps)
+	{
+		if (framed.IsEmpty())
+			return;
+		int nPieces = framed[0];
+		int pos = 1;
+		int maxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
+		for (int p = 0; p < nPieces; p++)
+		{
+			if (pos >= framed.Count())
+				break;
+			int len = framed[pos];
+			pos++;
+			if (len < 2 || len > maxPts || pos + len * 2 > framed.Count())
+				break;
+			array<int> pts = {};
+			for (int k = 0; k < len * 2; k++)
+				pts.Insert(framed[pos + k]);
+			pos += len * 2;
+
+			SM_MapDrawingData piece = old.SM_Clone();
+			piece.m_iId = -1;
+			piece.SetPoints(pts);
+			SM_MapDrawingData created = SM_MapDrawingStore.GetInstance().LocalCreate(piece);
+			if (!created)
+				continue;
+			s_ServerTemps.Insert(created.m_iId);
+			outTemps.Insert(created.m_iId);
+		}
 	}
 
 	// Cancel an optimistic temp: remove it from the store, and from the queue if not sent yet;
@@ -254,6 +303,7 @@ class SM_DrawOutbox
 
 		array<int> blob = {};
 		array<int> temps = {};
+		array<int> erasePieces = {};
 		foreach (SM_DrawOpRec op : s_aOps)
 		{
 			if (!op)
@@ -278,12 +328,17 @@ class SM_DrawOutbox
 				blob.Insert(op.m_aFramed.Count());
 				for (int i = 0; i < op.m_aFramed.Count(); i++)
 					blob.Insert(op.m_aFramed[i]);
+				if (op.m_aPieceTemps)
+					for (int i = 0; i < op.m_aPieceTemps.Count(); i++)
+						erasePieces.Insert(op.m_aPieceTemps[i]);
 			}
 		}
 
 		s_aOps.Clear();
 		s_iPendingInts = 0;
 		s_mSentTemps.Set(seq, temps);
+		if (!erasePieces.IsEmpty())
+			s_mSentErasePieces.Set(seq, erasePieces);
 		pc.SM_DrawSendBatch(seq, blob);
 	}
 
@@ -292,12 +347,26 @@ class SM_DrawOutbox
 	// while in flight, remove its real counterpart too.
 	static void OnReconcile(int seq, array<int> realIds)
 	{
+		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
+
+		// Erase-part leftovers we showed optimistically: the server's real pieces have arrived
+		// via broadcast, so drop our temps now.
+		array<int> erasePieces = s_mSentErasePieces.Get(seq);
+		if (erasePieces)
+		{
+			s_mSentErasePieces.Remove(seq);
+			foreach (int ep : erasePieces)
+			{
+				store.ApplyRemove(ep);
+				s_ServerTemps.RemoveItem(ep);
+			}
+		}
+
 		array<int> temps = s_mSentTemps.Get(seq);
 		if (!temps)
 			return;
 		s_mSentTemps.Remove(seq);
 
-		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
 		for (int i = 0; i < temps.Count(); i++)
 		{
 			int tempId = temps[i];
