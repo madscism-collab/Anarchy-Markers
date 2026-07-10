@@ -236,7 +236,7 @@ SM_MapDrawingData AM_MarkerAPI.NewDrawing(int argb, int widthIdx, bool fill,
 
 ## 4. The Local channel (PERSONAL) — special behavior
 
-Since v2.1, Local markers/drawings **never touch the server.** They live in files on the player's machine (`$profile:SavingMarkers/SM_LocalMarkers.json` / `SM_LocalDrawings.json`), keyed by a per-game random server code and the player's faction.
+Since v1.0.21, Local markers/drawings **never touch the server.** They live in files on the player's machine (`$profile:SavingMarkers/SM_LocalMarkers.json` / `SM_LocalDrawings.json`), keyed by a per-game random server code and the player's faction.
 
 Consequences for API users:
 

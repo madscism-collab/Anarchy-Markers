@@ -40,6 +40,22 @@ class SM_RenderStroke
 	}
 }
 
+// One own server stroke being cut by an eraser drag. The cutting runs on the client against the
+// ORIGINAL geometry (progressive, as temps), and a single authoritative erase-part is sent for the
+// original real id when the drag ends — the id is still valid on the server because nothing went out
+// mid-drag. Sending per hit instead would need the server's piece ids, which don't come back in time.
+class SM_EraseWork
+{
+	int m_iOrigId;		// the original server stroke id (>= 1)
+	int m_iColor;
+	int m_iWidthIdx;
+	int m_iVis;
+	int m_iChannel;
+	int m_iOwnerId;
+	ref array<ref array<int>> m_aPieces = {};	// leftover pieces so far (each: x,z,... world ints)
+	ref array<int> m_aTemps = {};				// store temps currently showing those pieces
+}
+
 class SM_DrawCanvas
 {
 	protected CanvasWidget   m_wCanvas;			// закомічені штрихи (тесселяція раз на зум, пан = SetOffsetPx)
@@ -142,10 +158,16 @@ class SM_DrawCanvas
 	protected const float SAMPLE_MIN_DIST = 3.0;	// мін. світова відстань між семплами (м)
 	protected const float ERASE_SLACK_PX  = 2.0;	// невеликий доп. поріг гумки (фіз. px)
 
-	// Гумка (фотошопна): тягнеш — стирає ВСІ штрихи, яких торкається круг гумки.
-	// Один RPC на штрих за перетяг (сет захищає від спаму, поки сервер підтверджує).
+	// Photoshop-style eraser: drag it and everything the circle touches gets erased. This set holds
+	// the strokes already handled once this drag (Local strokes, others' whole removes, add-temps) so
+	// a single pass isn't repeated. Own REAL server strokes are tracked as works instead (below).
 	protected ref set<int> m_ErasedThisDrag = new set<int>();
 	protected bool m_bErasing;
+	// Own server strokes cut by the CURRENT drag: cut client-side against the original geometry,
+	// one erase-part sent per stroke at drag end (see SM_EraseWork). m_EraseWorkTemps holds the ids
+	// of the temps these works show, so the eraser loop skips its own optimistic pieces.
+	protected ref array<ref SM_EraseWork> m_aEraseWork = {};
+	protected ref set<int> m_EraseWorkTemps = new set<int>();
 	// Shift + pencil draws a polyline. While Shift is held every click continues from the end of the
 	// previous segment, and the whole chain commits as ONE stroke once Shift goes up (or the point
 	// cap is hit, or the tool changes).
@@ -552,6 +574,7 @@ class SM_DrawCanvas
 	{
 		if (m_iTool == 1)
 		{
+			FinishErase();
 			m_bErasing = false;
 			m_ErasedThisDrag.Clear();
 			return;
@@ -602,6 +625,7 @@ class SM_DrawCanvas
 		m_iLineFixedInts = 0;
 		m_aCapture.Clear();
 		m_aPreviewCmds.Clear();
+		FinishErase();
 		m_bErasing = false;
 		m_ErasedThisDrag.Clear();
 	}
@@ -838,10 +862,12 @@ class SM_DrawCanvas
 		}
 	}
 
-	// Гумка (фотошопна): стирає лише те, ЧОГО ТОРКАЄТЬСЯ круг гумки. Для ВЛАСНИХ штрихів —
-	// часткове стирання: вирізаємо накриті кругом вершини/сегменти, а решту шматків штрих
-	// розрізається (один RPC «заміни штрих на шматки»). Чужі штрихи не чіпаємо (GM стирає
-	// цілком, кліком). Уся геометрія — у СВІТОВИХ метрах: поріг = радіус гумки + пів-ширини штриха.
+	// Photoshop-style eraser: removes only what the eraser circle TOUCHES. Own server strokes are
+	// cut client-side against their ORIGINAL geometry for the whole drag (progressive, shown as
+	// temps); one authoritative erase-part per stroke goes out when the drag ends (see SM_EraseWork
+	// and FinishErase) — sending per hit would need the server's piece ids, which don't arrive in
+	// time and left later cuts unsynced. Local strokes are cut in the client file, others' strokes a
+	// GM can wipe whole. All geometry is in WORLD metres: threshold = eraser radius + half stroke width.
 	protected void EraseHit(int wx, int wz)
 	{
 		if (!m_Map)
@@ -852,35 +878,39 @@ class SM_DrawCanvas
 			return;
 		int myId = pc.GetPlayerId();
 
+		float eraserRad = WidthMeters(s_iWidthIdx) * 0.5;
+
+		// Keep cutting the own strokes this drag already picked up — their temps follow the eraser.
+		foreach (SM_EraseWork work : m_aEraseWork)
+			ApplyStampToWork(work, wx, wz, eraserRad);
+
 		array<SM_MapDrawingData> all = {};
 		SM_MapDrawingStore.GetInstance().GetAll(all);
-
-		float eraserRad = WidthMeters(s_iWidthIdx) * 0.5;
 
 		foreach (SM_MapDrawingData d : all)
 		{
 			if (!d || d.GetPointCount() < 1)
 				continue;
+			if (m_EraseWorkTemps.Contains(d.m_iId))
+				continue;	// our own drag piece — handled by the works above
 			if (m_ErasedThisDrag.Contains(d.m_iId))
 				continue;
 			// Залочений зевсом штрих у не-GM гумка тихо оминає (сервер однаково відхилить; Del покаже чому).
 			if (d.m_iGmLocked != 0 && !m_bEditorMap)
 				continue;
+			if (d.m_iFill != 0)
+				continue;	// гумка заливки НЕ чіпає (інакше зачепиш заливку під лініями, які правиш); видалення — Del/X
 
 			float thr = eraserRad + WidthMeters(d.m_iWidthIdx) * 0.5;
 			float thrSq = thr * thr;
 
-			if (d.m_iFill != 0)
-				continue;	// гумка заливки НЕ чіпає (інакше зачепиш заливку під лініями, які правиш); видалення — Del/X
-
 			// Local-CHANNEL stroke (id <= -2, but NOT an optimistic server temp): cut/erase it in
-			// the client file. Server temps (also negative) don't land here — SM_DrawOutbox below.
+			// the client file. Server temps (also negative) fall to the branches below.
 			if (SM_MapDrawingStore.IsLocalId(d.m_iId) && !SM_DrawOutbox.IsServerTemp(d.m_iId))
 			{
 				array<int> lframed = {};
-				int lchange = SplitStrokeByEraser(d, wx, wz, thrSq, lframed);
-				if (lchange == 0)
-					continue;	// not touched
+				if (SplitStrokeByEraser(d, wx, wz, thrSq, lframed) == 0)
+					continue;
 				m_ErasedThisDrag.Insert(d.m_iId);
 				SM_LocalEraseStroke(d, lframed);
 				continue;
@@ -893,40 +923,208 @@ class SM_DrawCanvas
 				if (WorldDistSqToStroke(d, wx, wz) <= thrSq)
 				{
 					m_ErasedThisDrag.Insert(d.m_iId);
-					SM_DrawOutbox.SubmitRemove(d.m_iId);	// batched/optimistic (or instant)
+					SM_DrawOutbox.SubmitRemove(d.m_iId);
 				}
 				continue;
 			}
 
-			// Own stroke (real or optimistic temp): compute the pieces outside the eraser circle.
-			array<int> framed = {};
-			int change = SplitStrokeByEraser(d, wx, wz, thrSq, framed);
-			if (change == 0)
-				continue;	// not touched
+			// Own optimistic ADD temp (not confirmed yet): keep the local split — it re-adds the
+			// pieces as fresh adds, so they still reach the server. No real id to accumulate against.
+			if (SM_DrawOutbox.IsServerTemp(d.m_iId))
+			{
+				array<int> tframed = {};
+				if (SplitStrokeByEraser(d, wx, wz, thrSq, tframed) == 0)
+					continue;
+				m_ErasedThisDrag.Insert(d.m_iId);
+				if (tframed.IsEmpty())
+					SM_DrawOutbox.SubmitRemove(d.m_iId);
+				else
+					SM_DrawOutbox.SubmitErasePart(d.m_iId, tframed);
+				continue;
+			}
 
-			m_ErasedThisDrag.Insert(d.m_iId);
-			if (framed.IsEmpty())
-				SM_DrawOutbox.SubmitRemove(d.m_iId);		// everything got erased
+			// Own real server stroke.
+			if (SM_DrawOutbox.Enabled())
+			{
+				// Batched remote client: the store is a client replica, so hiding the original is pure
+				// optimism. Start a drag work (cut the copy client-side) only if the eraser really cuts
+				// it; one authoritative erase-part goes out at drag end (StartEraseWork / FinishErase).
+				array<ref array<int>> firstPieces = {};
+				if (!CutPtsByCircle(d.m_aPoints, wx, wz, thrSq, firstPieces))
+					continue;
+				StartEraseWork(d, firstPieces);
+			}
 			else
-				SM_DrawOutbox.SubmitErasePart(d.m_iId, framed);	// replace the stroke with pieces (a temp splits locally)
+			{
+				// Host / no batching: the store is authoritative and the erase-part runs immediately,
+				// so the leftover pieces come back as REAL strokes the continuing drag can re-cut.
+				// Removing the original here (as a work would) before the RPC would delete it outright.
+				array<int> framed = {};
+				if (SplitStrokeByEraser(d, wx, wz, thrSq, framed) == 0)
+					continue;
+				m_ErasedThisDrag.Insert(d.m_iId);
+				if (framed.IsEmpty())
+					SM_DrawOutbox.SubmitRemove(d.m_iId);
+				else
+					SM_DrawOutbox.SubmitErasePart(d.m_iId, framed);
+			}
 		}
 	}
 
-	// Розрізати полілінію кругом гумки (центр wx,wz; поріг² thrSq, метри).
-	// Вершина видаляється, якщо в крузі; додатково рвемо шматок між двома ЗОВНІШНІМИ вершинами,
-	// якщо сам сегмент проходить крізь круг (швидкий мах гумкою поперек лінії).
-	// out framed: [кількість_шматків, довжина1(точок), x,z,..., довжина2, ...]. Повертає 1 якщо щось зрізано, 0 — ні.
-	protected int SplitStrokeByEraser(notnull SM_MapDrawingData d, int ex, int ez, float thrSq, array<int> framed)
+	// Begin cutting an own real stroke this drag: snapshot its meta, hide the original, show the
+	// pieces the first stamp already produced.
+	protected void StartEraseWork(notnull SM_MapDrawingData d, array<ref array<int>> firstPieces)
 	{
-		int n = d.GetPointCount();
-		array<ref array<int>> pieces = {};
+		SM_EraseWork work = new SM_EraseWork();
+		work.m_iOrigId   = d.m_iId;
+		work.m_iColor    = d.m_iColor;
+		work.m_iWidthIdx = d.m_iWidthIdx;
+		work.m_iVis      = d.m_iVisibility;
+		work.m_iChannel  = d.m_iChannel;
+		work.m_iOwnerId  = d.m_iOwnerId;
+		work.m_aPieces   = firstPieces;
+		SM_MapDrawingStore.GetInstance().ApplyRemove(d.m_iId);	// hide it; the server copy stays until drag end
+		m_aEraseWork.Insert(work);
+		RefreshWorkTemps(work);
+	}
+
+	// Cut every leftover piece of a work by one more eraser stamp; refresh the temps if anything changed.
+	protected void ApplyStampToWork(notnull SM_EraseWork work, int ex, int ez, float eraserRad)
+	{
+		float thr = eraserRad + WidthMeters(work.m_iWidthIdx) * 0.5;
+		float thrSq = thr * thr;
+		array<ref array<int>> next = {};
+		bool changed = false;
+		foreach (array<int> piece : work.m_aPieces)
+		{
+			array<ref array<int>> cut = {};
+			if (CutPtsByCircle(piece, ex, ez, thrSq, cut))
+			{
+				changed = true;
+				foreach (array<int> c : cut)
+					next.Insert(c);
+			}
+			else
+			{
+				next.Insert(piece);
+			}
+		}
+		if (!changed)
+			return;
+		work.m_aPieces = next;
+		RefreshWorkTemps(work);
+	}
+
+	// Replace a work's visible temps with fresh ones matching its current pieces.
+	protected void RefreshWorkTemps(notnull SM_EraseWork work)
+	{
+		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
+		foreach (int t : work.m_aTemps)
+		{
+			store.ApplyRemove(t);
+			m_EraseWorkTemps.Remove(t);
+		}
+		work.m_aTemps.Clear();
+
+		foreach (array<int> piece : work.m_aPieces)
+		{
+			if (piece.Count() < 4)
+				continue;
+			SM_MapDrawingData vis = new SM_MapDrawingData();
+			vis.m_iColor      = work.m_iColor;
+			vis.m_iWidthIdx   = work.m_iWidthIdx;
+			vis.m_iVisibility = work.m_iVis;
+			vis.m_iChannel    = work.m_iChannel;
+			vis.m_iFill       = 0;
+			vis.m_iOwnerId    = work.m_iOwnerId;
+			vis.SetPoints(piece);
+			SM_MapDrawingData created = store.LocalCreate(vis);
+			if (!created)
+				continue;
+			work.m_aTemps.Insert(created.m_iId);
+			m_EraseWorkTemps.Insert(created.m_iId);
+		}
+	}
+
+	// Drag ended: send one authoritative erase-part per work (or a full remove if nothing is left).
+	// The original real ids are still valid — nothing went to the server mid-drag.
+	protected void FinishErase()
+	{
+		if (m_aEraseWork.IsEmpty())
+			return;
+
+		int maxPieces = SM_DrawingNet.MAX_ERASE_PIECES;
+		foreach (SM_EraseWork work : m_aEraseWork)
+		{
+			array<int> temps = {};
+			temps.Copy(work.m_aTemps);
+
+			if (work.m_aPieces.IsEmpty())
+			{
+				SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
+				foreach (int t : temps)
+					store.ApplyRemove(t);
+				SM_DrawOutbox.SubmitRemove(work.m_iOrigId);
+				continue;
+			}
+
+			// The server caps pieces per erase; if a very wiggly drag made more, keep the longest so
+			// the request isn't rejected (dropping tiny slivers is what the eraser was doing anyway).
+			ClampPieces(work.m_aPieces, maxPieces);
+			array<int> framed = FramePieces(work.m_aPieces);
+			SM_DrawOutbox.AdoptErasePart(work.m_iOrigId, framed, temps);
+		}
+
+		m_aEraseWork.Clear();
+		m_EraseWorkTemps.Clear();
+	}
+
+	// Frame pieces into the wire format: [pieceCount, len1(points), x,z,..., len2, ...].
+	protected array<int> FramePieces(notnull array<ref array<int>> pieces)
+	{
+		array<int> framed = {};
+		framed.Insert(pieces.Count());
+		foreach (array<int> p : pieces)
+		{
+			framed.Insert(p.Count() / 2);
+			foreach (int v : p)
+				framed.Insert(v);
+		}
+		return framed;
+	}
+
+	// Keep only the `cap` longest pieces (in place). No-op when already within the cap.
+	protected void ClampPieces(notnull array<ref array<int>> pieces, int cap)
+	{
+		if (cap < 1 || pieces.Count() <= cap)
+			return;
+		// simple selection: repeatedly drop the shortest until we fit
+		while (pieces.Count() > cap)
+		{
+			int shortest = 0;
+			for (int i = 1; i < pieces.Count(); i++)
+			{
+				if (pieces[i].Count() < pieces[shortest].Count())
+					shortest = i;
+			}
+			pieces.Remove(shortest);
+		}
+	}
+
+	// Cut a polyline (x,z world ints) by one eraser circle (centre ex,ez; threshold² thrSq, metres).
+	// A vertex inside the circle is dropped; a segment between two OUTSIDE vertices is also broken if
+	// it passes through the circle (a quick swipe across the line). outPieces gets the surviving runs
+	// (>= 2 points each). Returns true if anything was cut.
+	protected bool CutPtsByCircle(notnull array<int> pts, int ex, int ez, float thrSq, array<ref array<int>> outPieces)
+	{
+		int n = pts.Count() / 2;
 		array<int> cur = {};
 		bool changed = false;
 
 		for (int i = 0; i < n; i++)
 		{
-			int px, pz;
-			d.GetPoint(i, px, pz);
+			int px = pts[i * 2];
+			int pz = pts[i * 2 + 1];
 			float dx = px - ex;
 			float dz = pz - ez;
 			bool inside = (dx * dx + dz * dz) <= thrSq;
@@ -934,43 +1132,42 @@ class SM_DrawCanvas
 			if (inside)
 			{
 				changed = true;
-				ClosePiece(cur, pieces);
+				ClosePiece(cur, outPieces);
 				continue;
 			}
 
 			cur.Insert(px);
 			cur.Insert(pz);
 
-			// Обидві вершини зовні, але сегмент i→i+1 проходить крізь круг → розрив.
 			if (i < n - 1)
 			{
-				int qx, qz;
-				d.GetPoint(i + 1, qx, qz);
+				int qx = pts[(i + 1) * 2];
+				int qz = pts[(i + 1) * 2 + 1];
 				float qdx = qx - ex;
 				float qdz = qz - ez;
 				if ((qdx * qdx + qdz * qdz) > thrSq
 					&& PointToSegDistSq(ex, ez, px, pz, qx, qz) <= thrSq)
 				{
 					changed = true;
-					ClosePiece(cur, pieces);
+					ClosePiece(cur, outPieces);
 				}
 			}
 		}
-		ClosePiece(cur, pieces);
+		ClosePiece(cur, outPieces);
+		return changed;
+	}
 
-		if (!changed)
+	// Frame a whole stroke cut by one eraser circle (used by the Local-file and add-temp paths, which
+	// erase in a single shot). out framed: [pieceCount, len1, x,z,..., ...]; empty = everything erased.
+	// Returns 1 if anything was cut, 0 otherwise.
+	protected int SplitStrokeByEraser(notnull SM_MapDrawingData d, int ex, int ez, float thrSq, array<int> framed)
+	{
+		array<ref array<int>> pieces = {};
+		if (!CutPtsByCircle(d.m_aPoints, ex, ez, thrSq, pieces))
 			return 0;
-
-		framed.Clear();
-		framed.Insert(pieces.Count());
-		foreach (array<int> p : pieces)
-		{
-			framed.Insert(p.Count() / 2);
-			for (int k = 0; k < p.Count(); k++)
-				framed.Insert(p[k]);
-		}
+		framed.Copy(FramePieces(pieces));
 		if (pieces.IsEmpty())
-			framed.Clear();	// стерто все — сигнал «повне видалення»
+			framed.Clear();	// everything erased — signal a full removal
 		return 1;
 	}
 

@@ -8,9 +8,10 @@
 //
 // Reconcile: the server returns the real id of every ADD in order; the client then drops
 // its optimistic temp (the real stroke already arrived via broadcast). A whole remove hides
-// the stroke at once. A partial erase shows the leftover pieces at once (as temps) and drops
-// the original, so only the erased part disappears — no whole-stroke flicker; the server's
-// authoritative pieces arrive via broadcast and the temps are dropped on reconcile.
+// the stroke at once. A partial erase is driven by the eraser drag (SM_DrawCanvas): it cuts
+// the stroke client-side and shows the leftover pieces as temps, then hands them here via
+// AdoptErasePart with one erase-part for the whole drag; those temps drop on reconcile once the
+// server's authoritative pieces have arrived via broadcast.
 
 // One queued operation. Encoded into the flat int blob only at send time — that way an
 // unsent add can simply be dropped from the queue when the player erases it again.
@@ -148,9 +149,11 @@ class SM_DrawOutbox
 			return;
 		}
 
+		// Only reached for an optimistic ADD temp (a real stroke erases through AdoptErasePart, which
+		// keeps the drag's own progressive pieces). The temp isn't confirmed yet: cancel its add and
+		// re-add the leftover pieces as fresh optimistic adds.
 		if (IsServerTemp(id))
 		{
-			// The temp hasn't been confirmed yet: cancel its add and re-add the pieces as new optimistic adds.
 			SM_MapDrawingData old = SM_MapDrawingStore.GetInstance().FindById(id);
 			if (old)
 				SplitTempIntoPieces(old, framed);
@@ -158,60 +161,51 @@ class SM_DrawOutbox
 			return;
 		}
 
-		// Optimistic: show the leftover pieces RIGHT AWAY (as temps) and drop the original, so
-		// only the erased part disappears — no whole-stroke flicker while the server round-trips.
-		// The server does the authoritative split (OP_ERASE_PART); our temps are dropped on
-		// reconcile once its real pieces have arrived via broadcast.
-		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
-		array<int> pieceTemps = {};
-		SM_MapDrawingData old = store.FindById(id);
-		if (old)
-			MakeErasePieces(old, framed, pieceTemps);
-		store.ApplyRemove(id);
+		// Fallback for an unexpected real id: drop it and queue the erase; the server splits it and
+		// broadcasts the pieces. (Not used by the normal eraser path — kept defensive.)
+		SM_MapDrawingStore.GetInstance().ApplyRemove(id);
+		SM_DrawOpRec op = new SM_DrawOpRec();
+		op.m_iType   = OP_ERASE_PART;
+		op.m_iRefId  = id;
+		op.m_aFramed = {};
+		op.m_aFramed.Copy(framed);
+		s_aOps.Insert(op);
+		s_iPendingInts += 3 + framed.Count();
+		Arm();
+	}
+
+	// Partial erase whose leftover pieces the CALLER already shows as temps (the eraser drag builds
+	// them client-side against the original geometry and sends one erase-part when the drag ends).
+	// We adopt those temps instead of making our own: mark them as server temps (so a later eraser
+	// treats them as own) and drop them on reconcile once the server's real pieces arrive.
+	static void AdoptErasePart(int id, notnull array<int> framed, notnull array<int> temps)
+	{
+		if (!Enabled())
+		{
+			// Direct path has no reconcile: drop the temps and let the immediate broadcast show the
+			// authoritative pieces (on a listen-host that broadcast is a local, same-frame call).
+			SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
+			foreach (int t : temps)
+				store.ApplyRemove(t);
+			SCR_PlayerController pc = LocalPC();
+			if (pc)
+				pc.SM_DrawRequestErasePart(id, framed);
+			return;
+		}
+
+		foreach (int t : temps)
+			s_ServerTemps.Insert(t);
 
 		SM_DrawOpRec op = new SM_DrawOpRec();
 		op.m_iType       = OP_ERASE_PART;
 		op.m_iRefId      = id;
 		op.m_aFramed     = {};
 		op.m_aFramed.Copy(framed);
-		op.m_aPieceTemps = pieceTemps;
+		op.m_aPieceTemps = {};
+		op.m_aPieceTemps.Copy(temps);
 		s_aOps.Insert(op);
 		s_iPendingInts += 3 + framed.Count();
 		Arm();
-	}
-
-	// Build the leftover pieces as optimistic temp strokes (store-only, negative ids, marked as
-	// server temps so a follow-up eraser stroke treats them as own). Returns their temp ids in
-	// outTemps. These are dropped on reconcile — the server's real pieces replace them.
-	protected static void MakeErasePieces(notnull SM_MapDrawingData old, notnull array<int> framed, array<int> outTemps)
-	{
-		if (framed.IsEmpty())
-			return;
-		int nPieces = framed[0];
-		int pos = 1;
-		int maxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
-		for (int p = 0; p < nPieces; p++)
-		{
-			if (pos >= framed.Count())
-				break;
-			int len = framed[pos];
-			pos++;
-			if (len < 2 || len > maxPts || pos + len * 2 > framed.Count())
-				break;
-			array<int> pts = {};
-			for (int k = 0; k < len * 2; k++)
-				pts.Insert(framed[pos + k]);
-			pos += len * 2;
-
-			SM_MapDrawingData piece = old.SM_Clone();
-			piece.m_iId = -1;
-			piece.SetPoints(pts);
-			SM_MapDrawingData created = SM_MapDrawingStore.GetInstance().LocalCreate(piece);
-			if (!created)
-				continue;
-			s_ServerTemps.Insert(created.m_iId);
-			outTemps.Insert(created.m_iId);
-		}
 	}
 
 	// Cancel an optimistic temp: remove it from the store, and from the queue if not sent yet;
