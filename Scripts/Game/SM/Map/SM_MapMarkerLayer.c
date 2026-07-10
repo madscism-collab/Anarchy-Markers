@@ -102,6 +102,24 @@ modded class SCR_MapMarkersUI
 	protected Widget m_wSMMapFrame;		// MapFrame, до нього чіпляємо наші іконки
 	protected bool   m_bSMOwnFrame = false;	// true якщо m_wSMMapFrame — наш створений оверлей (GM-мапа), треба прибрати
 
+	// AM_EMapFeature mask for the map screen currently open. The player's map and the GM editor get
+	// everything; tablets, terminals and anything else default to view-only, so our hotkey listeners
+	// and panels stay out of other mods' map screens. See AM_MapFeatures.
+	protected int m_iSMFeatures = 31;	// AM_MapFeatures.FULL
+
+	protected bool SM_HasFeature(int f)
+	{
+		return (m_iSMFeatures & f) != 0;
+	}
+
+	// Render budget for always-on screens (AM_MapRenderPolicy). Radius 0 = no policy, current
+	// behavior: a visual exists for every marker in the store. With a radius set, visuals exist
+	// only near the view centre and the set is refreshed on a timer — cheap enough for a tablet
+	// that never closes. Positions of what IS shown stay exact every frame either way.
+	protected float m_fSMPolicyRadius;
+	protected int   m_iSMPolicyMembershipMs;
+	protected float m_fSMNextMembershipCheck;
+
 	// Малювання на мапі (полотно + панель параметрів). Лише на звичайній мапі гравця.
 	protected ref SM_DrawCanvas m_DrawCanvas;
 	protected ref SM_DrawPanel  m_DrawPanel;
@@ -306,6 +324,17 @@ modded class SCR_MapMarkersUI
 		super.OnMapOpen(config);
 		m_bSMMapOpen = true;
 		m_bSMEditorMap = (config && config.MapEntityMode == EMapEntityMode.EDITOR);	// кеш: режим не змінюється за час відкриття
+		m_iSMFeatures = AM_MapFeatures.ResolveForOpen(config);	// what we attach to this map screen
+
+		m_fSMPolicyRadius = 0;
+		m_iSMPolicyMembershipMs = 0;
+		m_fSMNextMembershipCheck = 0;
+		AM_MapRenderPolicy policy = AM_MapFeatures.ResolvePolicyForOpen(config);
+		if (policy)
+		{
+			m_fSMPolicyRadius = policy.m_fRadiusMeters;
+			m_iSMPolicyMembershipMs = policy.m_iMembershipMs;
+		}
 		m_bSMNeedReposition = true;	// перший кадр — спозиціонувати все
 		m_fSMLastZoom = -1;
 		m_iSMLastRefX = -99999;
@@ -324,7 +353,9 @@ modded class SCR_MapMarkersUI
 
 		// Полотно малювання + панель: на звичайній мапі гравця завжди (якщо дозволено конфігом);
 		// у GM-мапі теж створюємо — рендер керується кнопкою «Player drawings», панель — «Drawing tools».
-		if (m_wSMMapFrame && SM_MarkerConfig.GetInstance().m_bAllowDrawing)
+		// A view-only screen gets the canvas but no panel: drawings render, no tool can be armed.
+		if (m_wSMMapFrame && SM_MarkerConfig.GetInstance().m_bAllowDrawing
+			&& SM_HasFeature(AM_EMapFeature.DRAWINGS | AM_EMapFeature.DRAWING_TOOLS))
 		{
 			CanvasWidget cv = CanvasWidget.Cast(GetGame().GetWorkspace().CreateWidget(
 				WidgetType.CanvasWidgetTypeID,
@@ -336,8 +367,12 @@ modded class SCR_MapMarkersUI
 				FrameSlot.SetAnchorMax(cv, 1, 1);
 				m_DrawCanvas = new SM_DrawCanvas();
 				m_DrawCanvas.Init(cv, m_MapEntity, m_wSMMapFrame, m_bSMEditorMap);
-				m_DrawPanel = new SM_DrawPanel();
-				m_DrawPanel.Build(m_DrawCanvas, m_wSMMapFrame, m_bSMEditorMap);
+				m_DrawCanvas.SetRenderRadius(m_fSMPolicyRadius);
+				if (SM_HasFeature(AM_EMapFeature.DRAWING_TOOLS))
+				{
+					m_DrawPanel = new SM_DrawPanel();
+					m_DrawPanel.Build(m_DrawCanvas, m_wSMMapFrame, m_bSMEditorMap);
+				}
 			}
 		}
 
@@ -347,28 +382,43 @@ modded class SCR_MapMarkersUI
 
 		// ЛКМ (натиск/утримання/відпуск) обробляємо ПОЛЛІНГОМ сирого MouseLeft у Update —
 		// MapSelect дає повторні/миттєві DOWN/UP і непридатний для детекту утримання.
+		// Listeners go in only for the features this screen actually has. Hiding a panel is not
+		// enough: a registered listener keeps swallowing the key while the map is open.
 		InputManager im = GetGame().GetInputManager();
-		im.AddActionListener("MapContextualMenu", EActionTrigger.DOWN, SM_OnContext);
-		im.AddActionListener("MapMarkerDelete",   EActionTrigger.DOWN, SM_OnDelete);
-		im.AddActionListener("AM_PanelFocus",     EActionTrigger.DOWN, SM_OnPanelFocus);	// пад: LB → панель малювання
+		bool featMarkerTools = SM_HasFeature(AM_EMapFeature.MARKER_TOOLS);
+		bool featDrawTools = (m_DrawPanel != null);
+		if (featMarkerTools || featDrawTools)
+		{
+			im.AddActionListener("MapContextualMenu", EActionTrigger.DOWN, SM_OnContext);
+			im.AddActionListener("MapMarkerDelete",   EActionTrigger.DOWN, SM_OnDelete);
+		}
+		if (featDrawTools)
+		{
+			im.AddActionListener("AM_PanelFocus", EActionTrigger.DOWN, SM_OnPanelFocus);	// пад: LB → панель малювання
 
-		// Пад-режим панелі: ванільні шорткати інструментів мапи (подвійний тап хрестовини = компас/
-		// лінійка) не заглушити конфігом — тож відкочуємо: щойно інструмент увімкнувся в цей час,
-		// одразу вимикаємо його назад.
-		SCR_MapToolEntry.GetOnEntryToggledInvoker().Insert(SM_OnToolToggledGuard);
-		// Консольна навігація діалогу (секційна модель): слухаємо Menu* DOWN, діємо лише коли активний контролер.
-		im.AddActionListener("MenuUp",     EActionTrigger.DOWN, SM_NavUp);
-		im.AddActionListener("MenuDown",   EActionTrigger.DOWN, SM_NavDown);
-		im.AddActionListener("MenuLeft",   EActionTrigger.DOWN, SM_NavLeft);
-		im.AddActionListener("MenuRight",  EActionTrigger.DOWN, SM_NavRight);
-		im.AddActionListener("MenuSelect", EActionTrigger.DOWN, SM_NavSelect);
-		im.AddActionListener("MenuBack",   EActionTrigger.DOWN, SM_NavBack);
-		im.AddActionListener("MenuTabLeft",  EActionTrigger.DOWN, SM_NavTab);	// LB — перемикання вкладки іконок
-		im.AddActionListener("MenuTabRight", EActionTrigger.DOWN, SM_NavTab);	// RB
-		// Place (Y / AM_Place) опитуємо в SM_NavTick (надійніше за DOWN-слухача з фільтром Pressed).
+			// Пад-режим панелі: ванільні шорткати інструментів мапи (подвійний тап хрестовини = компас/
+			// лінійка) не заглушити конфігом — тож відкочуємо: щойно інструмент увімкнувся в цей час,
+			// одразу вимикаємо його назад.
+			SCR_MapToolEntry.GetOnEntryToggledInvoker().Insert(SM_OnToolToggledGuard);
+		}
+		if (featMarkerTools)
+		{
+			// Консольна навігація діалогу (секційна модель): слухаємо Menu* DOWN, діємо лише коли активний контролер.
+			im.AddActionListener("MenuUp",     EActionTrigger.DOWN, SM_NavUp);
+			im.AddActionListener("MenuDown",   EActionTrigger.DOWN, SM_NavDown);
+			im.AddActionListener("MenuLeft",   EActionTrigger.DOWN, SM_NavLeft);
+			im.AddActionListener("MenuRight",  EActionTrigger.DOWN, SM_NavRight);
+			im.AddActionListener("MenuSelect", EActionTrigger.DOWN, SM_NavSelect);
+			im.AddActionListener("MenuBack",   EActionTrigger.DOWN, SM_NavBack);
+			im.AddActionListener("MenuTabLeft",  EActionTrigger.DOWN, SM_NavTab);	// LB — перемикання вкладки іконок
+			im.AddActionListener("MenuTabRight", EActionTrigger.DOWN, SM_NavTab);	// RB
+			// Place (Y / AM_Place) опитуємо в SM_NavTick (надійніше за DOWN-слухача з фільтром Pressed).
+		}
 
-		SM_BuildHint();		// у GM-мапі показуємо GM-підказки (SM_UpdateHint має окрему гілку для редактора)
-		SM_BuildTooltip();	// тултіп при наведенні — у будь-якій мапі (зокрема GM)
+		if (featMarkerTools || featDrawTools)
+			SM_BuildHint();		// no point advertising controls that aren't wired up
+		if (SM_HasFeature(AM_EMapFeature.MARKERS))
+			SM_BuildTooltip();	// тултіп при наведенні — у будь-якій мапі (зокрема GM)
 
 		// Просимо актуальні мітки при кожному відкритті мапи (на хості SM_RequestSync сам no-op).
 		// Гарантує мітки навіть якщо мапу відкрили з deploy-екрана ще до спавну (перший синк по
@@ -383,6 +433,9 @@ modded class SCR_MapMarkersUI
 
 	override void OnMapClose(MapConfiguration config)
 	{
+		if (m_DrawCanvas)
+			m_DrawCanvas.FinishLineChain();	// map closed mid-polyline; keep what was drawn
+
 		SM_DrawOutbox.Flush();	// the map is closing and Tick stops — send whatever draw ops are still buffered
 
 		SM_GmState.s_OnMarkerViewChanged.Remove(SM_OnGmViewChanged);
@@ -516,6 +569,9 @@ modded class SCR_MapMarkersUI
 
 		SM_PollMouse();		// натиск/утримання/відпуск ЛКМ (до позиціонування цього кадру)
 		s_bSMCarrying = (m_iSMCarryId != -1);	// для SM_DisableRadial: ПКМ під час перенесення не відкриває радіалку
+
+		if (m_fSMPolicyRadius > 0)
+			SM_TickPolicyMembership();
 		SM_UpdateHint();
 		SM_UpdateTooltip();	// «Edited by» при наведенні
 		if (SM_IsEditorMap())
@@ -1160,10 +1216,87 @@ modded class SCR_MapMarkersUI
 			SM_RebuildAllVisuals();
 	}
 
+	// --- Render policy (always-on screens) ---
+
+	//! World position under the middle of the map widget. false while the layout isn't ready.
+	protected bool SM_GetViewCenterWorld(out int wx, out int wy)
+	{
+		if (!m_wSMMapFrame)
+			return false;
+		CanvasWidget mapW = m_MapEntity.GetMapWidget();
+		if (!mapW)
+			return false;
+
+		float mx, my, mw, mh;
+		mapW.GetScreenPos(mx, my);
+		mapW.GetScreenSize(mw, mh);
+		if (mw <= 0 || mh <= 0)
+			return false;
+
+		float fx, fy;
+		m_wSMMapFrame.GetScreenPos(fx, fy);
+
+		float cwx, cwy;
+		m_MapEntity.ScreenToWorld(mx - fx + mw * 0.5, my - fy + mh * 0.5, cwx, cwy);
+		wx = cwx;
+		wy = cwy;
+		return true;
+	}
+
+	//! slackMul > 1 gives the keep-alive hysteresis so markers at the edge don't churn.
+	protected bool SM_WithinPolicyRadius(int wx, int wy, float slackMul)
+	{
+		int cx, cy;
+		if (!SM_GetViewCenterWorld(cx, cy))
+			return true;	// can't tell yet — better to show than to drop
+
+		float r = m_fSMPolicyRadius * slackMul;
+		float dx = wx - cx;
+		float dy = wy - cy;
+		return dx * dx + dy * dy <= r * r;
+	}
+
+	// Throttled visible-set maintenance: create visuals for markers that entered the radius, drop
+	// the ones that left it. Runs at the policy interval, so a tablet gliding across the map costs
+	// one pass over the store every few seconds instead of every frame. Distance checks only when
+	// nothing changed.
+	protected void SM_TickPolicyMembership()
+	{
+		float now = System.GetTickCount();
+		if (now < m_fSMNextMembershipCheck)
+			return;
+		m_fSMNextMembershipCheck = now + m_iSMPolicyMembershipMs;
+
+		array<SM_MapMarkerData> all = {};
+		SM_MapMarkerStore.GetInstance().GetAll(all);
+		foreach (SM_MapMarkerData d : all)
+		{
+			if (!d)
+				continue;
+			if (d.m_iId == m_iSMCarryId || d.m_iId == m_iSMHiddenMarkerId)
+				continue;	// mid-interaction, hands off
+
+			if (m_mSMVisuals.Contains(d.m_iId))
+			{
+				if (!SM_WithinPolicyRadius(d.m_iPosX, d.m_iPosY, 1.25))
+					SM_OnMarkerRemoved(d.m_iId);	// drops the visual; the data stays in the store
+			}
+			else if (SM_WithinPolicyRadius(d.m_iPosX, d.m_iPosY, 1.0))
+			{
+				SM_CreateVisual(d);
+				m_bSMNeedReposition = true;
+			}
+		}
+	}
+
 	protected void SM_CreateVisual(notnull SM_MapMarkerData data)
 	{
 		if (!m_bSMMapOpen || !m_wSMMapFrame)
 			return;
+		if (!SM_HasFeature(AM_EMapFeature.MARKERS))	// marker rendering disabled on this map screen
+			return;
+		if (m_fSMPolicyRadius > 0 && !SM_WithinPolicyRadius(data.m_iPosX, data.m_iPosY, 1.0))
+			return;	// out of budget; SM_TickPolicyMembership picks it up once the view gets close
 		if (!SM_PassesGmFilter(data))
 			return;
 		SM_CreateVisualInner(data);
@@ -2230,14 +2363,14 @@ modded class SCR_MapMarkersUI
 		int wx, wy;
 		bool haveWorld = SM_GetCursorWorld(wx, wy);
 
+		// Shift chains straight segments into one polyline: each click continues from the end of the
+		// previous one, and letting Shift go commits the whole thing as a single stroke.
+		bool lineMode = im.GetActionValue("AM_LineModifier") > 0.5;
+
 		if (down && !m_bSMDrawDown)
 		{
 			if (haveWorld && !overPanel)
-			{
-				// Shift затиснуто → режим прямої лінії (від точки натиску до відпуску).
-				bool lineMode = im.GetActionValue("AM_LineModifier") > 0.5;
 				m_DrawCanvas.OnPressDown(wx, wy, lineMode);
-			}
 		}
 		else if (down && m_bSMDrawDown)
 		{
@@ -2247,7 +2380,15 @@ modded class SCR_MapMarkersUI
 		else if (!down && m_bSMDrawDown)
 		{
 			if (haveWorld)
-				m_DrawCanvas.OnRelease(wx, wy);
+				m_DrawCanvas.OnRelease(wx, wy, lineMode);
+		}
+		else if (m_DrawCanvas.HasLineChain())
+		{
+			// LMB up with a chain open: trail the rubber band until Shift is released.
+			if (!lineMode)
+				m_DrawCanvas.FinishLineChain();
+			else if (haveWorld)
+				m_DrawCanvas.OnLineChainHover(wx, wy);
 		}
 		m_bSMDrawDown = down;
 	}
@@ -2303,6 +2444,7 @@ modded class SCR_MapMarkersUI
 		{
 			// --- Alt+ЛКМ (фронт натиску) — поставити копію останньої мітки гравця і спожити натиск ---
 			if (down && !m_bSMLmbDown && m_iSMCarryId == -1 && !m_bSMPointing
+				&& SM_HasFeature(AM_EMapFeature.MARKER_TOOLS)
 				&& SM_CopyModifierDown() && m_SMLastTemplate
 				&& SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
 			{
@@ -2324,9 +2466,12 @@ modded class SCR_MapMarkersUI
 				m_fSMPressY = SCR_MapCursorInfo.y;
 				m_bSMPickedThisPress = false;
 				m_iSMPressMarkerId = -1;
-				SM_MarkerVisual u = SM_FindMarkerUnderCursor();
-				if (u && u.m_Data)
-					m_iSMPressMarkerId = u.m_Data.m_iId;
+				if (SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))	// without tools a marker is not a pick target
+				{
+					SM_MarkerVisual u = SM_FindMarkerUnderCursor();
+					if (u && u.m_Data)
+						m_iSMPressMarkerId = u.m_Data.m_iId;
+				}
 			}
 
 			// --- УТРИМАННЯ на мітці (на місці) ≥ SM_HOLD_SEC → підняти ---
@@ -2350,6 +2495,7 @@ modded class SCR_MapMarkersUI
 			// --- УТРИМАННЯ на ПУСТОМУ місці ≥ SM_POINT_HOLD_SEC → режим «вказівник» (показати пальцем) ---
 			if (down && m_iSMCarryId == -1 && !m_bSMPointing && m_iSMPressMarkerId == -1
 				&& (now - m_fSMPressTime) >= SM_POINT_HOLD_SEC
+				&& SM_HasFeature(AM_EMapFeature.POINTER)
 				&& SM_MarkerConfig.GetInstance().m_bAllowPointer)	// вимкнено в конфізі — не входимо в режим
 			{
 				m_bSMPointing = true;
@@ -2413,7 +2559,8 @@ modded class SCR_MapMarkersUI
 					m_iSMCarryId = -1;
 					m_iSMPressMarkerId = -1;
 				}
-				else if (heldDur < SM_HOLD_SEC && SM_CursorNearPress())
+				else if (heldDur < SM_HOLD_SEC && SM_CursorNearPress()
+					&& SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))
 				{
 					// швидкий клік на місці → детект подвійного (редагувати/створити)
 					if (m_fSMLastSelectTime > 0 && (now - m_fSMLastSelectTime) <= SM_DOUBLECLICK_SEC)
@@ -2544,6 +2691,7 @@ modded class SCR_MapMarkersUI
 		{
 			// --- Y: копія останньої мітки в точку курсора ---
 			if (placeEdge && m_iSMCarryId == -1 && !m_bSMPointing
+				&& SM_HasFeature(AM_EMapFeature.MARKER_TOOLS)
 				&& m_SMLastTemplate && SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
 			{
 				SM_PlaceCopyAtCursor();
@@ -2551,12 +2699,14 @@ modded class SCR_MapMarkersUI
 			// --- X: видалити мітку під курсором (залочену зевсом не чіпаємо); нема мітки — штрих малюнка ---
 			else if (delEdge && m_iSMCarryId == -1 && !m_bSMPointing)
 			{
-				SM_MarkerVisual du = SM_FindMarkerUnderCursor();
+				SM_MarkerVisual du = null;
+				if (SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))
+					du = SM_FindMarkerUnderCursor();
 				if (du && du.m_Data && !SM_BlockedByLock(du.m_Data))
 				{
 					SM_DeleteMarkerById(du.m_Data.m_iId);	// Local or server
 				}
-				else if (!du || !du.m_Data)
+				else if ((!du || !du.m_Data) && m_DrawPanel)	// stroke erase = drawing tools feature
 				{
 					SM_TryDeleteStrokeAtCursor();
 				}
@@ -2570,9 +2720,12 @@ modded class SCR_MapMarkersUI
 				m_fSMPressY = SCR_MapCursorInfo.y;
 				m_bSMPickedThisPress = false;
 				m_iSMPressMarkerId = -1;
-				SM_MarkerVisual pu = SM_FindMarkerUnderCursor();
-				if (pu && pu.m_Data)
-					m_iSMPressMarkerId = pu.m_Data.m_iId;
+				if (SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))	// without tools a marker is not a pick target
+				{
+					SM_MarkerVisual pu = SM_FindMarkerUnderCursor();
+					if (pu && pu.m_Data)
+						m_iSMPressMarkerId = pu.m_Data.m_iId;
+				}
 			}
 
 			// --- A УТРИМАННЯ на мітці ≥ HOLD → підняти (далі слідує за курсором; відпуск поставить) ---
@@ -2595,6 +2748,7 @@ modded class SCR_MapMarkersUI
 			// --- A УТРИМАННЯ на ПУСТОМУ ≥ SM_POINT_HOLD_SEC → вказівник (показати пальцем) ---
 			if (confirm && m_iSMCarryId == -1 && !m_bSMPointing && m_iSMPressMarkerId == -1
 				&& (now - m_fSMPressTime) >= SM_POINT_HOLD_SEC
+				&& SM_HasFeature(AM_EMapFeature.POINTER)
 				&& SM_MarkerConfig.GetInstance().m_bAllowPointer)
 			{
 				m_bSMPointing = true;
@@ -2649,7 +2803,7 @@ modded class SCR_MapMarkersUI
 					}
 					m_iSMCarryId = -1;
 				}
-				else if (!m_bSMPickedThisPress)
+				else if (!m_bSMPickedThisPress && SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))
 				{
 					// швидкий тап (без утримання) → на мітці редагувати, на пустому створити (відкриваємо на UP)
 					SM_MarkerVisual u = SM_FindMarkerUnderCursor();
@@ -2802,12 +2956,14 @@ modded class SCR_MapMarkersUI
 		if (!m_bSMMapOpen || !SM_CanAcceptMapClick())
 			return;
 
-		SM_MarkerVisual vis = SM_FindMarkerUnderCursor();
+		SM_MarkerVisual vis = null;
+		if (SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))
+			vis = SM_FindMarkerUnderCursor();
 		if (!vis || !vis.m_Data)
 		{
 			// Мітки під курсором нема — може, там штрих малюнка? Del стирає його цілком
 			// (права перевіряє сервер: власник/GM).
-			if (m_DrawCanvas)
+			if (m_DrawCanvas && m_DrawPanel)	// stroke erase needs the drawing-tools feature
 			{
 				WorkspaceWidget dws = GetGame().GetWorkspace();
 				if (dws)
@@ -4070,7 +4226,7 @@ modded class SCR_MapMarkersUI
 			m_EditBoxComp.m_OnCancel.Insert(SM_OnEditCancelLock);
 		}
 
-		// --- РОЗМІР: повзунок "Size" (відсоток 25..500) ---
+		// --- РОЗМІР: повзунок "Size" (відсоток 25..1000, крок 10 — з layout) ---
 		m_SMSizeSlider = null;
 		Widget sizeW = m_MarkerEditRoot.FindAnyWidget("SliderSize");
 		if (sizeW)

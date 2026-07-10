@@ -291,6 +291,7 @@ FrameWidgetClass {
           SizeY 0
           OffsetBottom -13
          }
+         "Is Visible" 0
          {
           SmartPanelWidgetClass "{69C973EA070F3C03}" {
            Name "Background1"

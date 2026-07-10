@@ -1,57 +1,60 @@
-// Публічний API мода "Anarchy Markers" для інших модів. Єдина стабільна точка входу,
-// в наші внутрішні класи (SM_MapMarkerStore, SM_MarkerNet тощо) напряму лізти не треба.
+// Public API of the "Anarchy Markers" mod. This is the one stable entry point — the internals
+// (SM_MapMarkerStore, SM_MarkerNet and friends) are not meant to be touched directly.
 //
-// Підключення: додайте "Anarchy Markers" у Dependencies свого addon.gproj
-// і кличте AM_MarkerAPI.* напряму.
+// Add "Anarchy Markers" to Dependencies in your addon.gproj, then call AM_MarkerAPI.* directly.
 //
-// Читання/події працюють на будь-якій стороні: сервер бачить усе, клієнт — лише те,
-// що йому дозволено за каналом/фракцією. Request*-методи самі розгалужуються:
-// на клієнті йдуть RPC-шляхом (сервер призначає id/власника/канал і застосовує
-// ліміти та права), на сервері виконуються одразу. Server*-методи — тільки для
-// серверного коду, повертають створений об'єкт.
+// Reads and events work on either side: the server sees everything, a client only what its
+// channel/faction allows. Request* methods pick the right path themselves — on a client they go
+// through an RPC (the server assigns id/owner/channel and enforces limits and permissions), on the
+// server they run straight away. Server* methods are for server code only and hand back the object.
 //
-// Координати — світові метри, у vector беремо [0]=X і [2]=Z (як GetOrigin сутностей).
+// Coordinates are world metres; in a vector that means [0]=X and [2]=Z, as with entity GetOrigin().
 //
-// Приклад підписки на події:
+// Subscribing to events:
 //     AM_MarkerAPI.GetOnMarkerAdded().Insert(OnMarkerAdded);
 //     void OnMarkerAdded(SM_MapMarkerData data) { ... }
+//
+// See Docs/API.md for the full reference, including AM_MapFeatures and AM_VanillaBridge.
 
 class AM_MarkerAPI
 {
-	//! true на авторитетній стороні (виділений сервер / listen-host / SP-редактор).
+	//! Contract version. Signatures only ever get extended, never broken.
+	//! 2 = map feature flags (AM_MapFeatures) added, Local markers/drawings moved client-side.
+	//! 3 = render policy for always-on screens (AM_MapFeatures.SetRenderPolicy).
+	static const int API_VERSION = 3;
+
+	//! true on the authoritative side: dedicated server, listen-host or the SP editor.
 	static bool IsServer()
 	{
 		return Replication.IsServer();
 	}
 
-	//! Локальний PlayerController (для клієнтського RPC-шляху). null на dedicated-сервері.
+	//! null on a dedicated server, where there is no local player.
 	protected static SCR_PlayerController LocalPC()
 	{
 		return SCR_PlayerController.Cast(GetGame().GetPlayerController());
 	}
 
-	// --- Маркери: читання ---
+	// --- Markers: reading ---
 
-	//! Скільки маркерів у сховищі на цій стороні.
 	static int GetMarkerCount()
 	{
 		return SM_MapMarkerStore.GetInstance().Count();
 	}
 
-	//! Усі маркери, видимі на ЦІЙ стороні. Повертає посилання на «живі» об'єкти —
-	//! тільки ЧИТАЙТЕ їх (зміни — лише через Request*/Server*). Потрібна копія? data.SM_Clone().
+	//! Every marker visible on THIS side. These are the live objects, so treat them as read-only —
+	//! mutating them desyncs you from the server. Change things through Request*/Server*, and take
+	//! data.SM_Clone() when you need a copy.
 	static void GetAllMarkers(out array<SM_MapMarkerData> outMarkers)
 	{
 		SM_MapMarkerStore.GetInstance().GetAll(outMarkers);
 	}
 
-	//! Маркер за серверним id або null.
 	static SM_MapMarkerData GetMarkerById(int id)
 	{
 		return SM_MapMarkerStore.GetInstance().FindById(id);
 	}
 
-	//! Маркери конкретного гравця (playerId власника).
 	static void GetMarkersByOwner(int playerId, out array<SM_MapMarkerData> outMarkers)
 	{
 		if (!outMarkers)
@@ -67,7 +70,7 @@ class AM_MarkerAPI
 		}
 	}
 
-	//! Маркери в радіусі (метри) від світової точки. centerWorld: [0]=X, [2]=Z.
+	//! centerWorld: [0]=X, [2]=Z. Radius in metres.
 	static void GetMarkersInRadius(vector centerWorld, float radiusMeters, out array<SM_MapMarkerData> outMarkers)
 	{
 		if (!outMarkers)
@@ -91,13 +94,13 @@ class AM_MarkerAPI
 		}
 	}
 
-	//! Світова позиція маркера як vector (X, 0, Z).
 	static vector GetMarkerWorldPos(notnull SM_MapMarkerData m)
 	{
 		return Vector(m.m_iPosX, 0, m.m_iPosY);
 	}
 
-	// --- Маркери: події. Added/Changed: cb(SM_MapMarkerData), Removed: cb(int markerId) ---
+	// --- Markers: events. Added/Changed pass SM_MapMarkerData, Removed passes the id.
+	//     They fire on whichever side you subscribed on; use IsServer() to tell them apart. ---
 
 	static ScriptInvokerBase<SM_MarkerChangeInvoker> GetOnMarkerAdded()
 	{
@@ -114,15 +117,15 @@ class AM_MarkerAPI
 		return SM_MapMarkerStore.GetInstance().GetOnMarkerRemoved();
 	}
 
-	// --- Маркери: запис ---
+	// --- Markers: writing ---
 
-	//! Поставити маркер. data зручно збирати через NewCivilianMarker/NewMilitaryMarker.
-	//! Результат на клієнті прийде подією OnMarkerAdded; потрібен сам об'єкт — ServerPlaceMarker.
+	//! Place a marker; build data with NewCivilianMarker/NewMilitaryMarker. On a client the result
+	//! arrives as an OnMarkerAdded event — use ServerPlaceMarker when you need the object itself.
 	static bool RequestPlaceMarker(notnull SM_MapMarkerData data)
 	{
-		// Local (PERSONAL) markers are no longer server-side — they live in this machine's client
-		// file (SM_LocalMarkerPersistence), keyed by server code and faction. Needs a local player
-		// with a faction and an already-known server code, otherwise fails.
+		// Local (PERSONAL) markers never reach the server; they live in this machine's client file,
+		// keyed by server code and faction. That needs a local player with a faction and a server
+		// code already received, so this can legitimately fail.
 		if (data.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
 			return SM_LocalMarkerPersistence.GetInstance().AddLocal(data.SM_Clone()) != 0;
 
@@ -136,7 +139,7 @@ class AM_MarkerAPI
 		return true;
 	}
 
-	//! Змінити редаговані поля маркера (колір, текст, видимість, вид, розмір…). id і власник — незмінні.
+	//! Change the editable fields (colour, text, visibility, kind, size...). id and owner stay put.
 	static bool RequestEditMarker(int id, notnull SM_MapMarkerData data)
 	{
 		if (Replication.IsServer())
@@ -147,7 +150,7 @@ class AM_MarkerAPI
 			SM_MapMarkerData m = store.FindById(id);
 			if (!m)
 				return false;
-			SM_MarkerNet.AssignChannel(m.m_iOwnerId, m);	// видимість могла змінитись — перерахувати канал
+			SM_MarkerNet.AssignChannel(m.m_iOwnerId, m);	// visibility may have moved, so redo the channel
 			SM_MarkerNet.BroadcastUpsertOrRemove(m);
 			return true;
 		}
@@ -159,7 +162,7 @@ class AM_MarkerAPI
 		return true;
 	}
 
-	//! Посунути маркер у нову світову точку ([0]=X, [2]=Z).
+	//! world: [0]=X, [2]=Z.
 	static bool RequestMoveMarker(int id, vector world)
 	{
 		int x = world[0];
@@ -183,7 +186,6 @@ class AM_MarkerAPI
 		return true;
 	}
 
-	//! Видалити маркер за id.
 	static bool RequestRemoveMarker(int id)
 	{
 		if (Replication.IsServer())
@@ -201,15 +203,14 @@ class AM_MarkerAPI
 		return true;
 	}
 
-	//! Тільки сервер: створити маркер і розіслати. Повертає об'єкт із призначеним m_iId або null.
-	//! Канал: data.m_iChannel >= 0 береться як є, інакше рахується за власником.
+	//! Server only. Returns the created object with its m_iId assigned, or null.
+	//! A data.m_iChannel >= 0 is taken as given; otherwise the channel comes from the owner.
 	static SM_MapMarkerData ServerPlaceMarker(notnull SM_MapMarkerData data)
 	{
 		if (!Replication.IsServer())
 			return null;
-		// Local (PERSONAL) markers are client-side only — the server store never holds them.
 		if (data.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
-			return null;
+			return null;	// Local markers are client-side; the server store never holds them
 
 		SM_MapMarkerStore store = SM_MapMarkerStore.GetInstance();
 		SM_MapMarkerData created = store.ServerCreate(data.m_iOwnerId, data.PackInts(), data.m_sText);
@@ -225,7 +226,7 @@ class AM_MarkerAPI
 		return created;
 	}
 
-	//! Тільки сервер: видалити маркер (те саме, що RequestRemoveMarker на сервері).
+	//! Server only; same thing RequestRemoveMarker does on the server.
 	static bool ServerRemoveMarker(int id)
 	{
 		if (!Replication.IsServer())
@@ -236,9 +237,9 @@ class AM_MarkerAPI
 		return true;
 	}
 
-	// --- Зручні конструктори ---
+	// --- Builders ---
 
-	//! Цивільний маркер (іконка з ванільного каталогу PLACED_CUSTOM за iconEntry).
+	//! iconEntry indexes the vanilla PLACED_CUSTOM icon catalog.
 	static SM_MapMarkerData NewCivilianMarker(vector world, int iconEntry, int argb, string text, SM_EMarkerVisibility visibility = SM_EMarkerVisibility.FACTION)
 	{
 		SM_MapMarkerData d = new SM_MapMarkerData();
@@ -252,8 +253,8 @@ class AM_MarkerAPI
 		return d;
 	}
 
-	//! Військовий APP-6 маркер. identity=EMilitarySymbolIdentity, dimension=EMilitarySymbolDimension,
-	//! symbolFlags=EMilitarySymbolIcon бітмаска (0 = лише рамка).
+	//! APP-6 symbol. identity = EMilitarySymbolIdentity, dimension = EMilitarySymbolDimension,
+	//! symbolFlags = EMilitarySymbolIcon bitmask (0 draws the frame alone).
 	static SM_MapMarkerData NewMilitaryMarker(vector world, int identity, int dimension, int symbolFlags, int argb, string text, SM_EMarkerVisibility visibility = SM_EMarkerVisibility.FACTION)
 	{
 		SM_MapMarkerData d = new SM_MapMarkerData();
@@ -269,15 +270,15 @@ class AM_MarkerAPI
 		return d;
 	}
 
-	// --- Малюнки (штрихи/заливки): читання ---
+	// --- Drawings (strokes and fills): reading ---
 
 	static int GetDrawingCount()
 	{
 		return SM_MapDrawingStore.GetInstance().Count();
 	}
 
-	//! Усі малюнки, видимі на цій стороні. Точки — data.m_aPoints (x,z парами, метри).
-	//! Заливка (замкнута зона) — data.m_iFill != 0; звичайна лінія — 0.
+	//! Every drawing visible on this side. Geometry sits in data.m_aPoints as x,z pairs in metres.
+	//! data.m_iFill != 0 means a closed, filled area; 0 means a plain polyline.
 	static void GetAllDrawings(out array<SM_MapDrawingData> outDrawings)
 	{
 		SM_MapDrawingStore.GetInstance().GetAll(outDrawings);
@@ -303,7 +304,7 @@ class AM_MarkerAPI
 		}
 	}
 
-	//! Лише заливки (замкнуті полігони). Зручно трактувати як «намальовані зони».
+	//! Fills only — closed polygons, handy to read as "drawn zones".
 	static void GetAllFills(out array<SM_MapDrawingData> outFills)
 	{
 		if (!outFills)
@@ -319,8 +320,8 @@ class AM_MarkerAPI
 		}
 	}
 
-	// --- Малюнки: події. Added: cb(SM_MapDrawingData), Removed: cb(int drawingId).
-	//     Штрих незмінний після створення, події Changed немає. ---
+	// --- Drawings: events. Added passes SM_MapDrawingData, Removed passes the id.
+	//     A stroke never changes once created, so there is no Changed event. ---
 
 	static ScriptInvokerBase<SM_DrawingChangeInvoker> GetOnDrawingAdded()
 	{
@@ -332,14 +333,13 @@ class AM_MarkerAPI
 		return SM_MapDrawingStore.GetInstance().GetOnRemoved();
 	}
 
-	// --- Малюнки: запис ---
+	// --- Drawings: writing ---
 
-	//! Додати штрих/заливку. data зручно збирати через NewDrawing нижче.
+	//! Add a stroke or a fill; build data with NewDrawing below.
 	static bool RequestAddDrawing(notnull SM_MapDrawingData data)
 	{
-		// Local (PERSONAL) drawings are client-side (SM_LocalDrawingPersistence), never server-side.
 		if (data.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
-			return SM_LocalDrawingPersistence.GetInstance().AddLocal(data.SM_Clone()) != 0;
+			return SM_LocalDrawingPersistence.GetInstance().AddLocal(data.SM_Clone()) != 0;	// client-side, as with markers
 
 		if (Replication.IsServer())
 			return ServerAddDrawing(data) != null;
@@ -351,7 +351,6 @@ class AM_MarkerAPI
 		return true;
 	}
 
-	//! Видалити штрих/заливку за id.
 	static bool RequestRemoveDrawing(int id)
 	{
 		if (Replication.IsServer())
@@ -369,15 +368,14 @@ class AM_MarkerAPI
 		return true;
 	}
 
-	//! Тільки сервер: створити штрих/заливку й розіслати. Канал: data.m_iChannel >= 0 береться
-	//! як є, інакше за фракцією/групою власника. Повертає створений об'єкт або null.
+	//! Server only. A data.m_iChannel >= 0 is taken as given; otherwise the channel comes from the
+	//! owner's faction or group. Returns the created object, or null.
 	static SM_MapDrawingData ServerAddDrawing(notnull SM_MapDrawingData data)
 	{
 		if (!Replication.IsServer())
 			return null;
-		// Local (PERSONAL) drawings are client-side only — the server store never holds them.
 		if (data.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
-			return null;
+			return null;	// Local drawings are client-side; the server store never holds them
 
 		int channel = data.m_iChannel;
 		if (channel < 0)
@@ -392,7 +390,6 @@ class AM_MarkerAPI
 		return d;
 	}
 
-	//! Тільки сервер: видалити малюнок.
 	static bool ServerRemoveDrawing(int id)
 	{
 		if (!Replication.IsServer())
@@ -403,8 +400,8 @@ class AM_MarkerAPI
 		return true;
 	}
 
-	//! Зібрати штрих (fill=false) або заливку (fill=true) зі світових точок.
-	//! widthIdx 0..4 — товщина пензля. Для заливки контур замкнутий, мінімум 3 точки.
+	//! widthIdx 0..4 picks the brush preset (2/5/10/20/40 m). A fill wants a closed outline of at
+	//! least 3 points.
 	static SM_MapDrawingData NewDrawing(int argb, int widthIdx, bool fill, SM_EMarkerVisibility visibility, notnull array<vector> pointsWorld)
 	{
 		SM_MapDrawingData d = new SM_MapDrawingData();

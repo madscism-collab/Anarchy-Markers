@@ -15,6 +15,10 @@ class SM_RenderStroke
 	int m_iId;
 	ref array<ref CanvasWidgetCommand> m_aCmds = {};
 
+	// Kept so ProjectAll never calls the store's FindById, which scans linearly — with 500 strokes
+	// that made every reprojection quadratic. Refreshed by SyncStrokes, which walks the store anyway.
+	ref SM_MapDrawingData m_Data;
+
 	// Світовий AABB (метри) — для куллінгу поза екраном. Не змінюється на пан/зум,
 	// оновлюється разом із командами у ProjectAll.
 	int  m_iMinX, m_iMaxX, m_iMinZ, m_iMaxZ;
@@ -24,6 +28,11 @@ class SM_RenderStroke
 	// координатах (індекси лишаються валідними після афінної проєкції на екран).
 	bool m_bFill;
 	ref array<int> m_aTriIndices;
+
+	// Fill that reaches past the clip box: its cut-down outline and a matching triangulation.
+	// The original indices don't survive clipping — the vertex count changes.
+	ref array<int> m_aClipPoly;
+	ref array<int> m_aClipTri;
 
 	void SM_RenderStroke(int id)
 	{
@@ -87,15 +96,43 @@ class SM_DrawCanvas
 	// Відстеження виду (для зсув-на-пан проти повної проєкції)
 	protected bool  m_bViewValid;
 	protected float m_fLastZoom = -1;
-	protected int   m_iAnchorSx, m_iAnchorSy;	// екранна позиція світової опори (0,0) на момент тесселяції
+	// Anchor: a world point that sat on screen at the last projection (canvas top-left). Pan delta
+	// is the change of its screen position.
+	// The last argument of WorldToScreen is dpiScale, NOT a clamp. Always pass true — the canvas,
+	// GetScreenPos and ScreenToWorld all speak physical pixels. Passing false hands back layout
+	// units, the pan delta comes out at the wrong scale and the drawings ride along with the camera.
+	protected float m_fRefWX, m_fRefWZ;
+	protected int   m_iAnchorSx, m_iAnchorSy;	// where the anchor is now (moves with every pan)
+	protected int   m_iProjSx, m_iProjSy;		// where it was at the last ProjectAll
+	// Panning far away from the box we clipped against leaves the cut-off geometry incomplete, so
+	// reproject once the pan exceeds half the clip margin. Only needed when the box actually cut
+	// something: with every stroke fully inside it (the usual case when the whole drawing fits the
+	// screen) the cached vertices stay valid forever and panning is a pure shift.
+	protected bool m_bProjClipped;
 
 	// Кешовані коефіцієнти афінної проєкції світ→екран (масштаб+зсув, без обертання): рахуються раз
 	// на ProjectAll із 3 референсних WorldToScreen, далі всі точки проєктуємо арифметикою (без нативних викликів).
 	protected float m_fPox, m_fPoy;	// екранна проєкція світової (0,0)
 	protected float m_fDxx, m_fDyx;	// приріст екрана (x,y) на 1 м світового X
 	protected float m_fDxz, m_fDyz;	// приріст екрана (x,y) на 1 м світового Z
-	protected float m_fScrW, m_fScrH;	// розмір полотна на момент проєкції (для захисного clamp)
-	protected const float SM_CLAMP_MARGIN = 2048;	// запас навколо екрана; далі тиснемо (велетенські координати ламають рендер)
+	protected float m_fScrW, m_fScrH;	// розмір полотна на момент проєкції (для кліпінгу)
+	// Slack around the screen. Geometry is CLIPPED against this box, never clamped into it: clamping
+	// keeps the vertex count (handy for the cached triangulation) but turns a long stroke into a
+	// straight line between two corners of the box. Zoomed in, nearly every vertex falls outside,
+	// which is where the giant diagonals across the map came from. Huge screen coordinates blow up
+	// the engine's tessellator, so we cannot simply pass them through either.
+	// Proportional to the canvas, not flat: on a 400 px tablet a flat 2048 px margin would make the
+	// box ten screens wide and the early AABB rejection would never fire. Set in ComputeAffine.
+	protected float m_fClipMarginPx = 2048;
+
+	// Render budget of the current screen (AM_MapRenderPolicy); 0 = render everything.
+	protected float m_fRenderRadius;
+
+	void SetRenderRadius(float radiusMeters)
+	{
+		m_fRenderRadius = radiusMeters;
+		m_bViewValid = false;	// next Tick reprojects with the radius applied
+	}
 
 	// Захоплення штриха (світові метри, парами)
 	protected ref array<int> m_aCapture = {};
@@ -109,7 +146,13 @@ class SM_DrawCanvas
 	// Один RPC на штрих за перетяг (сет захищає від спаму, поки сервер підтверджує).
 	protected ref set<int> m_ErasedThisDrag = new set<int>();
 	protected bool m_bErasing;
-	protected bool m_bLineStroke;	// Shift+олівець: пряма від точки натиску до відпуску
+	// Shift + pencil draws a polyline. While Shift is held every click continues from the end of the
+	// previous segment, and the whole chain commits as ONE stroke once Shift goes up (or the point
+	// cap is hit, or the tool changes).
+	protected bool m_bLineStroke;		// dragging a segment right now (LMB down, straight-line mode)
+	protected bool m_bLineChain;		// chain is open: vertices placed, waiting for the next click
+	protected int  m_iLineFixedInts;	// committed vertices in m_aCapture; anything past them is the
+										// rubber band to the cursor and never reaches the stroke
 
 	// Курсор-кружечок пензля/гумки: фізичний розмір штриха на мапі за поточного зуму.
 	protected ImageWidget m_wCursor;
@@ -243,9 +286,19 @@ class SM_DrawCanvas
 
 	// --- Стан пензля ---
 	bool IsActive()           { return m_bActive; }
-	void SetActive(bool a)    { m_bActive = a; if (!a) CancelStroke(); }
+	void SetActive(bool a)
+	{
+		m_bActive = a;
+		if (!a)
+		{
+			FinishLineChain();	// keep whatever vertices the player already placed
+			CancelStroke();
+		}
+	}
 	void SetTool(int t)
 	{
+		if (t != m_iTool)
+			FinishLineChain();
 		m_iTool = t;
 		// The 100 m preset (idx 5) is eraser-only — clamp back to 40 m when switching to pencil/fill.
 		if (t != 1 && s_iWidthIdx > WIDTH_IDX_MAX_PENCIL)
@@ -266,7 +319,7 @@ class SM_DrawCanvas
 	// Кадрова робота — кличе Update шару. Працює лише коли є що зробити.
 	void Tick()
 	{
-		SM_DrawOutbox.Tick();	// flush the buffered draw/erase batch when its interval is up
+		SM_DrawOutbox.Tick();	// flush the buffered draw/erase batch once its interval is up
 
 		if (!m_wCanvas || !m_Map)
 			return;
@@ -287,13 +340,21 @@ class SM_DrawCanvas
 		}
 
 		float zoom = m_Map.GetCurrentZoom();
-		int ax, ay;
-		m_Map.WorldToScreen(0, 0, ax, ay, true);
+
+		int ax = 0;
+		int ay = 0;
+		if (m_bViewValid)
+			m_Map.WorldToScreen(m_fRefWX, m_fRefWZ, ax, ay, true);
 
 		// Зміна виду: зум → повна (але дешева, афінна) проєкція; чистий пан → зсув кешованих вершин.
 		if (!m_bViewValid || zoom != m_fLastZoom)
 		{
 			reproject = true;
+		}
+		else if (m_bProjClipped
+			&& (Math.AbsInt(ax - m_iProjSx) > m_fClipMarginPx * 0.5 || Math.AbsInt(ay - m_iProjSy) > m_fClipMarginPx * 0.5))
+		{
+			reproject = true;	// panned off the box we clipped against
 		}
 		else if (ax != m_iAnchorSx || ay != m_iAnchorSy)
 		{
@@ -305,10 +366,13 @@ class SM_DrawCanvas
 
 		if (reproject)
 		{
-			ProjectAll();
+			ProjectAll();	// ComputeAffine picks a fresh anchor
+			m_Map.WorldToScreen(m_fRefWX, m_fRefWZ, ax, ay, true);
 			m_fLastZoom  = zoom;
 			m_iAnchorSx  = ax;
 			m_iAnchorSy  = ay;
+			m_iProjSx    = ax;
+			m_iProjSy    = ay;
 			m_bViewValid = true;
 			changed = true;
 		}
@@ -317,7 +381,8 @@ class SM_DrawCanvas
 			PushCommitted(cw, ch);
 
 		// Прев'ю штриха в процесі — на окремому легкому полотні, перебудова щокадру під час малювання.
-		if (m_bCapturing)
+		// An open line chain keeps previewing with LMB up: placed vertices plus the rubber band.
+		if (m_bCapturing || m_bLineChain)
 		{
 			ProjectPreview();
 			PushPreview(cw, ch);
@@ -374,7 +439,8 @@ class SM_DrawCanvas
 	//------------------------------------------------------------------------------
 	// Захоплення (кличе перехоплення ЛКМ у шарі зі світовими координатами курсора)
 
-	//! lineMode = true (Shift затиснуто на натиску): пряма від точки натиску до точки відпуску.
+	//! lineMode = Shift was down on press: a straight segment from press to release. With a chain
+	//! already open the segment starts at its last vertex instead of at the press point.
 	void OnPressDown(int wx, int wz, bool lineMode = false)
 	{
 		if (m_iTool == 1)
@@ -390,14 +456,60 @@ class SM_DrawCanvas
 			HandleFillClick(wx, wz);	// заливка — одиночний клік, без перетягування
 			return;
 		}
+		m_iMaxCapturePts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
+
+		if (HasLineChain())
+		{
+			if (lineMode)
+			{
+				m_aCapture.Resize(m_iLineFixedInts);	// drop the rubber band, keep the vertices
+				m_iLastSampleX = wx;
+				m_iLastSampleZ = wz;
+				m_bCapturing   = true;
+				m_bLineStroke  = true;
+				return;
+			}
+			// Shift went up on the very frame of the press — close the chain before starting fresh,
+			// otherwise the placed vertices would be silently thrown away.
+			FinishLineChain();
+		}
+
 		m_aCapture.Clear();
 		m_aCapture.Insert(wx);
 		m_aCapture.Insert(wz);
+		m_iLineFixedInts = 2;
 		m_iLastSampleX = wx;
 		m_iLastSampleZ = wz;
 		m_bCapturing   = true;
 		m_bLineStroke  = lineMode;
-		m_iMaxCapturePts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
+		m_bLineChain   = false;
+	}
+
+	bool HasLineChain()
+	{
+		return m_bLineChain && m_iLineFixedInts >= 2 && m_aCapture.Count() >= m_iLineFixedInts;
+	}
+
+	//! Chain open, LMB up: drag the rubber band from the last vertex to the cursor.
+	void OnLineChainHover(int wx, int wz)
+	{
+		if (!HasLineChain() || m_bCapturing)
+			return;
+		m_aCapture.Resize(m_iLineFixedInts);
+		m_aCapture.Insert(wx);
+		m_aCapture.Insert(wz);
+	}
+
+	//! Shift released (or the tool/map changed) — close the polyline and commit it as one stroke.
+	void FinishLineChain()
+	{
+		if (!HasLineChain())
+			return;
+		m_aCapture.Resize(m_iLineFixedInts);	// the rubber band is not part of the stroke
+		m_bLineChain  = false;
+		m_bLineStroke = false;
+		m_bCapturing  = false;
+		CommitStroke();
 	}
 
 	void OnDrag(int wx, int wz)
@@ -412,10 +524,10 @@ class SM_DrawCanvas
 			return;	// заливка не тягнеться
 		if (!m_bCapturing)
 			return;
-		// Режим прямої: тримаємо рівно 2 точки — старт і поточну (прев'ю «гумова нитка»).
+		// Straight-line mode: fixed vertices plus one moving point (the rubber band).
 		if (m_bLineStroke)
 		{
-			m_aCapture.Resize(2);
+			m_aCapture.Resize(m_iLineFixedInts);
 			m_aCapture.Insert(wx);
 			m_aCapture.Insert(wz);
 			return;
@@ -434,7 +546,9 @@ class SM_DrawCanvas
 		m_iLastSampleZ = wz;
 	}
 
-	void OnRelease(int wx, int wz)
+	//! keepChain = Shift is still down on release: fix the vertex but hold the stroke back and wait
+	//! for the next click (or for Shift to go up, which lands in FinishLineChain).
+	void OnRelease(int wx, int wz, bool keepChain = false)
 	{
 		if (m_iTool == 1)
 		{
@@ -449,11 +563,24 @@ class SM_DrawCanvas
 		m_bCapturing = false;
 		if (m_bLineStroke)
 		{
-			// Пряма: рівно 2 точки — старт + точка відпуску.
-			m_aCapture.Resize(2);
-			m_aCapture.Insert(wx);
-			m_aCapture.Insert(wz);
+			// Pin the segment end; a zero-length click must not duplicate the vertex.
+			m_aCapture.Resize(m_iLineFixedInts);
+			int ln = m_aCapture.Count();
+			if (ln < 2 || m_aCapture[ln - 2] != wx || m_aCapture[ln - 1] != wz)
+			{
+				m_aCapture.Insert(wx);
+				m_aCapture.Insert(wz);
+			}
+			m_iLineFixedInts = m_aCapture.Count();
+
+			bool full = (m_iMaxCapturePts > 0 && m_iLineFixedInts / 2 >= m_iMaxCapturePts);
+			if (keepChain && !full && m_iLineFixedInts >= 4)
+			{
+				m_bLineChain = true;	// nothing goes out until the chain closes
+				return;
+			}
 			m_bLineStroke = false;
+			m_bLineChain  = false;
 		}
 		else
 		{
@@ -471,6 +598,8 @@ class SM_DrawCanvas
 	{
 		m_bCapturing = false;
 		m_bLineStroke = false;
+		m_bLineChain = false;
+		m_iLineFixedInts = 0;
 		m_aCapture.Clear();
 		m_aPreviewCmds.Clear();
 		m_bErasing = false;
@@ -503,6 +632,7 @@ class SM_DrawCanvas
 		SM_DrawAddOrLocal(tmp, simplified);	// Local (PERSONAL) -> client file; everything else -> server
 
 		m_aCapture.Clear();
+		m_iLineFixedInts = 0;
 		m_aPreviewCmds.Clear();	// the committed stroke comes back via the store (network, or right away if Local)
 	}
 
@@ -977,19 +1107,24 @@ class SM_DrawCanvas
 		{
 			if (!d2 || d2.GetPointCount() < 1)
 				continue;
-			if (!m_mStrokes.Contains(d2.m_iId))
+			SM_RenderStroke ers = m_mStrokes.Get(d2.m_iId);
+			if (ers)
 			{
-				SM_RenderStroke nrs = new SM_RenderStroke(d2.m_iId);
-				if (d2.m_iFill != 0)
-				{
-					// Тріангуляція РАЗ у світових координатах — індекси переживають зум/пан.
-					nrs.m_bFill = true;
-					nrs.m_aTriIndices = new array<int>();
-					if (!SM_MapFloodFill.Triangulate(d2.m_aPoints, nrs.m_aTriIndices))
-						nrs.m_aTriIndices = null;	// вироджений контур → PolygonDrawCommand як запасний
-				}
-				m_mStrokes.Set(d2.m_iId, nrs);
+				ers.m_Data = d2;	// the store may have re-created the object under the same id
+				continue;
 			}
+
+			SM_RenderStroke nrs = new SM_RenderStroke(d2.m_iId);
+			nrs.m_Data = d2;
+			if (d2.m_iFill != 0)
+			{
+				// Тріангуляція РАЗ у світових координатах — індекси переживають зум/пан.
+				nrs.m_bFill = true;
+				nrs.m_aTriIndices = new array<int>();
+				if (!SM_MapFloodFill.Triangulate(d2.m_aPoints, nrs.m_aTriIndices))
+					nrs.m_aTriIndices = null;	// вироджений контур → PolygonDrawCommand як запасний
+			}
+			m_mStrokes.Set(d2.m_iId, nrs);
 		}
 
 		// Порядок малювання: за зростанням id (= хронологія створення) → нові штрихи поверх старих.
@@ -1001,32 +1136,102 @@ class SM_DrawCanvas
 
 	// Повна проєкція світ→екран усіх штрихів. Раз на зум/зміну набору. Дешева: спершу рахуємо
 	// афінне перетворення з 3 нативних викликів, далі всі точки — арифметикою.
+	// Sorted by the AABB against the clip box: strokes outside it build nothing at all (zoomed in
+	// that is nearly all of them), strokes fully inside skip clipping and allocate nothing, and only
+	// the handful straddling the border actually get cut.
 	protected void ProjectAll()
 	{
 		ComputeAffine();
 		float ppm = PxPerMeter();
+
+		float wMinX, wMaxX, wMinZ, wMaxZ;
+		ClipBoxWorld(wMinX, wMaxX, wMinZ, wMaxZ);
+
+		// Zoomed far out the screen box can cover the whole map; an always-on tablet caps it with
+		// its render radius instead. Drawings get cut at the radius edge — that's the deal.
+		if (m_fRenderRadius > 0)
+		{
+			float ccx = (wMinX + wMaxX) * 0.5;	// the box is centred on the view
+			float ccz = (wMinZ + wMaxZ) * 0.5;
+			wMinX = Math.Max(wMinX, ccx - m_fRenderRadius);
+			wMaxX = Math.Min(wMaxX, ccx + m_fRenderRadius);
+			wMinZ = Math.Max(wMinZ, ccz - m_fRenderRadius);
+			wMaxZ = Math.Min(wMaxZ, ccz + m_fRenderRadius);
+		}
+
+		m_bProjClipped = false;
+
 		array<float> scr = {};
 		foreach (int id, SM_RenderStroke rs : m_mStrokes)
 		{
-			SM_MapDrawingData d = SM_MapDrawingStore.GetInstance().FindById(id);
+			SM_MapDrawingData d = rs.m_Data;
 			if (!d)
 				continue;
-			ProjectPointsToScreen(d, scr);
-			if (rs.m_bFill)
-				BuildFillCommands(scr, d.m_iColor, rs);
-			else
-				BuildStrokeCommands(scr, d.m_iColor, WidthPxForZoom(d.m_iWidthIdx, ppm), rs.m_aCmds);
+
 			rs.m_bCull = d.GetAABB(rs.m_iMinX, rs.m_iMaxX, rs.m_iMinZ, rs.m_iMaxZ);
+
+			if (rs.m_bCull
+				&& (rs.m_iMaxX < wMinX || rs.m_iMinX > wMaxX || rs.m_iMaxZ < wMinZ || rs.m_iMinZ > wMaxZ))
+			{
+				rs.m_aCmds.Clear();
+				m_bProjClipped = true;	// what we cached now depends on where the box sat
+				continue;
+			}
+
+			bool inside = rs.m_bCull
+				&& rs.m_iMinX >= wMinX && rs.m_iMaxX <= wMaxX
+				&& rs.m_iMinZ >= wMinZ && rs.m_iMaxZ <= wMaxZ;
+			if (!inside)
+				m_bProjClipped = true;
+
+			if (rs.m_bFill)
+				BuildFillProjected(d, rs, inside, wMinX, wMaxX, wMinZ, wMaxZ, scr);
+			else
+			{
+				ProjectPointsToScreen(d.m_aPoints, scr);
+				BuildStrokeCommands(scr, d.m_iColor, WidthPxForZoom(d.m_iWidthIdx, ppm), rs.m_aCmds, inside);
+			}
 		}
 	}
 
-	// Команди заливки: TriMesh із нашою кешованою тріангуляцією (коректно й для увігнутих контурів).
-	// Якщо тріангуляція не вдалась (самоперетин/виродження) — НЕ рендеримо: рушійний PolygonDrawCommand
-	// теж не тягне складні полігони й засипає консоль "triangulation failed" щокадру.
-	protected void BuildFillCommands(array<float> scr, int argb, notnull SM_RenderStroke rs)
+	// Outline fully inside the box: reuse the cached triangulation. Otherwise cut the outline in
+	// WORLD space and triangulate what's left — clipping changes the vertex count, so the original
+	// indices no longer describe it. Sutherland-Hodgman can degenerate on concave outlines; when the
+	// result refuses to triangulate we fall back to the full outline, since large coordinates beat a
+	// mangled or missing shape.
+	protected void BuildFillProjected(notnull SM_MapDrawingData d, notnull SM_RenderStroke rs, bool inside,
+		float wMinX, float wMaxX, float wMinZ, float wMaxZ, array<float> scr)
 	{
 		rs.m_aCmds.Clear();
-		if (scr.Count() < 6 || !rs.m_aTriIndices || rs.m_aTriIndices.Count() < 3)
+
+		array<int> poly = d.m_aPoints;
+		array<int> tri  = rs.m_aTriIndices;
+
+		if (!inside)
+		{
+			rs.m_aClipPoly = ClipPolygonToRect(d.m_aPoints, wMinX, wMaxX, wMinZ, wMaxZ);
+			if (rs.m_aClipPoly.Count() < 6)
+				return;	// nothing visible left
+			rs.m_aClipTri = new array<int>();
+			if (SM_MapFloodFill.Triangulate(rs.m_aClipPoly, rs.m_aClipTri) && rs.m_aClipTri.Count() >= 3)
+			{
+				poly = rs.m_aClipPoly;
+				tri  = rs.m_aClipTri;
+			}
+		}
+
+		if (!tri || tri.Count() < 3)
+			return;
+		ProjectPointsToScreen(poly, scr);
+		BuildFillCommands(scr, d.m_iColor, tri, rs);
+	}
+
+	// Команди заливки: TriMesh із тріангуляцією (коректно й для увігнутих контурів).
+	// Якщо тріангуляція не вдалась (самоперетин/виродження) — НЕ рендеримо: рушійний PolygonDrawCommand
+	// теж не тягне складні полігони й засипає консоль "triangulation failed" щокадру.
+	protected void BuildFillCommands(array<float> scr, int argb, notnull array<int> tri, notnull SM_RenderStroke rs)
+	{
+		if (scr.Count() < 6 || tri.Count() < 3)
 			return;
 
 		TriMeshDrawCommand mesh = new TriMeshDrawCommand();
@@ -1034,17 +1239,18 @@ class SM_DrawCanvas
 		array<float> v = new array<float>();
 		v.Copy(scr);
 		mesh.m_Vertices = v;
-		mesh.m_Indices = rs.m_aTriIndices;	// спільний кеш; рендер його не мутує
+		mesh.m_Indices = tri;	// спільний кеш; рендер його не мутує
 		rs.m_aCmds.Insert(mesh);
 	}
 
-	// Обчислити афінні коефіцієнти світ→екран. КРИТИЧНО: опорні точки мусять бути НА ЕКРАНІ й проєктовані
-	// тим самим WorldToScreen(clamp=TRUE), що й вершини штрихів — інакше масштаб не збігається з мапою і
-	// малюнок «їздить» при зумі. Тому: беремо 3 кути полотна → ScreenToWorld (світові точки на екрані) →
-	// WorldToScreen(clamp=true) (для on-screen точок clamp не спрацьовує → точні значення у просторі вершин).
+	// Обчислити афінні коефіцієнти світ→екран. Беремо 3 кути полотна → ScreenToWorld (світові точки
+	// на екрані) → WorldToScreen назад.
+	// WorldToScreen's last argument is dpiScale, not a clamp: true everywhere, because
+	// GetScreenPos/GetScreenSize/ScreenToWorld all speak physical pixels.
 	protected void ComputeAffine()
 	{
 		m_wCanvas.GetScreenSize(m_fScrW, m_fScrH);
+		m_fClipMarginPx = Math.Clamp(Math.Max(m_fScrW, m_fScrH), 512, 2048);
 
 		float cAbsX, cAbsY, mfAbsX, mfAbsY;
 		m_wCanvas.GetScreenPos(cAbsX, cAbsY);
@@ -1074,27 +1280,223 @@ class SM_DrawCanvas
 		m_fDxz = 0;
 		m_fPox = s0x - w0x * m_fDxx;
 		m_fPoy = s0y - w0z * m_fDyz;
+
+		m_fRefWX = w0x;	// anchor for the cheap pan shift; on screen by construction
+		m_fRefWZ = w0z;
 	}
 
-	// Спроєктувати всі точки штриха арифметикою (без нативних викликів). Захисний clamp навколо екрана
-	// з запасом: on-screen точки не чіпає, а далекі тримає в межах (велетенські координати ламають LineDrawCommand).
-	protected void ProjectPointsToScreen(notnull SM_MapDrawingData d, array<float> outScr)
+	protected void ClipBox(out float loX, out float hiX, out float loY, out float hiY)
 	{
-		int n = d.GetPointCount();
+		loX = -m_fClipMarginPx;
+		hiX = m_fScrW + m_fClipMarginPx;
+		loY = -m_fClipMarginPx;
+		hiY = m_fScrH + m_fClipMarginPx;
+	}
+
+	// The same box in world metres. The affine has no rotation, so inverting it is a division.
+	protected void ClipBoxWorld(out float wMinX, out float wMaxX, out float wMinZ, out float wMaxZ)
+	{
+		float loX, hiX, loY, hiY;
+		ClipBox(loX, hiX, loY, hiY);
+
+		float dxx = m_fDxx;
+		float dyz = m_fDyz;
+		if (dxx > -0.000001 && dxx < 0.000001) dxx = 0.000001;
+		if (dyz > -0.000001 && dyz < 0.000001) dyz = 0.000001;
+
+		float x0 = (loX - m_fPox) / dxx;
+		float x1 = (hiX - m_fPox) / dxx;
+		float z0 = (loY - m_fPoy) / dyz;
+		float z1 = (hiY - m_fPoy) / dyz;
+
+		wMinX = Math.Min(x0, x1);	// m_fDyz is negative on a north-up map, so sort
+		wMaxX = Math.Max(x0, x1);
+		wMinZ = Math.Min(z0, z1);
+		wMaxZ = Math.Max(z0, z1);
+	}
+
+	// Plain arithmetic, no bounds applied. Far vertices come out huge; whoever builds the draw
+	// commands clips them.
+	protected void ProjectPointsToScreen(notnull array<int> pts, array<float> outScr)
+	{
+		int n = pts.Count() / 2;
 		outScr.Resize(n * 2);
-		float loX = -SM_CLAMP_MARGIN, hiX = m_fScrW + SM_CLAMP_MARGIN;
-		float loY = -SM_CLAMP_MARGIN, hiY = m_fScrH + SM_CLAMP_MARGIN;
 		for (int i = 0; i < n; i++)
 		{
-			int wx, wz;
-			d.GetPoint(i, wx, wz);
-			float sx = m_fPox + wx * m_fDxx + wz * m_fDxz;
-			float sy = m_fPoy + wx * m_fDyx + wz * m_fDyz;
-			if (sx < loX) sx = loX; else if (sx > hiX) sx = hiX;
-			if (sy < loY) sy = loY; else if (sy > hiY) sy = hiY;
-			outScr[i * 2]     = sx;
-			outScr[i * 2 + 1] = sy;
+			float wx = pts[i * 2];
+			float wz = pts[i * 2 + 1];
+			outScr[i * 2]     = m_fPox + wx * m_fDxx + wz * m_fDxz;
+			outScr[i * 2 + 1] = m_fPoy + wx * m_fDyx + wz * m_fDyz;
 		}
+	}
+
+	// --- Clipping against the screen box -----------------------------------------------------
+
+	//! Liang-Barsky. false = the segment misses the box entirely.
+	protected bool ClipSegment(float x0, float y0, float x1, float y1,
+		float loX, float hiX, float loY, float hiY,
+		out float ox0, out float oy0, out float ox1, out float oy1)
+	{
+		float t0 = 0;
+		float t1 = 1;
+		float dx = x1 - x0;
+		float dy = y1 - y0;
+
+		for (int e = 0; e < 4; e++)
+		{
+			float pp, qq;
+			if (e == 0)      { pp = -dx; qq = x0 - loX; }
+			else if (e == 1) { pp =  dx; qq = hiX - x0; }
+			else if (e == 2) { pp = -dy; qq = y0 - loY; }
+			else             { pp =  dy; qq = hiY - y0; }
+
+			if (pp > -0.000001 && pp < 0.000001)
+			{
+				if (qq < 0)
+					return false;	// parallel to this edge and outside it
+				continue;
+			}
+			float t = qq / pp;
+			if (pp < 0)
+			{
+				if (t > t1) return false;
+				if (t > t0) t0 = t;
+			}
+			else
+			{
+				if (t < t0) return false;
+				if (t < t1) t1 = t;
+			}
+		}
+
+		ox0 = x0 + t0 * dx;
+		oy0 = y0 + t0 * dy;
+		ox1 = x0 + t1 * dx;
+		oy1 = y0 + t1 * dy;
+		return true;
+	}
+
+	//! Split a polyline into the pieces that survive the box; each piece is a polyline of its own.
+	protected void ClipPolylineToPieces(notnull array<float> p, float loX, float hiX, float loY, float hiY,
+		out array<ref array<float>> pieces)
+	{
+		pieces = {};
+		int n = p.Count() / 2;
+		array<float> cur = new array<float>();
+
+		for (int i = 0; i + 1 < n; i++)
+		{
+			float ax = p[i * 2];
+			float ay = p[i * 2 + 1];
+			float bx = p[(i + 1) * 2];
+			float by = p[(i + 1) * 2 + 1];
+
+			float cx0, cy0, cx1, cy1;
+			if (!ClipSegment(ax, ay, bx, by, loX, hiX, loY, hiY, cx0, cy0, cx1, cy1))
+			{
+				if (cur.Count() >= 4)
+					pieces.Insert(cur);
+				cur = new array<float>();
+				continue;
+			}
+
+			if (cur.IsEmpty())
+			{
+				cur.Insert(cx0);
+				cur.Insert(cy0);
+			}
+			else
+			{
+				int m = cur.Count();
+				// Re-entered the box somewhere else than we left it, so this is a new piece.
+				if (Math.AbsFloat(cur[m - 2] - cx0) > 0.01 || Math.AbsFloat(cur[m - 1] - cy0) > 0.01)
+				{
+					if (cur.Count() >= 4)
+						pieces.Insert(cur);
+					cur = new array<float>();
+					cur.Insert(cx0);
+					cur.Insert(cy0);
+				}
+			}
+			cur.Insert(cx1);
+			cur.Insert(cy1);
+
+			// The segment got cut on the way out, so the piece ends here.
+			if (Math.AbsFloat(cx1 - bx) > 0.01 || Math.AbsFloat(cy1 - by) > 0.01)
+			{
+				pieces.Insert(cur);
+				cur = new array<float>();
+			}
+		}
+
+		if (cur.Count() >= 4)
+			pieces.Insert(cur);
+	}
+
+	//! One Sutherland-Hodgman pass over a closed outline. axis 0 = X, 1 = Z; keepGreater keeps the
+	//! >= bound side. World metres, rounded back to int.
+	protected array<int> ClipPolygonHalf(notnull array<int> poly, int axis, float bound, bool keepGreater)
+	{
+		array<int> outp = {};
+		int n = poly.Count() / 2;
+		if (n < 3)
+			return outp;
+
+		for (int i = 0; i < n; i++)
+		{
+			int j = (i + 1) % n;
+			float cx = poly[i * 2];
+			float cz = poly[i * 2 + 1];
+			float nx = poly[j * 2];
+			float nz = poly[j * 2 + 1];
+
+			float cv = cx;
+			float nv = nx;
+			if (axis == 1)
+			{
+				cv = cz;
+				nv = nz;
+			}
+
+			bool cIn, nIn;
+			if (keepGreater)
+			{
+				cIn = cv >= bound;
+				nIn = nv >= bound;
+			}
+			else
+			{
+				cIn = cv <= bound;
+				nIn = nv <= bound;
+			}
+
+			if (cIn)
+			{
+				outp.Insert(poly[i * 2]);	// already int, no rounding needed
+				outp.Insert(poly[i * 2 + 1]);
+			}
+			if (cIn != nIn)
+			{
+				float denom = nv - cv;
+				if (denom > -0.000001 && denom < 0.000001)
+					continue;
+				float t = (bound - cv) / denom;
+				outp.Insert(Math.Round(cx + (nx - cx) * t));
+				outp.Insert(Math.Round(cz + (nz - cz) * t));
+			}
+		}
+		return outp;
+	}
+
+	protected array<int> ClipPolygonToRect(notnull array<int> poly, float wMinX, float wMaxX, float wMinZ, float wMaxZ)
+	{
+		array<int> r = ClipPolygonHalf(poly, 0, wMinX, true);
+		if (r.Count() < 6) return r;
+		r = ClipPolygonHalf(r, 0, wMaxX, false);
+		if (r.Count() < 6) return r;
+		r = ClipPolygonHalf(r, 1, wMinZ, true);
+		if (r.Count() < 6) return r;
+		return ClipPolygonHalf(r, 1, wMaxZ, false);
 	}
 
 	// Ядро виправлення «шипів»: будуємо draw-команди штриха з екранних точок.
@@ -1107,9 +1509,43 @@ class SM_DrawCanvas
 	// але вона коштує вершин; (2) коли лінія на екрані тонша за SM_ROUND_MIN_PX — не малюємо кола-стики
 	// (їх однаково не видно), лишається ~1 команда на штрих. Обидва LOD залежать від зуму й
 	// перебудовуються у ProjectAll; на робочому наближенні (мало штрихів) якість повна.
-	protected void BuildStrokeCommands(array<float> pRaw, int argb, float widthPx, array<ref CanvasWidgetCommand> outCmds)
+	//! noClip = the caller already proved the stroke fits the box (AABB test), skip the cutting.
+	protected void BuildStrokeCommands(array<float> pRaw, int argb, float widthPx, array<ref CanvasWidgetCommand> outCmds, bool noClip = false)
 	{
 		outCmds.Clear();
+		int nRaw = pRaw.Count() / 2;
+		if (nRaw <= 0)
+			return;
+
+		if (noClip)
+		{
+			BuildStrokePiece(pRaw, argb, widthPx, outCmds);
+			return;
+		}
+
+		float loX, hiX, loY, hiY;
+		ClipBox(loX, hiX, loY, hiY);
+
+		if (nRaw == 1)
+		{
+			float r1 = widthPx * 0.5;
+			if (r1 < 0.6)
+				r1 = 0.6;
+			if (pRaw[0] >= loX && pRaw[0] <= hiX && pRaw[1] >= loY && pRaw[1] <= hiY)
+				outCmds.Insert(MakeCircle(pRaw[0], pRaw[1], r1, argb));	// крапка
+			return;
+		}
+
+		// Zoomed in, a stroke can run hundreds of thousands of pixels off-screen.
+		array<ref array<float>> pieces;
+		ClipPolylineToPieces(pRaw, loX, hiX, loY, hiY, pieces);
+		foreach (array<float> piece : pieces)
+			BuildStrokePiece(piece, argb, widthPx, outCmds);
+	}
+
+	// Commands for one already-clipped piece. Appends to outCmds rather than clearing it.
+	protected void BuildStrokePiece(array<float> pRaw, int argb, float widthPx, array<ref CanvasWidgetCommand> outCmds)
+	{
 		int nRaw = pRaw.Count() / 2;
 		if (nRaw <= 0)
 			return;
@@ -1389,7 +1825,7 @@ class SM_DrawCanvas
 		int x0, z0;
 		d.GetPoint(0, x0, z0);
 		int prevSx, prevSy;
-		m_Map.WorldToScreen(x0, z0, prevSx, prevSy, true);
+		m_Map.WorldToScreen(x0, z0, prevSx, prevSy, true);	// px,py arrive DPI-scaled already
 		if (count < 2)	// крапка — відстань² до єдиної екранної точки
 		{
 			float ddx = px - prevSx;

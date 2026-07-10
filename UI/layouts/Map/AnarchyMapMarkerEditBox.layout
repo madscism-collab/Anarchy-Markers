@@ -764,7 +764,7 @@ FrameWidgetClass {
            m_sLabelLayout "{C5598C929C45420A}UI/layouts/Map/MapMarkerEditBoxLabel.layout"
            m_fValue 200
            m_fMinValue 25
-           m_fMaxValue 500
+           m_fMaxValue 1000
            m_fStep 10
           }
          }

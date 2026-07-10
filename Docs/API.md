@@ -1,0 +1,304 @@
+# Anarchy Markers — Modding API
+
+Public integration surface for other mods. Two entry points:
+
+| Class | What for |
+|---|---|
+| `AM_MarkerAPI` | Read/write markers and drawings, subscribe to events. |
+| `AM_MapFeatures` | Control which Anarchy Markers features attach to a map screen (tablets, terminals, custom map UIs). |
+| `AM_VanillaBridge` | Opt-in read-only bridge that exposes our markers to mods which only read the vanilla marker list. |
+
+**Setup:** add `Anarchy Markers` to `Dependencies` in your `addon.gproj` and call the static methods directly. Do not touch internal classes (`SM_MapMarkerStore`, `SM_MarkerNet`, ...) — only what is documented here is kept stable.
+
+`AM_MarkerAPI.API_VERSION` (currently `3`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
+
+---
+
+## 1. Map feature flags (`AM_MapFeatures`)
+
+Anarchy Markers hooks the vanilla map framework, so by default it appears on **every** map the game opens — including map screens created by other mods (GPS tablets, base terminals, mission boards).
+
+Since API v2 each map open resolves a **feature mask** first:
+
+| `EMapEntityMode` of the screen | Default features |
+|---|---|
+| `FULLSCREEN` (player's map), `EDITOR` (Game Master) | `FULL` — everything |
+| everything else (`PLAIN`, `SPAWNSCREEN`, station terminals, unknown/custom) | `VIEW` — markers + drawings render; **no input is captured**, no panel, no hints, no pointer |
+
+So a tablet mod that does nothing gets a clean read-only overlay: players see the team's markers and drawings, and none of our hotkeys or panels interfere with the tablet's own UI.
+
+### Flags
+
+```c
+enum AM_EMapFeature
+{
+    MARKERS       = 1,   // render markers (+ hover tooltip)
+    DRAWINGS      = 2,   // render drawings (strokes/fills)
+    POINTER       = 4,   // "point a finger" (hold LMB/A on an empty spot; nearby teammates see it)
+    MARKER_TOOLS  = 8,   // marker dialog, place/move/edit/delete, Del/double-click/gamepad actions
+    DRAWING_TOOLS = 16,  // the drawing panel (pencil/eraser/fill) and its input
+}
+
+AM_MapFeatures.NONE  // 0
+AM_MapFeatures.VIEW  // MARKERS | DRAWINGS
+AM_MapFeatures.FULL  // everything
+```
+
+### Choosing features for your map screen
+
+```c
+// One-shot: affects only the NEXT map open. Call right before you open your map.
+// Example — a tablet with markers, drawings and the finger pointer:
+AM_MapFeatures.SetNextOpen(AM_MapFeatures.VIEW | AM_EMapFeature.POINTER);
+// ... open your map screen ...
+
+// Example — a tablet that also offers the full drawing panel:
+AM_MapFeatures.SetNextOpen(AM_MapFeatures.VIEW | AM_EMapFeature.DRAWING_TOOLS);
+
+// Persistent: every future open with this EMapEntityMode uses the mask.
+AM_MapFeatures.SetForMode(EMapEntityMode.PLAIN, AM_MapFeatures.NONE); // fully opt out
+AM_MapFeatures.ClearForMode(EMapEntityMode.PLAIN);                    // back to defaults
+```
+
+Notes:
+
+- The one-shot mask (`SetNextOpen`) wins over per-mode overrides; per-mode overrides win over the defaults.
+- Server config is still enforced on top: `allowDrawing=false` removes the canvas/panel everywhere, `pointerAllowed=false` disables the pointer, disabled visibility channels stay disabled, and all marker/drawing writes go through the same server-side permission and rate-limit checks.
+- `MARKER_TOOLS` implies the full marker edit dialog. It is designed for the fullscreen map; on very small custom screens prefer `VIEW` (+`POINTER`) and add your own compact UI on top of `AM_MarkerAPI` write calls if needed.
+
+### Render policy for always-on screens (API v3)
+
+The fullscreen map is open for seconds at a time, so by default we track **every** marker on the map. A tablet or terminal that stays on screen permanently cannot afford that. A render policy caps it:
+
+```c
+// Only the next map open (pairs with SetNextOpen):
+AM_MapFeatures.SetNextOpen(AM_MapFeatures.VIEW);
+AM_MapFeatures.SetRenderPolicy(1500, 2000);   // radius 1.5 km, refresh the visible set every 2 s
+
+// Or persistently for a mode:
+AM_MapFeatures.SetRenderPolicyForMode(EMapEntityMode.PLAIN, 1500, 2000);
+AM_MapFeatures.ClearRenderPolicyForMode(EMapEntityMode.PLAIN);
+```
+
+What the two numbers mean:
+
+- **`radiusMeters`** — markers and drawings render only within this distance of the view centre. Marker widgets outside the radius are not merely hidden — they don't exist, so a map with 500 markers costs your screen only the nearby handful. Fills are cut at the radius edge; strokes that straddle it draw in full. `0` = unlimited.
+- **`membershipIntervalMs`** — how often the visible **set** may be recomputed (markers entering or leaving the radius as the view follows the player). Clamped to ≥ 250 ms; 1000–3000 is a good range for a vehicle tablet. **Positions are exact every frame regardless** — the interval only delays markers popping in/out at the radius edge, so nothing ever slides against the terrain.
+
+Notes:
+
+- No policy (the default, and always the case for `FULLSCREEN`/`EDITOR` unless you insist) = exact current behavior.
+- Pick the radius from your screen size and typical zoom: there is no point rendering what the widget can't show. For a 400 px wide tablet at a 1:25k-style zoom, 1000–2000 m is plenty.
+- A marker placed far away appears on the screen within one interval once the player gets close — that is the trade, not a bug.
+
+---
+
+## 2. Markers (`AM_MarkerAPI`)
+
+Coordinates are world meters. In a `vector`, `[0]` = X and `[2]` = Z (same as entity `GetOrigin()`).
+
+### Reading
+
+```c
+int  AM_MarkerAPI.GetMarkerCount();
+void AM_MarkerAPI.GetAllMarkers(out array<SM_MapMarkerData> outMarkers);
+SM_MapMarkerData AM_MarkerAPI.GetMarkerById(int id);
+void AM_MarkerAPI.GetMarkersByOwner(int playerId, out array<SM_MapMarkerData> outMarkers);
+void AM_MarkerAPI.GetMarkersInRadius(vector centerWorld, float radiusMeters, out array<SM_MapMarkerData> outMarkers);
+vector AM_MarkerAPI.GetMarkerWorldPos(SM_MapMarkerData m);
+```
+
+- Reads work on **both sides**: the server sees everything; a client sees only what it is allowed to (its faction/group channels + Global + its own).
+- Returned objects are **live references — treat them as read-only.** Mutating them directly desyncs the client from the server. To change a marker, go through `RequestEditMarker`/`RequestMoveMarker`. Need a safe copy? `data.SM_Clone()`.
+- **Readiness:** stores fill up asynchronously (server: after persistence load ~1 s into the mission; client: after the first sync following spawn). An empty result early in the session may just mean "not synced yet" — prefer subscribing to events over polling once at init.
+
+### Events
+
+```c
+AM_MarkerAPI.GetOnMarkerAdded().Insert(cb);    // void cb(SM_MapMarkerData data)
+AM_MarkerAPI.GetOnMarkerChanged().Insert(cb);  // void cb(SM_MapMarkerData data)
+AM_MarkerAPI.GetOnMarkerRemoved().Insert(cb);  // void cb(int markerId)
+```
+
+Events fire on whichever side you subscribed on: on the server for every authoritative change, on a client whenever its replicated mirror changes (including the initial sync flood after spawn/faction change). Use `AM_MarkerAPI.IsServer()` if you need to tell them apart.
+
+### Writing
+
+```c
+// Works on both sides. On a client it goes through the server (id/owner/channel are
+// assigned there; limits and permissions apply). Result arrives via OnMarkerAdded.
+bool AM_MarkerAPI.RequestPlaceMarker(SM_MapMarkerData data);
+bool AM_MarkerAPI.RequestEditMarker(int id, SM_MapMarkerData data);  // id/owner immutable
+bool AM_MarkerAPI.RequestMoveMarker(int id, vector world);
+bool AM_MarkerAPI.RequestRemoveMarker(int id);
+
+// Server only. Return the created object (with assigned m_iId) or null.
+SM_MapMarkerData AM_MarkerAPI.ServerPlaceMarker(SM_MapMarkerData data);
+bool AM_MarkerAPI.ServerRemoveMarker(int id);
+```
+
+Convenient constructors:
+
+```c
+SM_MapMarkerData AM_MarkerAPI.NewCivilianMarker(vector world, int iconEntry, int argb, string text,
+    SM_EMarkerVisibility visibility = SM_EMarkerVisibility.FACTION);
+
+// identity = EMilitarySymbolIdentity, dimension = EMilitarySymbolDimension,
+// symbolFlags = EMilitarySymbolIcon bitmask (0 = frame only)
+SM_MapMarkerData AM_MarkerAPI.NewMilitaryMarker(vector world, int identity, int dimension,
+    int symbolFlags, int argb, string text, SM_EMarkerVisibility visibility = SM_EMarkerVisibility.FACTION);
+```
+
+### Visibility channels
+
+```c
+enum SM_EMarkerVisibility
+{
+    PERSONAL = 0,  // "Local" — author only (see the Local section below)
+    GROUP    = 1,  // the author's group
+    FACTION  = 2,  // "Side" — the author's faction
+    ALL      = 3,  // "Global" — everyone
+}
+```
+
+Visibility can only be **widened** by edits (Local < Group < Side < Global) — the server rejects narrowing.
+
+### `SM_MapMarkerData` fields (read)
+
+| Field | Meaning |
+|---|---|
+| `m_iId` | Unique id. Server markers ≥ 1; **client-side Local markers ≤ -2**; -1 = unassigned. |
+| `m_iOwnerId` | Author playerId; -1 = placed by the server/API. |
+| `m_iPosX`, `m_iPosY` | World X / Z, meters. |
+| `m_iKind` | `SM_EMarkerKind.CIVILIAN` (icon) or `MILITARY` (APP-6 symbol). |
+| `m_iIconEntry` | Civilian: icon index in the vanilla PLACED_CUSTOM catalog. |
+| `m_iIdentity`, `m_iDimension`, `m_iSymbolFlags` | Military: APP-6 symbol description. |
+| `m_iColor` | ARGB. |
+| `m_iRotation` | Degrees 0..359. |
+| `m_iSize` | Percent of base size (25..1000; default 200). |
+| `m_iVisibility`, `m_iChannel` | Channel; `m_iChannel` is the faction index / group id for FACTION/GROUP (server-assigned). |
+| `m_iGmLocked` | 1 = locked by the Game Master (players can't move/edit/delete). |
+| `m_iHideInfo` | 1 = hide the "Edited by"/side tooltip from players. |
+| `m_iDate`, `m_iTime` | Timestamp `yyyymmdd` / `hhmm` (0 = none). |
+| `m_sText`, `m_sLastEditor` | Label; name of the last editor. |
+
+---
+
+## 3. Drawings (`AM_MarkerAPI`)
+
+Strokes and fills are **immutable**: they are added and removed whole (a partial erase is remove + add pieces). There is no "changed" event.
+
+### Reading
+
+```c
+int  AM_MarkerAPI.GetDrawingCount();
+void AM_MarkerAPI.GetAllDrawings(out array<SM_MapDrawingData> outDrawings);
+SM_MapDrawingData AM_MarkerAPI.GetDrawingById(int id);
+void AM_MarkerAPI.GetDrawingsByOwner(int playerId, out array<SM_MapDrawingData> outDrawings);
+void AM_MarkerAPI.GetAllFills(out array<SM_MapDrawingData> outFills); // closed polygons = "drawn zones"
+```
+
+### Events
+
+```c
+AM_MarkerAPI.GetOnDrawingAdded().Insert(cb);    // void cb(SM_MapDrawingData data)
+AM_MarkerAPI.GetOnDrawingRemoved().Insert(cb);  // void cb(int drawingId)
+```
+
+### Writing
+
+```c
+bool AM_MarkerAPI.RequestAddDrawing(SM_MapDrawingData data);   // both sides
+bool AM_MarkerAPI.RequestRemoveDrawing(int id);                // both sides
+SM_MapDrawingData AM_MarkerAPI.ServerAddDrawing(SM_MapDrawingData data);  // server only
+bool AM_MarkerAPI.ServerRemoveDrawing(int id);                            // server only
+
+// widthIdx 0..4 = 2/5/10/20/40 m brush presets. fill=true: pointsWorld is a closed
+// outline, minimum 3 points.
+SM_MapDrawingData AM_MarkerAPI.NewDrawing(int argb, int widthIdx, bool fill,
+    SM_EMarkerVisibility visibility, array<vector> pointsWorld);
+```
+
+### `SM_MapDrawingData` fields (read)
+
+| Field | Meaning |
+|---|---|
+| `m_iId` | Server ≥ 1; client-side Local ≤ -2; -1 = unassigned. |
+| `m_iOwnerId`, `m_sOwnerName` | Author. |
+| `m_iColor` | ARGB; opacity is baked into the alpha channel. |
+| `m_iWidthIdx` | Brush preset 0..4 (2/5/10/20/40 m). |
+| `m_iVisibility`, `m_iChannel` | Channel, same rules as markers. |
+| `m_iFill` | 1 = filled area (points form a closed polygon), 0 = polyline. |
+| `m_iGmLocked`, `m_iHideInfo` | GM flags. |
+| `m_aPoints` | World coordinates, flat `x,z` pairs in meters. |
+
+---
+
+## 4. The Local channel (PERSONAL) — special behavior
+
+Since v2.1, Local markers/drawings **never touch the server.** They live in files on the player's machine (`$profile:SavingMarkers/SM_LocalMarkers.json` / `SM_LocalDrawings.json`), keyed by a per-game random server code and the player's faction.
+
+Consequences for API users:
+
+- `RequestPlaceMarker`/`RequestAddDrawing` with `PERSONAL` visibility store the object **client-side** and return `false` when there is no usable slice yet (no local player, server code not received, dedicated server). `ServerPlaceMarker`/`ServerAddDrawing` with `PERSONAL` always return `null`.
+- Local records appear in reads/events **only on the owning client**, with ids ≤ -2. Filter them out with `id <= -2` if you only care about shared state.
+- The server never lists, saves, or replicates Local records.
+
+---
+
+## 5. Vanilla marker bridge (`AM_VanillaBridge`)
+
+Anarchy Markers replaces vanilla player-placed markers with its own system, so mods that read `SCR_MapMarkerManagerComponent.GetStaticMarkers()` do **not** see our markers.
+
+**For new integrations, use `AM_MarkerAPI` instead** — it is richer and has no side effects. The bridge exists only for mods you cannot change (EE Transport, older marker consumers).
+
+### How it works, and why it is off by default
+
+The bridge mixes lightweight **read-only proxy objects** into the array returned by `GetStaticMarkers()`. Those proxies are never rendered and never registered with the vanilla manager — but they *do* appear for **every** consumer of that call. That is unavoidable for a shim, and it is why nothing happens until someone explicitly opts in: otherwise any mod that counts, iterates or deletes vanilla markers would silently see objects it never created.
+
+When enabled, the bridge still exposes as little as it can:
+
+- only markers the **local player is allowed to see** (channel/faction rules). On a dedicated server (no local player) everything in the store is exposed to server-side consumers;
+- only markers matching the **text filter**, if one is set;
+- **client-side Local markers are skipped** by default — their ids are negative (≤ -2) and consumers expect vanilla-style ids;
+- proxies are **suppressed entirely** while the vanilla UI builds its own static markers, so nothing is drawn twice.
+
+Writes are not bridged: proxies are read-only snapshots, rebuilt on each call.
+
+### API
+
+```c
+static void AM_VanillaBridge.SetEnabled(bool enabled);   // default false
+static bool AM_VanillaBridge.IsEnabled();
+
+// Expose only markers whose text starts with one of these prefixes (case-insensitive).
+// Empty array = every eligible marker. Narrow this as much as you can.
+static void AM_VanillaBridge.SetTextFilter(array<string> prefixes);
+
+static void AM_VanillaBridge.SetIncludeLocal(bool include); // default false
+static int  AM_VanillaBridge.GetExposedCount();             // proxies handed out by the last call
+```
+
+### Example (the EE Transport compat addon)
+
+```c
+modded class SCR_BaseGameMode
+{
+    override void OnGameModeStart()
+    {
+        super.OnGameModeStart();
+        AM_VanillaBridge.SetTextFilter({"lz", "ln", "cas"});  // only what EE reads
+        AM_VanillaBridge.SetEnabled(true);
+    }
+}
+```
+
+Use `GetExposedCount()` to verify the filter is as narrow as you think it is.
+
+---
+
+## 6. Other compatibility notes
+
+- **Server config** (`$profile:SavingMarkers/SM_Config.cfg`) always wins: channel toggles, marker/drawing limits, rate limits, pointer/drawing switches apply to API writes exactly like to player actions.
+- Coordinates everywhere are world meters, X/Z plane; drawings and markers ignore height.
+- Fills (`m_iFill = 1`) are computed client-side by a flood fill. An enclosed region up to roughly 8 km across (~53 km²) can be filled in one click; a bigger one is filled partially and the next click continues it. A region that is not enclosed (paint escapes the largest search window) is rejected.

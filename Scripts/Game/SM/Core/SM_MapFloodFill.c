@@ -2,7 +2,7 @@
 //   1) растеризуємо всі видимі малюнки (штрихи з їх товщиною + наявні заливки) у сітку-перешкоди
 //      навколо точки кліку;
 //   2) BFS-розлив від кліку: не проходить крізь перешкоди; якщо дотік до краю вікна — пробуємо
-//      більше вікно (512→1024→2048 м); якщо тече й з найбільшого — область не замкнута;
+//      більше вікно (half 256→512→1024→2048→4096 м); якщо тече й з найбільшого — область не замкнута;
 //   3) якщо розлив уперся в бюджет клітинок — заливаємо ЧАСТКОВО (що встигли), наступний клік
 //      дофарбує решту, впершись у цю заливку як у перешкоду;
 //   4) контур залитих клітинок обводимо (wall-follower), переводимо у світові метри та
@@ -33,14 +33,24 @@ class SM_MapFloodFill
 	{
 		res = new SM_FloodFillResult();
 
-		// Вікна: half-size у метрах → клітинка = (2*half)/GRID_DIM (2м → 4м → 8м).
-		for (int attempt = 0; attempt < 3; attempt++)
+		// Windows: half-size in metres, cell = (2*half)/GRID_DIM (2 -> 4 -> 8 -> 16 -> 32 m). We keep
+		// escalating while the paint runs off the window edge. The largest one covers a region about
+		// 8.2 km across; both it and the MAX_VISIT budget scale with cell^2, so the biggest fillable
+		// area lands around 53 km². Coarse cells only stay watertight because StampObstacles widens a
+		// line's stamp by the cell half-diagonal. The outline of a huge fill comes out stepped at the
+		// cell size, but SnapToStrokes pulls its vertices back onto the real lines. Small fills are
+		// unaffected — the 2 m window almost always answers on the first try.
+		for (int attempt = 0; attempt < 5; attempt++)
 		{
 			int half = 256;
 			if (attempt == 1)
 				half = 512;
 			else if (attempt == 2)
 				half = 1024;
+			else if (attempt == 3)
+				half = 2048;
+			else if (attempt == 4)
+				half = 4096;
 			float cell = (2.0 * half) / GRID_DIM;
 			int originX = clickX - half;	// світова позиція кутка сітки
 			int originZ = clickZ - half;
@@ -74,8 +84,8 @@ class SM_MapFloodFill
 
 			if (escaped)
 			{
-				if (attempt < 2)
-					continue;	// пробуємо більше вікно
+				if (attempt < 4)
+					continue;	// try a bigger window
 				return NOT_CLOSED;
 			}
 
@@ -160,7 +170,12 @@ class SM_MapFloodFill
 				maxHalfW = half;
 
 			int n = d.GetPointCount();
-			float r = half + cell * 0.5;	// штамп трохи ширший клітинки, щоб не було дірок
+			// The stamp marks cells whose CENTRE lies within r of the segment. For a line to seal
+			// every cell it crosses, r must be at least the cell half-diagonal (cell*sqrt(2)/2) —
+			// the centre of a crossed cell can never be further away than that. With a smaller r a
+			// thin diagonal line leaves unstamped cells and the fill leaks straight through it,
+			// which the coarse grids of the large windows make very easy to hit.
+			float r = half + cell * 0.7072;
 			if (n == 1)
 			{
 				int px, pz;
