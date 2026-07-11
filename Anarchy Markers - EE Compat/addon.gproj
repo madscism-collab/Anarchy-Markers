@@ -1,0 +1,22 @@
+GameProject {
+ ID "AnarchyMarkersEECompat"
+ GUID "69C76E4277167581"
+ TITLE "Anarchy Markers - EE Compat"
+ Dependencies {
+  "58D0FB3206B6F859" "69A510CE600D1126"
+ }
+ Configurations {
+  GameProjectConfig PC {
+  }
+  GameProjectConfig XBOX_ONE {
+  }
+  GameProjectConfig XBOX_SERIES {
+  }
+  GameProjectConfig PS4 {
+  }
+  GameProjectConfig PS5 {
+  }
+  GameProjectConfig HEADLESS {
+  }
+ }
+}

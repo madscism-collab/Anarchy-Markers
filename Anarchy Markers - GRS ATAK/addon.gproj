@@ -1,0 +1,22 @@
+GameProject {
+ ID "AanrchyMarkersGRSATAK"
+ GUID "69BCCD3C42DEC2DD"
+ TITLE "Anarchy Markers - GRS ATAK"
+ Dependencies {
+  "69348685EF621077" "65DACC64CE785B6C" "657B064AE0E231DF" "651834C8D77BF86B" "6515672F96701110" "69A510CE600D1126" "58D0FB3206B6F859"
+ }
+ Configurations {
+  GameProjectConfig PC {
+  }
+  GameProjectConfig XBOX_ONE {
+  }
+  GameProjectConfig XBOX_SERIES {
+  }
+  GameProjectConfig PS4 {
+  }
+  GameProjectConfig PS5 {
+  }
+  GameProjectConfig HEADLESS {
+  }
+ }
+}

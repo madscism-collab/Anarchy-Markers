@@ -1,0 +1,25 @@
+# This folder is a working drawer: other people's mods, unpacked addons, scratch projects. So the rule
+# is deny-by-default — ignore everything, then allow ONLY what is ours. Nothing foreign can be
+# committed by accident, which matters when the drawer holds other authors' source.
+
+/*
+
+!/.gitignore
+
+# CHANGELOG.md stays OUT of the repo on purpose: it is our internal development log (root causes,
+# dead ends, engine traps), not release notes for outsiders. Deny-by-default already excludes it —
+# this note exists so nobody "helpfully" whitelists it back in.
+
+# Anarchy Markers and its compatibility addons. Each is its own Reforger addon with its own GUID and
+# its own Workshop page; they live in one repo because an API change in the core and the compat that
+# uses it have to land in the SAME commit (that is exactly how API 3 -> 6 played out).
+!/Anarchy Markers/
+!/Anarchy Markers - EE Compat/
+!/Anarchy Markers - GRS ATAK/
+
+# Build output / editor state inside the addons. resourceDatabase.rdb is deliberately NOT ignored:
+# Workbench maintains it and it is currently tracked; dropping it is a separate decision to test.
+*.pak
+*_manifest.json
+*.bak
+*.tmp
