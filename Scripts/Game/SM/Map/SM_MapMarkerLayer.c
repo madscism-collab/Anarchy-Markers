@@ -139,21 +139,59 @@ modded class SCR_MapMarkersUI
 	protected int   m_iSMLastRefX = -99999;		// екранна позиція світового (0,0) — щоб зловити пан
 	protected int   m_iSMLastRefY = -99999;
 
-	// Базовий розмір іконки (px) на макс. наближенні при 100%; масштаб "папір" зменшує його при віддаленні.
-	// 720 — це попередні 288 × 2.5, бо старі мітки виходили замалі.
-	protected const float SM_BASE_SIZE = 720;
+	// How a marker LOOKS (base size, label ratios, heart icons) lives in AM_MarkerWidgets — the map
+	// is only one surface that draws them, an ATAK-style tablet screen is another. Sizes/ratios and
+	// the widget builders come from there so both surfaces stay identical.
+	//
 	// «Паперовий» масштаб має бути ЧИСТО пропорційним (currentPPU/maxPPU): мітка зменшується
 	// разом зі світом без плато, як будівлі/поля. Тримаємо лише мікроскопічний епсилон, щоб розмір
 	// не став 0 (не «приклеюється» до мапи, як було з 0.02 — тоді на дальніх зумах мітка застигала ~14px).
 	protected const float SM_MIN_ZOOM_SCALE = 0.0005;
-	protected const float SM_TEXT_RATIO = 0.22;		// шрифт підпису = розмір іконки * це
-	protected const float SM_LABEL_OFFSET = 0.32;	// зсув ВЕРХУ підпису вниз від ЦЕНТРУ іконки = розмір * це
-													// (іконки мають прозорі поля, тож кладемо ближче за нижній край віджета)
 	protected const int   SM_TEXT_CHAR_LIMIT = 128;	// ліміт тексту мітки в байтах (ваніль = 16)
-	// Наші іконки-серця: зарезервовані індекси (поза ванільним списком) + власний imageset.
-	// Додаємо їх як власні кнопки в кінець вкладки General (конфіг-класи не модуємо — це валить .conf).
-	protected const int   SM_HEART_ICON_BASE = 9000;	// 9000 = anarchyHeart1, 9001 = anarchyHeart2
-	protected const ResourceName SM_HEART_IMAGESET = "{85C4164C04E12DB8}AnarchyHeart.imageset";
+
+	// TRAP: SCR_MapEntity's two projection calls do NOT speak the same space, and they are not
+	// inverses of one another:
+	//     WorldToScreen  RETURNS pixels local to the MAP WIDGET
+	//     ScreenToWorld  TAKES   pixels local to the MAP FRAME
+	// On the fullscreen map the map widget and the map frame both sit at the screen origin, so all
+	// three spaces coincide and this never mattered. A tablet hosts the map in a small inset widget,
+	// and then they differ by a constant PIXEL offset — which looks nearly right zoomed in and throws
+	// everything kilometres off the terrain once you zoom out (constant pixels = growing metres).
+	//
+	// m_fSMMapOffX/Y is the shift from map-widget space into our frame's space, in layout units: add
+	// it to a WorldToScreen result before it becomes a FrameSlot position. For the other direction,
+	// subtract the FRAME's screen position from screen coordinates before calling ScreenToWorld.
+	// It only changes when the layout does, so refresh it once per frame rather than per marker.
+	protected float m_fSMMapOffX;
+	protected float m_fSMMapOffY;
+
+	protected bool m_bSMLastMarkersVisible = true;	// last state of the host's "show markers" switch
+	protected int  m_iSMForcedVis = -1;				// channel pinned by the host screen; -1 = player picks
+	protected bool m_bSMDrawPanelShown = true;		// host screens can start it hidden and toggle it
+	protected bool m_bSMPanelStartsHidden;			// this screen's panel is the host's to open (RB toggles it)
+	protected float m_fSMHintDX, m_fSMHintDY;		// host screen shoves the control hints clear of its chrome
+
+	//! Show/hide our drawing panel from outside. For a host screen that owns its own toolbar button
+	//! (an ATAK tablet repurposes its pencil): the tools exist, but the host decides when the panel
+	//! is on screen. Hiding it also disarms the active tool — a hidden panel must not keep drawing.
+	void AM_SetDrawPanelShown(bool shown)
+	{
+		if (shown == m_bSMDrawPanelShown)
+			return;
+		m_bSMDrawPanelShown = shown;
+		if (!shown && m_DrawCanvas)
+			m_DrawCanvas.SetActive(false);
+	}
+
+	void AM_ToggleDrawPanel()
+	{
+		AM_SetDrawPanelShown(!m_bSMDrawPanelShown);
+	}
+
+	bool AM_IsDrawPanelShown()
+	{
+		return m_bSMDrawPanelShown && m_DrawPanel != null;
+	}
 
 	// Ввід для переміщення: окремої клавіші нема — утримав ЛКМ на мітці, підняв, клікнув куди поставити.
 	protected int   m_iSMCarryId = -1;		// мітка, яку зараз тягнемо (-1 = жодної)
@@ -326,6 +364,15 @@ modded class SCR_MapMarkersUI
 		m_bSMEditorMap = (config && config.MapEntityMode == EMapEntityMode.EDITOR);	// кеш: режим не змінюється за час відкриття
 		m_iSMFeatures = AM_MapFeatures.ResolveForOpen(config);	// what we attach to this map screen
 
+		// A host screen may pin the channel (and hide our picker) and may switch our layers off live.
+		// Both are per-screen: reset them so nothing leaks in from the last map that was open.
+		m_iSMForcedVis = AM_MapFeatures.ResolveForcedVisibilityForOpen(config);
+		m_bSMPanelStartsHidden = AM_MapFeatures.ResolveDrawPanelHiddenForOpen(config);
+		m_bSMDrawPanelShown = !m_bSMPanelStartsHidden;
+		AM_MapFeatures.ResolveHintNudgeForOpen(config, m_fSMHintDX, m_fSMHintDY);
+		AM_MapFeatures.ResetLayerVisible();
+		m_bSMLastMarkersVisible = true;
+
 		m_fSMPolicyRadius = 0;
 		m_iSMPolicyMembershipMs = 0;
 		m_fSMNextMembershipCheck = 0;
@@ -368,10 +415,12 @@ modded class SCR_MapMarkersUI
 				m_DrawCanvas = new SM_DrawCanvas();
 				m_DrawCanvas.Init(cv, m_MapEntity, m_wSMMapFrame, m_bSMEditorMap);
 				m_DrawCanvas.SetRenderRadius(m_fSMPolicyRadius);
+				if (m_iSMForcedVis >= 0)
+					m_DrawCanvas.SetVisibility(m_iSMForcedVis);	// host pinned the channel
 				if (SM_HasFeature(AM_EMapFeature.DRAWING_TOOLS))
 				{
 					m_DrawPanel = new SM_DrawPanel();
-					m_DrawPanel.Build(m_DrawCanvas, m_wSMMapFrame, m_bSMEditorMap);
+					m_DrawPanel.Build(m_DrawCanvas, m_wSMMapFrame, m_bSMEditorMap, m_iSMForcedVis);
 				}
 			}
 		}
@@ -566,6 +615,7 @@ modded class SCR_MapMarkersUI
 			factor = Math.Clamp(m_MapEntity.GetCurrentZoom() / maxZoom, SM_MIN_ZOOM_SCALE, 1.0);
 
 		WorkspaceWidget ws = GetGame().GetWorkspace();
+		SM_RefreshMapOffset(ws);	// map-widget -> frame shift; 0 on the fullscreen map, non-zero on a tablet
 
 		SM_PollMouse();		// натиск/утримання/відпуск ЛКМ (до позиціонування цього кадру)
 		s_bSMCarrying = (m_iSMCarryId != -1);	// для SM_DisableRadial: ПКМ під час перенесення не відкриває радіалку
@@ -589,6 +639,15 @@ modded class SCR_MapMarkersUI
 			}
 		}
 
+		// A host screen (a tablet with its own "show markers" toggle) can switch our markers off at
+		// any time. Nothing is destroyed — we just stop showing them — so flipping it back is instant.
+		bool markersVisible = AM_MapFeatures.MarkersVisible();
+		if (markersVisible != m_bSMLastMarkersVisible)
+		{
+			m_bSMLastMarkersVisible = markersVisible;
+			m_bSMNeedReposition = true;	// the loop below is what applies it
+		}
+
 		// Решту репозиціонуємо ЛИШЕ коли змінився вид (пан/зум) або набір міток — інакше пропускаємо.
 		// (Розміри/масштаб не страждають: SM_PositionVisual рахує їх щоразу, а зум = «вид змінено».)
 		if (SM_DetectViewChange() || m_bSMNeedReposition)
@@ -605,10 +664,10 @@ modded class SCR_MapMarkersUI
 				m_MapEntity.WorldToScreen(vis.m_Data.m_iPosX, vis.m_Data.m_iPosY, sx, sy, true);
 				float usx = ws.DPIUnscale(sx);
 				float usy = ws.DPIUnscale(sy);
-				float margin = SM_BASE_SIZE * SM_SizeFactor(vis.m_Data.m_iSize) * factor;
+				float margin = AM_MarkerWidgets.BASE_SIZE * SM_SizeFactor(vis.m_Data.m_iSize) * factor;
 
 				Widget mw = vis.GetMainWidget();
-				if (usx < -margin || usx > fw + margin || usy < -margin || usy > fh + margin)
+				if (!markersVisible || usx < -margin || usx > fw + margin || usy < -margin || usy > fh + margin)
 				{
 					// КУЛЛІНГ: поза екраном — ховаємо й не позиціонуємо
 					if (mw) mw.SetVisible(false);
@@ -670,8 +729,11 @@ modded class SCR_MapMarkersUI
 		// GM-мапа: рендер штрихів — за кнопкою «Player drawings», панель — за кнопкою «Drawing tools».
 		if (m_DrawCanvas)
 		{
-			if (m_bSMEditorMap)
-				m_DrawCanvas.SetRenderEnabled(SM_GmState.s_bDrawView);
+			// Same live switch as the markers, ANDed with the GM's own "Player drawings" button.
+			bool drawVisible = AM_MapFeatures.DrawingsVisible();
+			if (m_bSMEditorMap && !SM_GmState.s_bDrawView)
+				drawVisible = false;
+			m_DrawCanvas.SetRenderEnabled(drawVisible);
 			m_DrawCanvas.Tick();
 			// Поки інструмент активний — ванільний курсор мапи ховаємо (його заміняє наш кружечок).
 			// Ховаємо ЩОКАДРУ: під час пану ваніль інакше вертає курсор з іконкою перетягування.
@@ -687,6 +749,7 @@ modded class SCR_MapMarkersUI
 			bool baseAllowed = !m_MarkerEditRoot;	// ховаємо під час діалогу мітки / вимкнення зевсом
 			if (m_bSMEditorMap)
 				baseAllowed = baseAllowed && SM_GmState.s_bDrawPanel;
+			baseAllowed = baseAllowed && m_bSMDrawPanelShown;	// host screen's own toolbar button
 			m_DrawPanel.SetVisible(baseAllowed);
 			m_DrawPanel.TickFocusHighlight();
 
@@ -845,23 +908,23 @@ modded class SCR_MapMarkersUI
 			return;
 		int sx, sy;
 		m_MapEntity.WorldToScreen(wx, wy, sx, sy, true);
-		float usx = ws.DPIUnscale(sx);
-		float usy = ws.DPIUnscale(sy);
+		float usx = ws.DPIUnscale(sx) + m_fSMMapOffX;	// map-widget -> our frame (0 on the fullscreen map)
+		float usy = ws.DPIUnscale(sy) + m_fSMMapOffY;
 
-		float size = SM_BASE_SIZE * SM_SizeFactor(SM_POINT_SIZE) * factor;
+		float size = AM_MarkerWidgets.BASE_SIZE * SM_SizeFactor(SM_POINT_SIZE) * factor;
 		FrameSlot.SetSize(pv.m_wDot, size, size);
 		FrameSlot.SetPos(pv.m_wDot, usx, usy);	// пивот центр → точка центрована на курсорі
 
 		if (pv.m_wName)
 		{
-			float font = size * SM_TEXT_RATIO;
+			float font = size * AM_MarkerWidgets.TEXT_RATIO;
 			if (font < 2.0)
 				pv.m_wName.SetVisible(false);
 			else
 			{
 				pv.m_wName.SetVisible(true);
 				pv.m_wName.SetExactFontSize(Math.Round(font));
-				FrameSlot.SetPos(pv.m_wName, usx, usy + size * SM_LABEL_OFFSET);
+				FrameSlot.SetPos(pv.m_wName, usx, usy + size * AM_MarkerWidgets.LABEL_OFFSET);
 			}
 		}
 	}
@@ -1236,6 +1299,7 @@ modded class SCR_MapMarkersUI
 		float fx, fy;
 		m_wSMMapFrame.GetScreenPos(fx, fy);
 
+		// Middle of the map widget, expressed MAP-FRAME-locally — that is the space ScreenToWorld takes.
 		float cwx, cwy;
 		m_MapEntity.ScreenToWorld(mx - fx + mw * 0.5, my - fy + mh * 0.5, cwx, cwy);
 		wx = cwx;
@@ -1338,114 +1402,42 @@ modded class SCR_MapMarkersUI
 	// Підпис не чіпає — використовується і при початковій побудові, і при civ↔mil у прев'ю.
 	protected void SM_RebuildMain(SM_MarkerVisual vis)
 	{
-		if (!vis || !vis.m_Data)
+		if (!vis || !m_wSMMapFrame)
 			return;
-
-		if (vis.m_wIcon)
-		{
-			vis.m_wIcon.RemoveFromHierarchy();
-			vis.m_wIcon = null;
-		}
-		if (vis.m_wSymbol)
-		{
-			vis.m_wSymbol.RemoveFromHierarchy();
-			vis.m_wSymbol = null;
-		}
-		vis.m_SymbolComp = null;
-
-		if (vis.m_Data.m_iKind == SM_EMarkerKind.MILITARY)
-			vis.m_wSymbol = SM_BuildSymbol(vis);
-		else
-			vis.m_wIcon = SM_BuildIcon();
+		AM_MarkerWidgets.RebuildMain(vis, m_wSMMapFrame);
 	}
 
-	// Створює OverlayWidget + SCR_MilitarySymbolUIComponent для рендеру APP-6 символа.
 	protected Widget SM_BuildSymbol(SM_MarkerVisual vis)
 	{
-		WorkspaceWidget ws = GetGame().GetWorkspace();
-		Widget overlay = ws.CreateWidget(WidgetType.OverlayWidgetTypeID,
-			WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS,
-			Color.FromInt(Color.WHITE), 0, m_wSMMapFrame);
-		if (!overlay)
+		if (!vis || !m_wSMMapFrame)
 			return null;
-
-		FrameSlot.SetAnchorMin(overlay, 0, 0);
-		FrameSlot.SetAnchorMax(overlay, 0, 0);
-		FrameSlot.SetAlignment(overlay, 0.5, 0.5);	// пивот центр → SetPos позиціонує центр
-		FrameSlot.SetSize(overlay, SM_BASE_SIZE, SM_BASE_SIZE);
-		FrameSlot.SetPos(overlay, 0, 0);
-
-		SCR_MilitarySymbolUIComponent comp = new SCR_MilitarySymbolUIComponent();
-		overlay.AddHandler(comp);	// HandlerAttached встановить m_Widget = overlay
-		vis.m_SymbolComp = comp;
-		return overlay;
+		return AM_MarkerWidgets.BuildSymbol(vis, m_wSMMapFrame);
 	}
 
-	// Збирає SCR_MilitarySymbol з наших полів (identity/dimension/icons).
 	protected SCR_MilitarySymbol SM_BuildMilitarySymbol(SM_MapMarkerData d)
 	{
-		SCR_MilitarySymbol sym = new SCR_MilitarySymbol();
-		sym.SetIdentity(d.m_iIdentity);
-		sym.SetDimension(d.m_iDimension);
-		sym.SetIcons(d.m_iSymbolFlags);
-		return sym;
+		if (!d)
+			return null;
+		return AM_MarkerWidgets.BuildMilitarySymbol(d);
 	}
 
-	// Рекурсивно повертає всі дочірні ImageWidget на кут (для повороту військового символа-композита).
 	protected void SM_RotateChildren(Widget root, float angle)
 	{
-		if (!root)
-			return;
-		Widget child = root.GetChildren();
-		while (child)
-		{
-			ImageWidget img = ImageWidget.Cast(child);
-			if (img)
-				img.SetRotation(angle);
-			SM_RotateChildren(child, angle);	// у глибину (вкладені шари)
-			child = child.GetSibling();
-		}
+		AM_MarkerWidgets.RotateChildren(root, angle);
 	}
 
-	// Створює БАЗОВУ ImageWidget мітки (без даних). Пивот центр → SetPos = центр на точці.
 	protected ImageWidget SM_BuildIcon()
 	{
-		WorkspaceWidget ws = GetGame().GetWorkspace();
-		ImageWidget icon = ImageWidget.Cast(ws.CreateWidget(
-			WidgetType.ImageWidgetTypeID,
-			WidgetFlags.VISIBLE | WidgetFlags.BLEND | WidgetFlags.STRETCH,
-			Color.FromInt(Color.WHITE), 0, m_wSMMapFrame));
-		if (!icon)
+		if (!m_wSMMapFrame)
 			return null;
-
-		// Розмір — через СЛОТ (не ImageWidget.SetSize), інакше віджет заповнює MapFrame і STRETCH розтягує.
-		FrameSlot.SetAnchorMin(icon, 0, 0);
-		FrameSlot.SetAnchorMax(icon, 0, 0);
-		FrameSlot.SetAlignment(icon, 0.5, 0.5);		// пивот центр → SetPos позиціонує центр
-		FrameSlot.SetSize(icon, SM_BASE_SIZE, SM_BASE_SIZE);
-		FrameSlot.SetPos(icon, 0, 0);
-
-		return icon;
+		return AM_MarkerWidgets.BuildIcon(m_wSMMapFrame);
 	}
 
-	// Створює БАЗОВИЙ підпис (без даних; пивот верх-центр → центрований під іконкою; IGNORE_CURSOR).
 	protected TextWidget SM_BuildLabel()
 	{
-		WorkspaceWidget ws = GetGame().GetWorkspace();
-		TextWidget label = TextWidget.Cast(ws.CreateWidget(
-			WidgetType.TextWidgetTypeID,
-			WidgetFlags.VISIBLE | WidgetFlags.NOWRAP | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS,
-			Color.FromInt(Color.WHITE), 0, m_wSMMapFrame));
-		if (!label)
+		if (!m_wSMMapFrame)
 			return null;
-
-		label.SetFont("{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt");
-		FrameSlot.SetAnchorMin(label, 0, 0);
-		FrameSlot.SetAnchorMax(label, 0, 0);
-		FrameSlot.SetAlignment(label, 0.5, 0.0);	// верх-центр → текст центрований під іконкою
-		FrameSlot.SetSizeToContent(label, true);	// слот обтягує текст (інакше заповнює MapFrame і «їздить»)
-
-		return label;
+		return AM_MarkerWidgets.BuildLabel(m_wSMMapFrame);
 	}
 
 	// Підказка керування внизу-зліва (над ванільними Pan/Zoom). Glyph-рядки у ванільному стилі:
@@ -1475,6 +1467,8 @@ modded class SCR_MapMarkersUI
 			hintX = 200;	// справа від ванільних підказок редактора (Pan/Zoom), щоб не накладатись
 			hintY = -340;	// на рівні Pan/Zoom (не з'їжджати на нижні панелі)
 		}
+		hintX += m_fSMHintDX;	// host screen (a tablet) clearing its own bottom-left chrome
+		hintY += m_fSMHintDY;
 		FrameSlot.SetPos(box, hintX, hintY);
 		m_wSMHintBox = box;
 
@@ -1662,6 +1656,28 @@ modded class SCR_MapMarkersUI
 			}
 			SM_SetHintRowVisible(3, false);
 			SM_SetHintRowVisible(4, false);
+		}
+		// Screens without MARKER_TOOLS (a tablet) can't edit, move, delete or copy a marker — so none of
+		// that may be advertised there. What's left is what the screen can actually do: point, and open
+		// the drawing panel.
+		else if (!SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))
+		{
+			int row = 0;
+			if (pad && m_DrawPanel)
+			{
+				SM_SetHintRow(row, "AM_PanelFocus", "Drawing tools");
+				row++;
+			}
+			if (allowPtr)
+			{
+				if (pad)
+					SM_SetHintRow(row, "AM_Confirm", "Hold empty — point");
+				else
+					SM_SetHintRow(row, "MapSelect", "Hold on empty — point at map");
+				row++;
+			}
+			for (int i = row; i < 5; i++)
+				SM_SetHintRowVisible(i, false);
 		}
 		else if (pad)	// звичайний — геймпад (A: тап=редаг/створ, утримання=нести/вказувати)
 		{
@@ -1901,8 +1917,9 @@ modded class SCR_MapMarkersUI
 		}
 		int ttwx, ttwy;
 		bool ttHaveW = SM_GetCursorWorld(ttwx, ttwy);
-		int strokeId = m_DrawCanvas.FindStrokeAtScreen(
-			ws.DPIScale(SCR_MapCursorInfo.x), ws.DPIScale(SCR_MapCursorInfo.y), ttwx, ttwy, ttHaveW);
+		int cpx, cpy;
+		SM_CursorPhysPx(cpx, cpy);
+		int strokeId = m_DrawCanvas.FindStrokeAtScreen(cpx, cpy, ttwx, ttwy, ttHaveW);
 		if (strokeId == -1)	// -1 = нічого не влучили (Local-штрихи мають негативні id <= -2 — теж валідні)
 		{
 			SM_HideTooltip();
@@ -1978,95 +1995,43 @@ modded class SCR_MapMarkersUI
 	{
 		if (!vis)
 			return;
-		SM_MapMarkerData d = vis.m_Data;
+		AM_MarkerWidgets.Apply(vis);
+	}
 
-		if (vis.m_wIcon)	// CIVILIAN
-		{
-			ResourceName imageset;
-			string quad;
-			if (SM_ResolveCivIcon(d.m_iIconEntry, imageset, quad) && imageset != "" && quad != "")
-				vis.m_wIcon.LoadImageFromSet(0, imageset, quad);
-			vis.m_wIcon.SetColor(Color.FromInt(d.m_iColor));
-			vis.m_wIcon.SetRotation(d.m_iRotation);
-		}
-		else if (vis.m_wSymbol && vis.m_SymbolComp)	// MILITARY (APP-6)
-		{
-			vis.m_SymbolComp.Update(SM_BuildMilitarySymbol(d));
-			vis.m_wSymbol.SetColor(Color.FromInt(d.m_iColor));
-			// OverlayWidget не має SetRotation — крутимо кожен шар-ImageWidget на той самий кут
-			// (шари символа накладені по центру, тож це повертає весь символ).
-			SM_RotateChildren(vis.m_wSymbol, d.m_iRotation);
-		}
-		int labelColor = 0xFF000000;	// чорний за замовчуванням
-		if (d.m_iTextColored != 0)
-			labelColor = d.m_iColor;	// або у колір мітки (галочка Text)
+	//! Refresh the map-widget -> map-frame shift (see m_fSMMapOffX). Zero on the fullscreen map.
+	protected void SM_RefreshMapOffset(WorkspaceWidget ws)
+	{
+		m_fSMMapOffX = 0;
+		m_fSMMapOffY = 0;
+		if (!m_wSMMapFrame || !ws)
+			return;
+		CanvasWidget mapW = m_MapEntity.GetMapWidget();
+		if (!mapW)
+			return;
 
-		if (vis.m_wLabel)
-		{
-			vis.m_wLabel.SetText(d.m_sText);
-			vis.m_wLabel.SetColor(Color.FromInt(labelColor));
-		}
-		if (vis.m_wTime)	// позначка часу — окремий менший віджет (дата+час сценарію)
-		{
-			if (d.m_iDate != 0)
-			{
-				vis.m_wTime.SetText(SM_DateTimeString(d.m_iDate, d.m_iTime));
-				vis.m_wTime.SetColor(Color.FromInt(labelColor));
-				vis.m_wTime.SetVisible(true);
-			}
-			else
-			{
-				vis.m_wTime.SetVisible(false);
-			}
-		}
+		float mx, my, fx, fy;
+		mapW.GetScreenPos(mx, my);
+		m_wSMMapFrame.GetScreenPos(fx, fy);
+		m_fSMMapOffX = ws.DPIUnscale(mx - fx);
+		m_fSMMapOffY = ws.DPIUnscale(my - fy);
 	}
 
 	// Позиціонує+масштабує візуал у світовій точці (спільно для міток і прев'ю).
+	// Проєкція мапи → екран; сам вигляд (розмір, підпис, час) кладе AM_MarkerWidgets.Place,
+	// той самий, яким користується RT-екран планшета.
+	// WorldToScreen's last argument is dpiScale, not a clamp: true, then DPIUnscale to layout units.
+	// The result is MAP-WIDGET-local, so it needs the offset to land in the frame our widgets sit in.
 	protected void SM_PositionVisual(SM_MarkerVisual vis, int wx, int wy, float factor, WorkspaceWidget ws)
 	{
 		if (!vis || !vis.m_Data)
 			return;
-		Widget main = vis.GetMainWidget();	// цивільна іконка АБО військовий символ
-		if (!main)
-			return;
-
-		float size = SM_BASE_SIZE * SM_SizeFactor(vis.m_Data.m_iSize) * factor;
 
 		int sx, sy;
 		m_MapEntity.WorldToScreen(wx, wy, sx, sy, true);
-		float usx = ws.DPIUnscale(sx);
-		float usy = ws.DPIUnscale(sy);
-
-		FrameSlot.SetSize(main, size, size);
-		FrameSlot.SetPos(main, usx, usy);
-
-		float mainFont = size * SM_TEXT_RATIO;
-		float labelY = usy + size * SM_LABEL_OFFSET;	// під видимою іконкою (а не під краєм віджета)
-		// На дуже дальніх зумах шрифт стає суб-піксельним — ховаємо підписи, щоб не виставляти ~0px.
-		bool tinyText = (mainFont < 2.0);
-		if (vis.m_wLabel)
-		{
-			if (tinyText)
-				vis.m_wLabel.SetVisible(false);
-			else
-			{
-				vis.m_wLabel.SetExactFontSize(mainFont);
-				FrameSlot.SetPos(vis.m_wLabel, usx, labelY);
-			}
-		}
-		if (vis.m_wTime)	// позначка часу — удвічі менший шрифт, під підписом
-		{
-			if (tinyText)
-			{
-				vis.m_wTime.SetVisible(false);
-				return;
-			}
-			vis.m_wTime.SetExactFontSize(mainFont * 0.5);
-			float timeY = labelY;
-			if (vis.m_Data.m_sText != "")
-				timeY = labelY + mainFont * 1.1;	// нижче рядка підпису
-			FrameSlot.SetPos(vis.m_wTime, usx, timeY);
-		}
+		AM_MarkerWidgets.Place(vis,
+			ws.DPIUnscale(sx) + m_fSMMapOffX,
+			ws.DPIUnscale(sy) + m_fSMMapOffY,
+			AM_MarkerWidgets.SizePx(vis.m_Data, factor));
 	}
 
 	// Множник «папір»-масштабу за поточним зумом (1.0 на макс. наближенні, менше при віддаленні).
@@ -2109,9 +2074,7 @@ modded class SCR_MapMarkersUI
 	// (enum SM_EMarkerSize) — трактуємо < 10 як 100% (зворотна сумісність, інакше були б невидимі).
 	protected float SM_SizeFactor(int sizePercent)
 	{
-		if (sizePercent < 10)
-			return 1.0;
-		return sizePercent * 0.01;
+		return AM_MarkerWidgets.SizeFactor(sizePercent);
 	}
 
 	// Після того, як ванільний грід наповнив вкладку, дописуємо у вкладку "General" дві
@@ -2126,8 +2089,8 @@ modded class SCR_MapMarkersUI
 			return;
 
 		WorkspaceWidget ws = GetGame().GetWorkspace();
-		SM_AddHeartButton(ws, SM_HEART_ICON_BASE,     "anarchyHeart1");
-		SM_AddHeartButton(ws, SM_HEART_ICON_BASE + 1, "anarchyHeart2");
+		SM_AddHeartButton(ws, AM_MarkerWidgets.HEART_ICON_BASE,     "anarchyHeart1");
+		SM_AddHeartButton(ws, AM_MarkerWidgets.HEART_ICON_BASE + 1, "anarchyHeart2");
 	}
 
 	protected void SM_AddHeartButton(WorkspaceWidget ws, int reservedId, string quad)
@@ -2158,7 +2121,7 @@ modded class SCR_MapMarkersUI
 			return;
 
 		m_mIconIDs.Insert(comp, reservedId);
-		comp.SetImage(SM_HEART_IMAGESET, quad);
+		comp.SetImage(AM_MarkerWidgets.HEART_IMAGESET, quad);
 		comp.m_OnClicked.Insert(OnIconEntryClicked);
 		comp.m_OnFocus.Insert(OnIconEntryFocused);
 
@@ -2181,35 +2144,9 @@ modded class SCR_MapMarkersUI
 		return c;
 	}
 
-	// Резолвить (imageset, quad) для індексу цивільної іконки.
-	// Зарезервовані індекси (>= SM_HEART_ICON_BASE) — наші серця з власного imageset,
-	// конфіг не чіпаємо. Решта — звичайний ванільний конфіг PLACED_CUSTOM.
 	protected bool SM_ResolveCivIcon(int iconEntry, out ResourceName imageset, out string quad)
 	{
-		if (iconEntry >= SM_HEART_ICON_BASE)
-		{
-			imageset = SM_HEART_IMAGESET;
-			if (iconEntry == SM_HEART_ICON_BASE)
-				quad = "anarchyHeart1";
-			else
-				quad = "anarchyHeart2";
-			return true;
-		}
-
-		SCR_MapMarkerManagerComponent mgr = SCR_MapMarkerManagerComponent.GetInstance();
-		if (!mgr)
-			return false;
-
-		SCR_MapMarkerConfig cfg = mgr.GetMarkerConfig();
-		if (!cfg)
-			return false;
-
-		SCR_MapMarkerEntryPlaced placed = SCR_MapMarkerEntryPlaced.Cast(cfg.GetMarkerEntryConfigByType(SCR_EMapMarkerType.PLACED_CUSTOM));
-		if (!placed)
-			return false;
-
-		ResourceName glow;
-		return placed.GetIconEntry(iconEntry, imageset, glow, quad);
+		return AM_MarkerWidgets.ResolveCivIcon(iconEntry, imageset, quad);
 	}
 
 	// 3. ВВІД
@@ -2358,7 +2295,11 @@ modded class SCR_MapMarkersUI
 		WorkspaceWidget ws = GetGame().GetWorkspace();
 		bool overPanel = false;
 		if (m_DrawPanel && ws)
-			overPanel = m_DrawPanel.IsCursorOver(ws.DPIScale(SCR_MapCursorInfo.x), ws.DPIScale(SCR_MapCursorInfo.y));
+		{
+			int opx, opy;
+			SM_CursorPhysPx(opx, opy);	// panel hit-tests against widget screen positions
+			overPanel = m_DrawPanel.IsCursorOver(opx, opy);
+		}
 
 		int wx, wy;
 		bool haveWorld = SM_GetCursorWorld(wx, wy);
@@ -2427,8 +2368,9 @@ modded class SCR_MapMarkersUI
 		// не даємо марковській логіці (подвійний клік create / hold / вказівник) спрацювати «крізь» неї.
 		if (m_DrawPanel)
 		{
-			WorkspaceWidget pws = GetGame().GetWorkspace();
-			if (pws && m_DrawPanel.IsCursorOver(pws.DPIScale(SCR_MapCursorInfo.x), pws.DPIScale(SCR_MapCursorInfo.y)))
+			int ppx, ppy;
+			SM_CursorPhysPx(ppx, ppy);
+			if (m_DrawPanel.IsCursorOver(ppx, ppy))
 			{
 				m_bSMLmbDown = im.GetActionValue("MouseLeft") > 0.5;	// тримаємо стан ЛКМ актуальним
 				m_iSMPressMarkerId = -1;
@@ -2613,28 +2555,30 @@ modded class SCR_MapMarkersUI
 	// Курсор той самий (SCR_MapCursorInfo). Move/copy/вказівник додамо наступними кроками.
 	protected void SM_PollGamepad(InputManager im)
 	{
-		// Фокус на БУДЬ-ЯКОМУ UI (ванільне меню інструментів мапи зліва, наша панель малювання,
-		// будь-що фокусне) → пад взаємодіє з тим UI, а не з мапою: A/Y/X тут мовчать. Інакше вибір
-		// елемента меню кнопкою A одночасно ставив би мітку (баг «компас + мітка»).
 		WorkspaceWidget gws = GetGame().GetWorkspace();
-		if (gws && gws.GetFocusedWidget())
-		{
-			// «Проковтнути» поточні натиски: стани = down, щоб після зняття фокуса (вибір у меню
-			// кнопкою A) той САМИЙ натиск не спрацював фронтом як тап/дія на мапі. Додатково
-			// позначаємо прес «спожитим»: release-гілка A інакше зробила б create/edit на відпусканні.
-			m_bSMPadConfirmDown = im.GetActionValue("AM_Confirm") > 0.5;
-			if (m_bSMPadConfirmDown)
-				m_bSMPickedThisPress = true;
-			m_bSMPadPlaceDown   = im.GetActionValue("AM_Place")   > 0.5;
-			m_bSMPadDeleteDown  = im.GetActionValue("AM_Delete")  > 0.5;
-			return;
-		}
+		Widget focused = null;
+		if (gws)
+			focused = gws.GetFocusedWidget();
+		bool focusInPanel = (focused && m_DrawPanel && m_DrawPanel.ContainsWidget(focused));
 
 		// Пад-малювання: інструмент (олівець/гумка) активний → A затиснутим малює/стирає по курсору
 		// (стік веде), відпускання — коміт. B — скасувати інструмент (вийти в звичайний режим),
 		// X — видалити штрих під курсором. Мітко-дії A/Y недоступні, поки інструмент активний.
-		if (m_DrawCanvas && m_DrawCanvas.IsActive())
+		//
+		// This comes BEFORE the focus guard on purpose. A host screen (a tablet menu) always keeps SOME
+		// widget focused, so guarding first meant the pad could never draw there at all — A was
+		// swallowed every frame. An armed tool outranks a focused widget; only OUR panel still wins, so
+		// A keeps operating the panel while the pad is inside it.
+		if (m_DrawCanvas && m_DrawCanvas.IsActive() && !focusInPanel)
 		{
+			// An armed tool takes the pad exclusively: drop any focus the host left lying around, or
+			// the same A press would both draw AND activate whatever widget happened to be focused.
+			if (focused && gws)
+			{
+				gws.SetFocusedWidget(null);
+				focused = null;
+			}
+
 			bool draw = im.GetActionValue("AM_Confirm") > 0.5;	// A
 			int dwx, dwy;
 			bool haveW = SM_GetCursorWorld(dwx, dwy);
@@ -2677,6 +2621,27 @@ modded class SCR_MapMarkersUI
 		{
 			m_bSMPadDrawDown = false;
 			m_bSMPadCancelDown = false;
+		}
+
+		// Фокус на UI → пад взаємодіє з тим UI, а не з мапою: A/Y/X тут мовчать. Інакше вибір елемента
+		// ванільного меню мапи кнопкою A одночасно ставив би мітку (баг «компас + мітка»).
+		//
+		// But that heuristic — "something is focused, therefore the pad is talking to UI" — is simply
+		// FALSE on a host screen: a tablet menu keeps a widget focused at all times, so the guard used
+		// to swallow every A press forever and the pointer could never fire there. Where the map does
+		// not own the screen, only OUR panel gets to claim the pad.
+		bool hostScreen = !SM_HasFeature(AM_EMapFeature.MARKER_TOOLS);
+		if (focused && (focusInPanel || !hostScreen))
+		{
+			// «Проковтнути» поточні натиски: стани = down, щоб після зняття фокуса (вибір у меню
+			// кнопкою A) той САМИЙ натиск не спрацював фронтом як тап/дія на мапі. Додатково
+			// позначаємо прес «спожитим»: release-гілка A інакше зробила б create/edit на відпусканні.
+			m_bSMPadConfirmDown = im.GetActionValue("AM_Confirm") > 0.5;
+			if (m_bSMPadConfirmDown)
+				m_bSMPickedThisPress = true;
+			m_bSMPadPlaceDown   = im.GetActionValue("AM_Place")   > 0.5;
+			m_bSMPadDeleteDown  = im.GetActionValue("AM_Delete")  > 0.5;
+			return;
 		}
 
 		bool confirm = im.GetActionValue("AM_Confirm") > 0.5;	// A — тап: редаг/створ; утримання: нести/вказувати
@@ -2858,6 +2823,11 @@ modded class SCR_MapMarkersUI
 	// Пад: хрестовина вправо — зайти фокусом у панель малювання (перший елемент) / вийти з неї.
 	// Поки фокус усередині панелі, пад-дії мапи (A/Y/X) мовчать (гейт у SM_PollGamepad),
 	// тож вибір елемента НЕ ставить мітку. Зевсу поки не даємо (окрема задача).
+	//! RB on the pad. On the normal map the panel is always up, so this just moves focus in and out of
+	//! it. On a host screen that starts our panel hidden (a tablet), RB is the whole entry point: one
+	//! press opens it AND puts the pad in it, a second press closes it again — otherwise a console
+	//! player would have to steer the cursor onto the tablet's pencil, which is exactly what the
+	//! button exists to avoid.
 	protected void SM_OnPanelFocus(float value, EActionTrigger reason)
 	{
 		if (!m_bSMMapOpen || m_MarkerEditRoot || !m_DrawPanel || SM_IsEditorMap())
@@ -2870,10 +2840,18 @@ modded class SCR_MapMarkersUI
 		if (!ws)
 			return;
 
+		if (!m_bSMDrawPanelShown)
+		{
+			AM_SetDrawPanelShown(true);
+			m_DrawPanel.SetVisible(true);	// now, not next Update — we focus it on this very frame
+		}
+
 		Widget f = ws.GetFocusedWidget();
 		if (f && m_DrawPanel.ContainsWidget(f))
 		{
-			SM_PanelExit();	// повторний LB — вихід із меню
+			SM_PanelExit();	// повторний RB — вихід із меню
+			if (m_bSMPanelStartsHidden)
+				AM_SetDrawPanelShown(false);	// host screen owns the panel: put it away again
 			return;
 		}
 		Widget first = m_DrawPanel.GetFirstFocusTarget();
@@ -2897,8 +2875,9 @@ modded class SCR_MapMarkersUI
 			return;
 		int dwx, dwy;
 		bool dHaveW = SM_GetCursorWorld(dwx, dwy);
-		int strokeId = m_DrawCanvas.FindStrokeAtScreen(
-			xws.DPIScale(SCR_MapCursorInfo.x), xws.DPIScale(SCR_MapCursorInfo.y), dwx, dwy, dHaveW);
+		int cpx, cpy;
+		SM_CursorPhysPx(cpx, cpy);
+		int strokeId = m_DrawCanvas.FindStrokeAtScreen(cpx, cpy, dwx, dwy, dHaveW);
 		if (strokeId == -1)
 			return;
 		SCR_PlayerController spc = SM_LocalPC();
@@ -2970,8 +2949,9 @@ modded class SCR_MapMarkersUI
 				{
 					int pdwx, pdwy;
 					bool pdHaveW = SM_GetCursorWorld(pdwx, pdwy);
-					int strokeId = m_DrawCanvas.FindStrokeAtScreen(
-						dws.DPIScale(SCR_MapCursorInfo.x), dws.DPIScale(SCR_MapCursorInfo.y), pdwx, pdwy, pdHaveW);
+					int pcpx, pcpy;
+					SM_CursorPhysPx(pcpx, pcpy);
+					int strokeId = m_DrawCanvas.FindStrokeAtScreen(pcpx, pcpy, pdwx, pdwy, pdHaveW);
 					if (strokeId != -1)
 					{
 						SCR_PlayerController dpc = SM_LocalPC();
@@ -3006,17 +2986,35 @@ modded class SCR_MapMarkersUI
 	}
 
 	// Світова позиція під курсором (канонічний ванільний патерн; координати курсора статичні).
+	// ScreenToWorld wants MAP-FRAME-local pixels (not map-widget: the two are NOT inverses of each
+	// other, see the note on m_fSMMapOffX), and SCR_MapCursorInfo is not a screen position on an
+	// inset map at all — SM_DrawCanvas.CursorInFrame sorts both out.
 	protected bool SM_GetCursorWorld(out int worldX, out int worldY)
 	{
-		WorkspaceWidget ws = GetGame().GetWorkspace();
-		if (!ws)
+		// Prefer the canvas: it inverts the affine we actually RENDER with, so the world point is
+		// guaranteed to sit under the brush circle. ScreenToWorld only agrees with it on a fullscreen
+		// map — on an inset one the two disagree by a few pixels, which a thin brush makes obvious.
+		if (m_DrawCanvas && m_DrawCanvas.CursorWorld(worldX, worldY))
+			return true;
+
+		float cfx, cfy;
+		if (!SM_DrawCanvas.CursorInFrame(m_wSMMapFrame, cfx, cfy))
 			return false;
 
 		float wx, wy;
-		m_MapEntity.ScreenToWorld(ws.DPIScale(SCR_MapCursorInfo.x), ws.DPIScale(SCR_MapCursorInfo.y), wx, wy);
+		m_MapEntity.ScreenToWorld(cfx, cfy, wx, wy);
 		worldX = wx;
 		worldY = wy;
 		return true;
+	}
+
+	//! The cursor in PHYSICAL SCREEN pixels — what FindStrokeAtScreen expects.
+	protected void SM_CursorPhysPx(out int px, out int py)
+	{
+		float fx, fy;
+		SM_DrawCanvas.CursorPhys(m_wSMMapFrame, fx, fy);
+		px = fx;
+		py = fy;
 	}
 
 	// Наша мітка під курсором — власний екранний хіт-тест (надійніше за трасування віджетів;
@@ -3033,8 +3031,21 @@ modded class SCR_MapMarkersUI
 		if (maxZoom > 0)
 			factor = Math.Clamp(m_MapEntity.GetCurrentZoom() / maxZoom, SM_MIN_ZOOM_SCALE, 1.0);
 
-		float cx = SCR_MapCursorInfo.x;	// екранна позиція курсора (DPI-unscaled, як і слоти міток)
-		float cy = SCR_MapCursorInfo.y;
+		// The WorldToScreen below lands in MAP-WIDGET units, so put the cursor in that space once
+		// rather than converting every marker. Identical on the fullscreen map.
+		float cpx, cpy;
+		if (!SM_DrawCanvas.CursorPhys(m_wSMMapFrame, cpx, cpy))
+			return null;
+		CanvasWidget mapWHit = m_MapEntity.GetMapWidget();
+		if (mapWHit)
+		{
+			float mwx, mwy;
+			mapWHit.GetScreenPos(mwx, mwy);
+			cpx -= mwx;
+			cpy -= mwy;
+		}
+		float cx = ws.DPIUnscale(cpx);
+		float cy = ws.DPIUnscale(cpy);
 
 		SM_MarkerVisual best = null;
 		float bestDist2 = -1;
@@ -3049,7 +3060,7 @@ modded class SCR_MapMarkersUI
 			float mx = ws.DPIUnscale(sx);
 			float my = ws.DPIUnscale(sy);
 
-			float half = SM_BASE_SIZE * SM_SizeFactor(vis.m_Data.m_iSize) * factor * 0.5;
+			float half = AM_MarkerWidgets.BASE_SIZE * SM_SizeFactor(vis.m_Data.m_iSize) * factor * 0.5;
 			if (half < 18)	// мінімальний радіус кліку (дрібні мітки на віддаленні)
 				half = 18;
 
@@ -5203,7 +5214,7 @@ modded class SCR_MapMarkersUI
 			return;
 
 		int id = m_mIconIDs.Get(component);
-		if (id >= SM_HEART_ICON_BASE)
+		if (id >= AM_MarkerWidgets.HEART_ICON_BASE)
 		{
 			if (m_SelectedIconButton)
 				m_SelectedIconButton.ColorizeBackground();
@@ -5212,14 +5223,14 @@ modded class SCR_MapMarkersUI
 			m_iSelectedIconID = id;
 
 			string quad;
-			if (id == SM_HEART_ICON_BASE)
+			if (id == AM_MarkerWidgets.HEART_ICON_BASE)
 				quad = "anarchyHeart1";
 			else
 				quad = "anarchyHeart2";
 			if (m_wMarkerPreview)
-				m_wMarkerPreview.LoadImageFromSet(0, SM_HEART_IMAGESET, quad);
+				m_wMarkerPreview.LoadImageFromSet(0, AM_MarkerWidgets.HEART_IMAGESET, quad);
 			if (m_wMarkerPreviewGlow)
-				m_wMarkerPreviewGlow.LoadImageFromSet(0, SM_HEART_IMAGESET, quad);
+				m_wMarkerPreviewGlow.LoadImageFromSet(0, AM_MarkerWidgets.HEART_IMAGESET, quad);
 		}
 		else
 		{
@@ -5647,25 +5658,18 @@ modded class SCR_MapMarkersUI
 	// yyyymmdd + hhmm → "DD.MM.YYYY HH:MM".
 	protected string SM_DateTimeString(int date, int time)
 	{
-		int h = time / 100;
-		int mi = time % 100;
-		return SM_DateString(date) + " " + SM_Pad2(h) + ":" + SM_Pad2(mi);
+		return AM_MarkerWidgets.DateTimeString(date, time);
 	}
 
 	// yyyymmdd → "DD.MM.YYYY".
 	protected string SM_DateString(int date)
 	{
-		int y = date / 10000;
-		int m = (date / 100) % 100;
-		int d = date % 100;
-		return SM_Pad2(d) + "." + SM_Pad2(m) + "." + y.ToString();
+		return AM_MarkerWidgets.DateString(date);
 	}
 
 	protected string SM_Pad2(int v)
 	{
-		if (v < 10)
-			return "0" + v.ToString();
-		return v.ToString();
+		return AM_MarkerWidgets.Pad2(v);
 	}
 
 	// Індекс кольору в палітрі за упакованим ARGB (-1 якщо не знайдено).

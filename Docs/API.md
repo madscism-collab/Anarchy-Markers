@@ -10,7 +10,7 @@ Public integration surface for other mods. Two entry points:
 
 **Setup:** add `Anarchy Markers` to `Dependencies` in your `addon.gproj` and call the static methods directly. Do not touch internal classes (`SM_MapMarkerStore`, `SM_MarkerNet`, ...) — only what is documented here is kept stable.
 
-`AM_MarkerAPI.API_VERSION` (currently `3`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
+`AM_MarkerAPI.API_VERSION` (currently `6`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
 
 ---
 
@@ -90,6 +90,68 @@ Notes:
 - No policy (the default, and always the case for `FULLSCREEN`/`EDITOR` unless you insist) = exact current behavior.
 - Pick the radius from your screen size and typical zoom: there is no point rendering what the widget can't show. For a 400 px wide tablet at a 1:25k-style zoom, 1000–2000 m is plenty.
 - A marker placed far away appears on the screen within one interval once the player gets close — that is the trade, not a bug.
+
+### Live layer switches and a pinned channel (API v5)
+
+The feature mask is resolved once, when the map opens. Two things are not:
+
+```c
+// Your screen has its own "show markers / show drawings" toggles — push them every frame:
+AM_MapFeatures.SetLayerVisible(showMarkers, showDrawings);
+
+// Your screen owns the audience: pin the channel and take our channel picker off the panel.
+AM_MapFeatures.SetForcedVisibilityForMode(EMapEntityMode.PLAIN, SM_EMarkerVisibility.FACTION);
+AM_MapFeatures.SetForcedVisibilityNextOpen(SM_EMarkerVisibility.FACTION);   // or just the next open
+```
+
+- **`SetLayerVisible`** gates *rendering only* — nothing is destroyed, so flipping a toggle back is instant. It is global (one map is open at a time) and our layer resets it to visible on every map open, so a toggle you left off cannot follow the player onto the fullscreen map.
+- **`SetForcedVisibilityForMode`** pins every marker and drawing created on that screen to one channel and **removes our channel picker from the drawing panel**. Use it when your screen has its own audience model: an ATAK-style tablet scopes everything to the player's faction, so leaving a Group/Everyone switch in our panel would promise the player an audience your screen doesn't actually have. Resolved per open, exactly like the feature mask, so it cannot leak onto the normal map.
+
+### Your toolbar owns our panel (API v6)
+
+If your screen already has a tool column, our drawing panel should not just appear on top of it — your button should be the way in:
+
+```c
+// Our panel starts hidden on your screen:
+AM_MapFeatures.SetDrawPanelHiddenForMode(EMapEntityMode.PLAIN, true);
+
+// Your button toggles it (the map layer is a modded SCR_MapMarkersUI):
+SCR_MapMarkersUI layer = SCR_MapMarkersUI.Cast(m_MapEntity.GetMapUIComponent(SCR_MapMarkersUI));
+if (layer)
+{
+    layer.AM_ToggleDrawPanel();          // also AM_SetDrawPanelShown(bool) / AM_IsDrawPanelShown()
+}
+
+// And shove our control hints clear of your chrome (they anchor bottom-left):
+AM_MapFeatures.SetHintNudgeForMode(EMapEntityMode.PLAIN, 90, 0);   // +x = right, +y = down
+```
+
+Hiding the panel also disarms the active tool — a hidden panel must never keep drawing. Registering your button as a vanilla `SCR_MapToolEntry` is worth it: the tool menu is already gamepad-navigable, so console and PC get the same entry point with no second code path.
+
+### Drawing markers on your own surface (`AM_MarkerWidgets`, API v4)
+
+Everything above assumes your screen is a `SCR_MapEntity`. Some devices aren't: a render-target tablet may paint its own mini-map by hand — centred on the player, its own scale, maybe rotated to heading — and there is no map entity for our layer to attach to. `AM_MarkerWidgets` exists for that case. It owns what a marker **looks like**, and knows nothing about how you got to your screen coordinates:
+
+```c
+// Once, when a marker appears (subscribe to AM_MarkerAPI.GetOnMarkerAdded/Changed/Removed):
+SM_MarkerVisual vis = AM_MarkerWidgets.Create(data, myFrameWidget);
+
+// Every frame, with coordinates YOU projected however your screen works:
+AM_MarkerWidgets.Place(vis, screenX, screenY, sizePx);
+AM_MarkerWidgets.SetLabelsVisible(vis, inRange);
+
+// When it goes away:
+vis.Destroy();
+```
+
+- `Create(data, parent)` builds the civilian icon or the APP-6 military symbol, plus the label and timestamp, and dresses them with the marker's data. `parent` must be a frame widget (the widgets position themselves with `FrameSlot`). Returns `null` if the widgets couldn't be made.
+- `Apply(vis)` re-dresses an existing visual after its data changed. If `m_iKind` flipped (civilian ↔ military) call `RebuildMain(vis, parent)` first — that swaps the main widget.
+- `Place(vis, sx, sy, sizePx)` positions the marker's **centre** at `sx`/`sy` (DPI-unscaled layout units) at `sizePx` across. It hides labels once their font would go sub-pixel, but never shows them again — **label visibility is yours**, via `SetLabelsVisible`, so your own culling isn't fought every frame.
+- `SizeFactor(m_iSize)` gives the marker's size multiplier; `SizePx(data, factor)` is the map's own `BASE_SIZE * SizeFactor * factor` if you want to match it. On a small screen you'll usually want a fixed base pixel size times `SizeFactor`, clamped — a 1000% marker would otherwise swallow a tablet.
+
+Because the map layer uses this exact factory, a marker looks identical on your device and on the map, and it keeps looking identical when we change the look.
+
+For drawings there is no widget factory — geometry is just points. Read `data.m_aPoints` (x,z pairs, metres), project them, and feed a `CanvasWidget`: `LineDrawCommand` for strokes (width in metres from `SM_DrawCanvas.WidthMeters(m_iWidthIdx)`) and, for `m_iFill != 0`, a `TriMeshDrawCommand` whose indices come from `SM_MapFloodFill.Triangulate(data.m_aPoints, outIndices)`. The triangulation is topology only — compute it once per drawing and reuse it every frame.
 
 ---
 

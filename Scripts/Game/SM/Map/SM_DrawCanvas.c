@@ -144,6 +144,22 @@ class SM_DrawCanvas
 	// Render budget of the current screen (AM_MapRenderPolicy); 0 = render everything.
 	protected float m_fRenderRadius;
 
+	// TRAP: SCR_MapEntity's two projection calls speak DIFFERENT spaces and are not inverses:
+	//     WorldToScreen  RETURNS pixels local to the MAP WIDGET
+	//     ScreenToWorld  TAKES   pixels local to the MAP FRAME
+	// On the fullscreen map widget, frame and screen all sit at the origin, so this never showed. A
+	// tablet hosts the map in a small inset widget and the difference becomes a constant pixel offset
+	// — nearly right zoomed in, kilometres off zoomed out (constant pixels = growing metres).
+	//
+	// Everything we emit must be CANVAS-local (draw commands, hit tests). The three bridges:
+	//   ScreenToWorld input:  canvas corner in frame space   = m_fCanvasInFrame
+	//   WorldToScreen output: + m_fMapToCanvas               -> canvas-local
+	//   cursor (screen px):   - m_fCanvasAbs                 -> canvas-local
+	// All refreshed in ComputeAffine; all 0 on the fullscreen map.
+	protected float m_fCanvasInFrameX, m_fCanvasInFrameY;	// canvas origin, in map-frame space
+	protected float m_fMapToCanvasX, m_fMapToCanvasY;		// map-widget space -> canvas space
+	protected float m_fCanvasAbsX, m_fCanvasAbsY;			// canvas origin, in screen space
+
 	void SetRenderRadius(float radiusMeters)
 	{
 		m_fRenderRadius = radiusMeters;
@@ -453,9 +469,13 @@ class SM_DrawCanvas
 		if (sizeUnscaled < 3)
 			sizeUnscaled = 3;	// не даємо курсору зникнути на сильному віддаленні
 
+		// The circle is a child of the map frame, so it wants a frame-local position.
+		float cfx, cfy;
+		CursorInFrame(m_wMapFrame, cfx, cfy);
+
 		m_wCursor.SetVisible(true);
 		FrameSlot.SetSize(m_wCursor, sizeUnscaled, sizeUnscaled);
-		FrameSlot.SetPos(m_wCursor, SCR_MapCursorInfo.x, SCR_MapCursorInfo.y);
+		FrameSlot.SetPos(m_wCursor, ws.DPIUnscale(cfx), ws.DPIUnscale(cfy));
 	}
 
 	//------------------------------------------------------------------------------
@@ -1193,6 +1213,11 @@ class SM_DrawCanvas
 		array<SM_MapDrawingData> all = {};
 		SM_MapDrawingStore.GetInstance().GetAll(all);
 
+		// Callers hand us the cursor in SCREEN pixels; everything below compares against canvas-local
+		// projections, and on an inset map (a tablet) those are not the same space.
+		px -= m_fCanvasAbsX;
+		py -= m_fCanvasAbsY;
+
 		float ppm = PxPerMeter();
 		int cwx = curWX;
 		int cwz = curWZ;
@@ -1440,20 +1465,37 @@ class SM_DrawCanvas
 		rs.m_aCmds.Insert(mesh);
 	}
 
-	// Обчислити афінні коефіцієнти світ→екран. Беремо 3 кути полотна → ScreenToWorld (світові точки
+	// Обчислити афінні коефіцієнти світ→ПОЛОТНО. Беремо 3 кути полотна → ScreenToWorld (світові точки
 	// на екрані) → WorldToScreen назад.
 	// WorldToScreen's last argument is dpiScale, not a clamp: true everywhere, because
 	// GetScreenPos/GetScreenSize/ScreenToWorld all speak physical pixels.
+	// The affine's offsets fold in m_fCanvasInMap, so it emits CANVAS-local pixels directly.
 	protected void ComputeAffine()
 	{
 		m_wCanvas.GetScreenSize(m_fScrW, m_fScrH);
 		m_fClipMarginPx = Math.Clamp(Math.Max(m_fScrW, m_fScrH), 512, 2048);
 
-		float cAbsX, cAbsY, mfAbsX, mfAbsY;
-		m_wCanvas.GetScreenPos(cAbsX, cAbsY);
-		m_wMapFrame.GetScreenPos(mfAbsX, mfAbsY);
-		float bx = cAbsX - mfAbsX;	// frame-local (простір, який приймає ScreenToWorld)
-		float by = cAbsY - mfAbsY;
+		m_wCanvas.GetScreenPos(m_fCanvasAbsX, m_fCanvasAbsY);
+
+		float mfAbsX = 0;
+		float mfAbsY = 0;
+		if (m_wMapFrame)
+			m_wMapFrame.GetScreenPos(mfAbsX, mfAbsY);
+
+		float mwAbsX = 0;
+		float mwAbsY = 0;
+		CanvasWidget mapW = m_Map.GetMapWidget();
+		if (mapW)
+			mapW.GetScreenPos(mwAbsX, mwAbsY);
+
+		// ScreenToWorld takes FRAME-local; WorldToScreen hands back MAP-WIDGET-local.
+		m_fCanvasInFrameX = m_fCanvasAbsX - mfAbsX;
+		m_fCanvasInFrameY = m_fCanvasAbsY - mfAbsY;
+		m_fMapToCanvasX = mwAbsX - m_fCanvasAbsX;
+		m_fMapToCanvasY = mwAbsY - m_fCanvasAbsY;
+
+		float bx = m_fCanvasInFrameX;
+		float by = m_fCanvasInFrameY;
 
 		float w0x, w0z, w1x, w1z, w2x, w2z;
 		m_Map.ScreenToWorld(bx,             by,             w0x, w0z);
@@ -1475,11 +1517,93 @@ class SM_DrawCanvas
 		m_fDyz = (s2y - s0y) / dwz;
 		m_fDyx = 0;
 		m_fDxz = 0;
-		m_fPox = s0x - w0x * m_fDxx;
-		m_fPoy = s0y - w0z * m_fDyz;
+		// Fold map-widget -> canvas into the offsets, so the affine emits canvas-local pixels directly.
+		m_fPox = s0x - w0x * m_fDxx + m_fMapToCanvasX;
+		m_fPoy = s0y - w0z * m_fDyz + m_fMapToCanvasY;
 
 		m_fRefWX = w0x;	// anchor for the cheap pan shift; on screen by construction
 		m_fRefWZ = w0z;
+	}
+
+	//! The map cursor in PHYSICAL SCREEN pixels.
+	//!
+	//! TRAP: SCR_MapCursorInfo.x/y is NOT a screen position on an inset map. On a gamepad it is
+	//! MAP-FRAME-local, and with a mouse the engine does not keep it in screen space either — which is
+	//! why GRS reads the real mouse through WidgetManager instead of trusting it. We mirror that: get
+	//! a true screen position first, and let the caller move it into whatever space it needs.
+	//! On the fullscreen map the frame sits at the origin, so this collapses to the old behaviour.
+	static bool CursorPhys(Widget mapFrame, out float px, out float py)
+	{
+		px = 0;
+		py = 0;
+
+		if (SCR_MapCursorInfo.isGamepad)
+		{
+			float mfx = 0;
+			float mfy = 0;
+			if (mapFrame)
+				mapFrame.GetScreenPos(mfx, mfy);
+			px = SCR_MapCursorInfo.Scale(SCR_MapCursorInfo.x) + mfx;
+			py = SCR_MapCursorInfo.Scale(SCR_MapCursorInfo.y) + mfy;
+			return true;
+		}
+
+		int mx, my;
+		WidgetManager.GetMousePos(mx, my);
+		px = mx;
+		py = my;
+		return true;
+	}
+
+	//! The map cursor in MAP-FRAME-local physical pixels — the space ScreenToWorld takes.
+	static bool CursorInFrame(Widget mapFrame, out float px, out float py)
+	{
+		if (!CursorPhys(mapFrame, px, py))
+			return false;
+		if (mapFrame)
+		{
+			float mfx, mfy;
+			mapFrame.GetScreenPos(mfx, mfy);
+			px -= mfx;
+			py -= mfy;
+		}
+		return true;
+	}
+
+	//! Cursor -> world, by inverting OUR OWN affine instead of trusting ScreenToWorld's input space.
+	//!
+	//! Why not just call ScreenToWorld: it is not the inverse of WorldToScreen (different spaces, see
+	//! the note on m_fCanvasInFrame), and exactly which space it wants is guesswork on an inset map —
+	//! guessing wrong lands the stroke a few pixels off the brush circle, which is glaring with a thin
+	//! brush. The affine, on the other hand, is built from WorldToScreen, which the markers prove
+	//! correct, and it is the very thing that renders the stroke. Inverting it therefore GUARANTEES
+	//! the stroke lands under the circle, whatever the engine thinks screen space is.
+	//! The affine has no rotation, so inverting it is two divisions. false if it isn't built yet.
+	bool CursorWorld(out int wx, out int wz)
+	{
+		if (!m_bViewValid || m_fDxx == 0 || m_fDyz == 0)
+			return false;
+
+		float px, py;
+		if (!CursorPhys(m_wMapFrame, px, py))
+			return false;
+
+		// screen -> canvas-local, the space the affine emits
+		float cx = px - m_fCanvasAbsX;
+		float cy = py - m_fCanvasAbsY;
+
+		wx = (cx - m_fPox) / m_fDxx;
+		wz = (cy - m_fPoy) / m_fDyz;
+		return true;
+	}
+
+	//! World -> CANVAS-local pixels. WorldToScreen alone lands in map-widget space; on an inset map
+	//! (a tablet) that is not where our canvas is.
+	protected void WorldToCanvas(int wx, int wz, out int sx, out int sy)
+	{
+		m_Map.WorldToScreen(wx, wz, sx, sy, true);
+		sx += m_fMapToCanvasX;
+		sy += m_fMapToCanvasY;
 	}
 
 	protected void ClipBox(out float loX, out float hiX, out float loY, out float hiY)
@@ -1926,7 +2050,7 @@ class SM_DrawCanvas
 		for (int i = 0; i < n; i++)
 		{
 			int sx, sy;
-			m_Map.WorldToScreen(m_aCapture[i * 2], m_aCapture[i * 2 + 1], sx, sy, true);
+			WorldToCanvas(m_aCapture[i * 2], m_aCapture[i * 2 + 1], sx, sy);
 			scr[i * 2]     = sx;
 			scr[i * 2 + 1] = sy;
 		}
@@ -1984,22 +2108,18 @@ class SM_DrawCanvas
 	}
 
 	// Видима світова область (метри) = зворотна проєкція протилежних кутів полотна.
-	// Canvas — дитина map-frame, тож ScreenToWorld приймає frame-local координати (кути полотна мінус позиція фрейму).
+	// ScreenToWorld takes MAP-FRAME-local pixels, so the canvas corners go in as frame coords.
 	protected bool ComputeVisibleWorldRect(out float minX, out float maxX, out float minZ, out float maxZ)
 	{
-		if (!m_wCanvas || !m_wMapFrame || !m_Map)
+		if (!m_wCanvas || !m_Map)
 			return false;
-		float canvasAbsX, canvasAbsY;
-		m_wCanvas.GetScreenPos(canvasAbsX, canvasAbsY);
 		float canvasW, canvasH;
 		m_wCanvas.GetScreenSize(canvasW, canvasH);
 		if (canvasW <= 0 || canvasH <= 0)
 			return false;
-		float mfAbsX, mfAbsY;
-		m_wMapFrame.GetScreenPos(mfAbsX, mfAbsY);
 
-		float lx0 = canvasAbsX - mfAbsX;
-		float ly0 = canvasAbsY - mfAbsY;
+		float lx0 = m_fCanvasInFrameX;
+		float ly0 = m_fCanvasInFrameY;
 		float lx1 = lx0 + canvasW;
 		float ly1 = ly0 + canvasH;
 
@@ -2016,13 +2136,14 @@ class SM_DrawCanvas
 
 	//------------------------------------------------------------------------------
 	// Геометрія гумки (стандартна: відстань точки до відрізка, в екранних px)
+	//! px/py are CANVAS-local physical pixels (FindStrokeAtScreen converts the cursor for us).
 	protected float ScreenDistSqToStroke(notnull SM_MapDrawingData d, int px, int py)
 	{
 		int count = d.GetPointCount();
 		int x0, z0;
 		d.GetPoint(0, x0, z0);
 		int prevSx, prevSy;
-		m_Map.WorldToScreen(x0, z0, prevSx, prevSy, true);	// px,py arrive DPI-scaled already
+		WorldToCanvas(x0, z0, prevSx, prevSy);
 		if (count < 2)	// крапка — відстань² до єдиної екранної точки
 		{
 			float ddx = px - prevSx;
@@ -2036,7 +2157,7 @@ class SM_DrawCanvas
 			int wx, wz;
 			d.GetPoint(i, wx, wz);
 			int sx, sy;
-			m_Map.WorldToScreen(wx, wz, sx, sy, true);
+			WorldToCanvas(wx, wz, sx, sy);
 			float dsq = PointToSegDistSq(px, py, prevSx, prevSy, sx, sy);
 			if (best < 0 || dsq < best)
 				best = dsq;

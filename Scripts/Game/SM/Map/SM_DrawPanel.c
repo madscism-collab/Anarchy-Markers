@@ -126,6 +126,7 @@ class SM_DrawPanel
 	protected ButtonWidget m_wFill;	// опційний: якщо в лейауті нема FillButton — інструмент недоступний з UI
 	protected Widget m_wSizeDropdown;
 	protected Widget m_wColorDropdown;
+	protected int m_iForcedVis = -1;	// host pinned the channel; -1 = the player picks (the normal map)
 	protected Widget m_wVisDropdown;
 	protected Widget m_wOpacityDropdown;	// опційний (слайдер прозорості)
 	protected ButtonWidget m_wOpacityOpener;
@@ -180,11 +181,15 @@ class SM_DrawPanel
 	}
 
 	//------------------------------------------------------------------------------
-	void Build(notnull SM_DrawCanvas canvas, notnull Widget mapFrame, bool editorMap = false)
+	//! forcedVis >= 0: the host screen owns the audience (an ATAK-style tablet scopes everything to the
+	//! player's faction), so the channel picker comes off the panel entirely — leaving a Group/Everyone
+	//! switch there would lie to the player about who ends up seeing the drawing.
+	void Build(notnull SM_DrawCanvas canvas, notnull Widget mapFrame, bool editorMap = false, int forcedVis = -1)
 	{
 		m_Canvas = canvas;
 		m_bEditorMap = editorMap;
 		m_wMapFrame = mapFrame;
+		m_iForcedVis = forcedVis;
 		WorkspaceWidget ws = GetGame().GetWorkspace();
 
 		m_wRoot = ws.CreateWidgets(PANEL_LAYOUT, mapFrame);
@@ -284,6 +289,20 @@ class SM_DrawPanel
 		m_wVisDropdown = m_wRoot.FindAnyWidget("VisibilityDropdown");
 		Wire(m_wVisOpener, ACT_OPEN_VIS, 0);
 
+		// Host pinned the channel: pin the brush to it and take the picker off the panel. Null the
+		// opener too, so it never lands in the gamepad row below and nothing can re-open the dropdown.
+		if (m_iForcedVis >= 0)
+		{
+			m_Canvas.SetVisibility(m_iForcedVis);
+			Widget visCombo = m_wRoot.FindAnyWidget("VisibilityCombo");
+			if (visCombo)
+				visCombo.SetVisible(false);
+			else if (m_wVisOpener)
+				m_wVisOpener.SetVisible(false);
+			m_wVisOpener = null;
+			m_wVisDropdown = null;
+		}
+
 		// Прозорість (опційний блок OpacityCombo: опенер + дропдаун зі слайдером 0..100)
 		m_wOpacityOpener   = ButtonWidget.Cast(m_wRoot.FindAnyWidget("OpacityButton"));
 		m_wOpacityDropdown = m_wRoot.FindAnyWidget("OpacityDropdown");
@@ -331,7 +350,8 @@ class SM_DrawPanel
 		m_aTopRow.Insert(m_wColorOpener);
 		if (m_wOpacityOpener)
 			m_aTopRow.Insert(m_wOpacityOpener);
-		m_aTopRow.Insert(m_wVisOpener);
+		if (m_wVisOpener)	// null when the host pinned the channel — the picker isn't on the panel
+			m_aTopRow.Insert(m_wVisOpener);
 		if (m_bEditorMap && m_wSideOpener)
 			m_aTopRow.Insert(m_wSideOpener);
 

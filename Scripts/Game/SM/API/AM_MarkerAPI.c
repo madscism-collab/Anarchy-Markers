@@ -21,7 +21,13 @@ class AM_MarkerAPI
 	//! Contract version. Signatures only ever get extended, never broken.
 	//! 2 = map feature flags (AM_MapFeatures) added, Local markers/drawings moved client-side.
 	//! 3 = render policy for always-on screens (AM_MapFeatures.SetRenderPolicy).
-	static const int API_VERSION = 3;
+	//! 4 = AM_MarkerWidgets: build/dress/place marker widgets on ANY surface, not just the map
+	//!     (for tablet or terminal mods that paint their own screen instead of using SCR_MapEntity).
+	//! 5 = AM_MapFeatures.SetLayerVisible (live show/hide, for a host with its own layer toggles) and
+	//!     SetForcedVisibilityForMode (pin the channel, drop our channel picker from the panel).
+	//! 6 = AM_MapFeatures.SetDrawPanelHiddenForMode + SCR_MapMarkersUI.AM_ToggleDrawPanel (the host's
+	//!     own toolbar button owns our panel) and SetHintNudgeForMode (move our hints off its chrome).
+	static const int API_VERSION = 6;
 
 	//! true on the authoritative side: dedicated server, listen-host or the SP editor.
 	static bool IsServer()
