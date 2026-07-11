@@ -27,7 +27,9 @@ class AM_MarkerAPI
 	//!     SetForcedVisibilityForMode (pin the channel, drop our channel picker from the panel).
 	//! 6 = AM_MapFeatures.SetDrawPanelHiddenForMode + SCR_MapMarkersUI.AM_ToggleDrawPanel (the host's
 	//!     own toolbar button owns our panel) and SetHintNudgeForMode (move our hints off its chrome).
-	static const int API_VERSION = 6;
+	//! 7 = AM_VanillaBridge.SetIncludeLocal actually works. Local markers were silently dropped by the
+	//!     eligibility check regardless of the flag, so no consumer could ever see one.
+	static const int API_VERSION = 7;
 
 	//! true on the authoritative side: dedicated server, listen-host or the SP editor.
 	static bool IsServer()

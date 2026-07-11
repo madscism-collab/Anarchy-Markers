@@ -10,7 +10,7 @@ Public integration surface for other mods. Two entry points:
 
 **Setup:** add `Anarchy Markers` to `Dependencies` in your `addon.gproj` and call the static methods directly. Do not touch internal classes (`SM_MapMarkerStore`, `SM_MarkerNet`, ...) — only what is documented here is kept stable.
 
-`AM_MarkerAPI.API_VERSION` (currently `6`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
+`AM_MarkerAPI.API_VERSION` (currently `7`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
 
 ---
 
@@ -322,8 +322,10 @@ When enabled, the bridge still exposes as little as it can:
 
 - only markers the **local player is allowed to see** (channel/faction rules). On a dedicated server (no local player) everything in the store is exposed to server-side consumers;
 - only markers matching the **text filter**, if one is set;
-- **client-side Local markers are skipped** by default — their ids are negative (≤ -2) and consumers expect vanilla-style ids;
+- **client-side Local markers** are included only if you ask for them (`SetIncludeLocal`). They live solely in their author's store, so no eligibility check applies — and none could: an owner id is assigned by the server, which a Local marker never reaches, so it reports the local player as its owner instead;
 - proxies are **suppressed entirely** while the vanilla UI builds its own static markers, so nothing is drawn twice.
+
+A proxy carries **text, owner and world position — nothing else.** Type and marker id stay at their defaults. A consumer that reads those cannot be served by the bridge at all; point it at `AM_MarkerAPI`.
 
 Writes are not bridged: proxies are read-only snapshots, rebuilt on each call.
 
@@ -341,7 +343,7 @@ static void AM_VanillaBridge.SetIncludeLocal(bool include); // default false
 static int  AM_VanillaBridge.GetExposedCount();             // proxies handed out by the last call
 ```
 
-### Example (the EE Transport compat addon)
+### Example
 
 ```c
 modded class SCR_BaseGameMode
@@ -349,13 +351,16 @@ modded class SCR_BaseGameMode
     override void OnGameModeStart()
     {
         super.OnGameModeStart();
-        AM_VanillaBridge.SetTextFilter({"lz", "ln", "cas"});  // only what EE reads
+        AM_VanillaBridge.SetTextFilter({"lz", "ln", "cas"});  // narrow it if you can; empty = all
+        AM_VanillaBridge.SetIncludeLocal(true);               // markers the player drew for himself
         AM_VanillaBridge.SetEnabled(true);
     }
 }
 ```
 
 Use `GetExposedCount()` to verify the filter is as narrow as you think it is.
+
+Ready-made: the **`Anarchy Markers - EE Compat`** addon does this and exposes the settings in `$profile:SavingMarkers/SM_VanillaBridge.cfg`, replicated server → client. It is not EE-specific — install it next to any mod that reads vanilla markers.
 
 ---
 

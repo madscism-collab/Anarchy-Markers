@@ -8,9 +8,12 @@
 // created.
 //
 // Once enabled it still hands out as little as it can: only markers the local player is allowed to
-// see, only those matching the text filter, and no client-side Local markers (their ids are negative
-// and consumers assume vanilla ones). The proxies also disappear while the vanilla UI builds its own
-// static markers, so nothing gets drawn twice.
+// see, and only those matching the text filter. The proxies also disappear while the vanilla UI
+// builds its own static markers, so nothing gets drawn twice.
+//
+// A proxy carries text, owner and world position — nothing else. Type and marker id stay at their
+// defaults, so a consumer that reads THOSE cannot be served by the bridge at all; point it at
+// AM_MarkerAPI instead.
 //
 // Writes are not bridged. Proxies are snapshots, rebuilt on every call.
 //
@@ -74,7 +77,9 @@ class AM_VanillaBridge
 		}
 	}
 
-	//! Also expose the local player's Local-channel markers (ids <= -2). Off by default.
+	//! Also expose the local player's own Local-channel markers. Off by default here, but the compat
+	//! addon turns it on: "drop a marker, then call it in" is the usual shape of these integrations,
+	//! and a marker meant for the player alone is exactly the one he reaches for.
 	static void SetIncludeLocal(bool include)
 	{
 		s_bIncludeLocal = include;
@@ -140,18 +145,32 @@ class AM_VanillaBridge
 		{
 			if (!d)
 				continue;
-			if (SM_MapMarkerStore.IsLocalId(d.m_iId) && !s_bIncludeLocal)
-				continue;
-			// A listen-host store holds everyone's markers, the enemy's included. Never hand a
-			// consumer something the local player could not see on his own map.
-			if (localId != -1 && !SM_MarkerNet.IsEligible(localId, d))
-				continue;
 			if (!PassesTextFilter(d))
 				continue;
 
+			int owner = d.m_iOwnerId;
+
+			if (SM_MapMarkerStore.IsLocalId(d.m_iId))
+			{
+				if (!s_bIncludeLocal)
+					continue;
+				// A Local marker never leaves the machine that drew it, so if it is in this store it
+				// belongs to this player — no eligibility check to make. It would fail one anyway:
+				// owner ids are handed out by the server, which a Local marker never reaches, so it
+				// still carries the -1 it was born with. Report the local player as the owner, which
+				// is who it actually belongs to.
+				owner = localId;
+			}
+			else if (localId != -1 && !SM_MarkerNet.IsEligible(localId, d))
+			{
+				// A listen-host store holds everyone's markers, the enemy's included. Never hand a
+				// consumer something the local player could not see on his own map.
+				continue;
+			}
+
 			AM_VanillaMarkerProxy p = new AM_VanillaMarkerProxy();
 			p.SetCustomText(d.m_sText);
-			p.SetMarkerOwnerID(d.m_iOwnerId);
+			p.SetMarkerOwnerID(owner);
 			p.SetWorldPos(d.m_iPosX, d.m_iPosY);
 			s_aAlive.Insert(p);
 			output.Insert(p);

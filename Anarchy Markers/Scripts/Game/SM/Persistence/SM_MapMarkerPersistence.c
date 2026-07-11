@@ -239,7 +239,9 @@ class SM_MapMarkerPersistence
 	}
 
 	// Ідентифікатор місії (логіка зі старого мода, перевірена) — спільний для нового й старого шляхів.
-	protected string SM_MissionIdentifier()
+	// Static: the client-side Local persistence writes it into its files as a human-readable label, so
+	// a folder full of random server codes still tells you which scenario each one came from.
+	static string SM_MissionIdentifier()
 	{
 		string identifier = "default";
 		MissionHeader header = GetGame().GetMissionHeader();
