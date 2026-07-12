@@ -16,9 +16,13 @@ modded class SCR_InputButtonComponent
 	// Робить з кнопки звичайну підказку: гліф і підпис лишаються, але вона більше не реагує
 	// на саму дію (без звуку й анімації). Без цього підказка-ЛКМ блимала б на кожен клік по мапі.
 	// Викликати після SetAction() — бо саме він чіпляє слухачів.
+	//
+	// A hold action keeps its listeners: OnButtonHold is what fills the progress bar, and that bar is
+	// the whole point of showing the hint. It cannot misfire either — a hint has nothing wired to its
+	// click invokers.
 	void SM_MakeDisplayOnly()
 	{
-		if (!m_InputManager || m_sActionName.IsEmpty())
+		if (!m_InputManager || m_sActionName.IsEmpty() || m_bIsHoldAction)
 			return;
 		m_InputManager.RemoveActionListener(m_sActionName, EActionTrigger.DOWN,  OnButtonPressed);
 		m_InputManager.RemoveActionListener(m_sActionName, EActionTrigger.VALUE, OnButtonHold);

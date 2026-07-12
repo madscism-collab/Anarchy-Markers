@@ -367,6 +367,11 @@ class SM_DrawCanvas
 		if (cw <= 0 || ch <= 0)
 			return;	// ще не розкладено
 
+		// Panning does not reproject, it just slides the cached vertices — but the cursor is converted
+		// to world by inverting this affine, so a stale one puts every marker off by the last pan.
+		// It costs three WorldToScreen calls; ProjectAll is the expensive one, and it stays gated.
+		ComputeAffine();
+
 		bool reproject = false;
 		bool changed   = false;
 
@@ -551,6 +556,12 @@ class SM_DrawCanvas
 		m_bLineChain  = false;
 		m_bLineStroke = false;
 		m_bCapturing  = false;
+
+		if (m_iLineFixedInts < 4)
+		{
+			CancelStroke();	// a lone anchor is an abandoned line, not a dot
+			return;
+		}
 		CommitStroke();
 	}
 
@@ -616,8 +627,10 @@ class SM_DrawCanvas
 			}
 			m_iLineFixedInts = m_aCapture.Count();
 
+			// One vertex is enough to open the chain — it is the anchor the next click draws from.
+			// Demanding two here meant a plain Shift+click committed it as a dot and dropped the mode.
 			bool full = (m_iMaxCapturePts > 0 && m_iLineFixedInts / 2 >= m_iMaxCapturePts);
-			if (keepChain && !full && m_iLineFixedInts >= 4)
+			if (keepChain && !full && m_iLineFixedInts >= 2)
 			{
 				m_bLineChain = true;	// nothing goes out until the chain closes
 				return;
@@ -1364,6 +1377,7 @@ class SM_DrawCanvas
 	protected void ProjectAll()
 	{
 		ComputeAffine();
+		CaptureAnchor();
 		float ppm = PxPerMeter();
 
 		float wMinX, wMaxX, wMinZ, wMaxZ;
@@ -1520,9 +1534,14 @@ class SM_DrawCanvas
 		// Fold map-widget -> canvas into the offsets, so the affine emits canvas-local pixels directly.
 		m_fPox = s0x - w0x * m_fDxx + m_fMapToCanvasX;
 		m_fPoy = s0y - w0z * m_fDyz + m_fMapToCanvasY;
+	}
 
-		m_fRefWX = w0x;	// anchor for the cheap pan shift; on screen by construction
-		m_fRefWZ = w0z;
+	// The anchor is the world point under the canvas corner, and it must stay PUT between
+	// reprojections: the pan shift works by watching where it drifts to on screen.
+	protected void CaptureAnchor()
+	{
+		m_fRefWX = -m_fPox / m_fDxx;
+		m_fRefWZ = -m_fPoy / m_fDyz;
 	}
 
 	//! The map cursor in PHYSICAL SCREEN pixels.

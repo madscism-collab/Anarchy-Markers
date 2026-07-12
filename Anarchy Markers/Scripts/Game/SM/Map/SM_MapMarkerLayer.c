@@ -73,8 +73,8 @@ modded class SCR_MapMarkersUI
 	protected ref map<int, ref SM_MarkerVisual> m_mSMVisuals = new map<int, ref SM_MarkerVisual>();
 	protected bool m_bSMMapOpen = false;
 	protected bool m_bSMEditorMap = false;	// кеш: чи поточна мапа — режим редактора (GM)
-	protected bool m_bSMPadConfirmDown = false;	// фронт кнопки A (AM_Confirm) на геймпаді
-	protected bool m_bSMPadPlaceDown = false;	// фронт кнопки Y (AM_Place) на МАПІ — взяти/покласти мітку
+	protected bool m_bSMPadConfirmDown = false;	// фронт кнопки A (AM_MapAction) на геймпаді
+	protected bool m_bSMPadPlaceDown = false;	// фронт кнопки Y (AM_CopyLastPad) на МАПІ — копія останньої мітки
 	protected bool m_bSMPadDeleteDown = false;	// фронт кнопки X (AM_Delete) на МАПІ — видалити мітку
 	// Консольна навігація діалогу (секційна модель).
 	protected bool m_bSMNavActive = false;		// контролер активний (діалог відкрито на геймпаді)
@@ -94,7 +94,7 @@ modded class SCR_MapMarkersUI
 	protected int  m_iSMTabIndex = 0;			// поточна «дозволена» вкладка іконок (для відкату випадкового LB/RB на паді)
 	protected bool m_bSMNavParking = false;		// true під час «паркування» фокуса на кольорі (анти-пресет) — НЕ реальний вибір кольору
 	protected bool m_bSMSuppressIconSelect = false;	// тимчасово ігнорувати авто-вибір іконки при зміні сторінки падом
-	protected bool m_bSMPlaceDown = false;		// фронт кнопки Y (AM_Place) у діалозі
+	protected bool m_bSMPlaceDown = false;		// фронт кнопки Y (AM_CopyLastPad) у діалозі
 	protected bool m_bSMDeleteDown = false;		// фронт кнопки X (AM_Delete) — видалити сфокусований пресет
 	protected ImageWidget m_wSMNavHL;			// жовто-оранжевий оверлей підсвітки поточної секції
 	protected const int SM_NAV_HL_COLOR = 0x24FFA000;	// ледь помітний жовто-оранжевий (низька альфа)
@@ -196,7 +196,6 @@ modded class SCR_MapMarkersUI
 	// Ввід для переміщення: окремої клавіші нема — утримав ЛКМ на мітці, підняв, клікнув куди поставити.
 	protected int   m_iSMCarryId = -1;		// мітка, яку зараз тягнемо (-1 = жодної)
 	static bool s_bSMCarrying = false;		// читає SM_DisableRadial, щоб не відкривати радіалку під час перенесення
-	protected float m_fSMLastSelectTime = 0;	// для детекту подвійного кліку
 	protected bool  m_bSMLmbDown = false;	// стан ЛКМ минулого кадру (ловимо натиск/відпуск)
 	protected bool  m_bSMPickedThisPress = false;	// підняли на цьому ж утриманні (щоб відпуск не поставив одразу)
 	protected float m_fSMPressTime = 0;		// коли натиснули ЛКМ (для утримання-підняття)
@@ -210,12 +209,17 @@ modded class SCR_MapMarkersUI
 	protected bool m_bSMCreateSawRelease = false;
 	protected bool m_bSMEditorUIHidden = false;	// чи ми сховали UI редактора на час нашого діалогу
 	protected bool m_bSMEditorUISub = false;	// чи підписані на подію зміни видимості UI редактора
-	protected const float SM_DOUBLECLICK_SEC = 0.3;
-	protected const float SM_HOLD_SEC = 0.2;	// скільки тримати ЛКМ/A на мітці, щоб підняти (с)
-	protected const float SM_POINT_HOLD_SEC = 0.3;	// скільки тримати на пустому місці, щоб почати вказувати пальцем (с)
+	// Утримання тепер живе на самих екшенах (InputFilterHold у chimeraInputCommon.conf) — саме тому
+	// підказка малює полосу заповнення сама, і саме тому обидва утримання можна перебіндити нарізно.
+	// Ці константи ЛИШЕ дзеркалять HoldDuration звідти: вони потрібні на ВІДПУСКАННІ, коли екшен уже
+	// впав у нуль і спитати його "чи це було утримання" вже нема як. Міняєш там — міняй і тут.
+	protected const float SM_HOLD_SEC = 0.2;	// = AM_MarkerMove HoldDuration 200
+	protected const float SM_POINT_HOLD_SEC = 0.3;	// = AM_Pointer HoldDuration 300
 	protected const float SM_MOVE_THRESHOLD = 40;	// на скільки px курсор може зрушити й це ще "на місці"
 	// Вказівник (показати пальцем): утримання ЛКМ на пустому місці водить тимчасову точку.
 	protected bool  m_bSMPointing = false;
+	protected bool  m_bSMHoldMoveDown = false;	// фронт AM_MarkerMove (власний, не від ЛКМ)
+	protected bool  m_bSMHoldPointDown = false;	// фронт AM_Pointer
 	protected float m_fSMLastPointSend = 0;
 	protected ref map<int, ref SM_PointerVisual> m_mSMPointerVis = new map<int, ref SM_PointerVisual>();	// ключ = ownerId
 	protected const float SM_POINT_SEND    = 0.08;	// інтервал відправки позиції (~12/сек)
@@ -429,8 +433,10 @@ modded class SCR_MapMarkersUI
 
 		SM_RebuildAllVisuals();
 
-		// ЛКМ (натиск/утримання/відпуск) обробляємо ПОЛЛІНГОМ сирого MouseLeft у Update —
-		// MapSelect дає повторні/миттєві DOWN/UP і непридатний для детекту утримання.
+		// AM_MapAction (натиск/утримання/відпуск) обробляємо ПОЛЛІНГОМ у Update — ванільний MapSelect
+		// дає повторні/миттєві DOWN/UP і непридатний для детекту утримання.
+		// Everything the player can rebind is our own action; only plain menu navigation still rides
+		// on the vanilla Menu* actions, which is what they are for.
 		// Listeners go in only for the features this screen actually has. Hiding a panel is not
 		// enough: a registered listener keeps swallowing the key while the map is open.
 		InputManager im = GetGame().GetInputManager();
@@ -438,12 +444,17 @@ modded class SCR_MapMarkersUI
 		bool featDrawTools = (m_DrawPanel != null);
 		if (featMarkerTools || featDrawTools)
 		{
-			im.AddActionListener("MapContextualMenu", EActionTrigger.DOWN, SM_OnContext);
-			im.AddActionListener("MapMarkerDelete",   EActionTrigger.DOWN, SM_OnDelete);
+			im.AddActionListener("AM_Cancel", EActionTrigger.DOWN, SM_OnContext);
+			im.AddActionListener("AM_Delete",   EActionTrigger.DOWN, SM_OnDelete);
+			im.AddActionListener("AM_MarkerEdit", EActionTrigger.DOWN, SM_OnMarkerEdit);
+			im.AddActionListener("AM_CopyLast",   EActionTrigger.DOWN, SM_OnCopyLast);
 		}
 		if (featDrawTools)
 		{
-			im.AddActionListener("AM_PanelFocus", EActionTrigger.DOWN, SM_OnPanelFocus);	// пад: LB → панель малювання
+			im.AddActionListener("AM_PanelFocus", EActionTrigger.DOWN, SM_OnPanelFocus);	// RB → панель малювання
+			im.AddActionListener("AM_ToolPencil", EActionTrigger.DOWN, SM_OnToolPencil);
+			im.AddActionListener("AM_ToolEraser", EActionTrigger.DOWN, SM_OnToolEraser);
+			im.AddActionListener("AM_ToolFill",   EActionTrigger.DOWN, SM_OnToolFill);
 
 			// Пад-режим панелі: ванільні шорткати інструментів мапи (подвійний тап хрестовини = компас/
 			// лінійка) не заглушити конфігом — тож відкочуємо: щойно інструмент увімкнувся в цей час,
@@ -461,7 +472,7 @@ modded class SCR_MapMarkersUI
 			im.AddActionListener("MenuBack",   EActionTrigger.DOWN, SM_NavBack);
 			im.AddActionListener("MenuTabLeft",  EActionTrigger.DOWN, SM_NavTab);	// LB — перемикання вкладки іконок
 			im.AddActionListener("MenuTabRight", EActionTrigger.DOWN, SM_NavTab);	// RB
-			// Place (Y / AM_Place) опитуємо в SM_NavTick (надійніше за DOWN-слухача з фільтром Pressed).
+			// Copy-last (Y / AM_CopyLastPad) опитуємо в SM_NavTick (надійніше за DOWN-слухача з Pressed).
 		}
 
 		if (featMarkerTools || featDrawTools)
@@ -492,9 +503,14 @@ modded class SCR_MapMarkersUI
 			SM_SetEditorUIHidden(false);	// мапа закрилась із відкритим діалогом — відписатись/повернути UI
 
 		InputManager im = GetGame().GetInputManager();
-		im.RemoveActionListener("MapContextualMenu", EActionTrigger.DOWN, SM_OnContext);
-		im.RemoveActionListener("MapMarkerDelete",   EActionTrigger.DOWN, SM_OnDelete);
+		im.RemoveActionListener("AM_Cancel", EActionTrigger.DOWN, SM_OnContext);
+		im.RemoveActionListener("AM_Delete",   EActionTrigger.DOWN, SM_OnDelete);
+		im.RemoveActionListener("AM_MarkerEdit", EActionTrigger.DOWN, SM_OnMarkerEdit);
+		im.RemoveActionListener("AM_CopyLast",   EActionTrigger.DOWN, SM_OnCopyLast);
 		im.RemoveActionListener("AM_PanelFocus",     EActionTrigger.DOWN, SM_OnPanelFocus);
+		im.RemoveActionListener("AM_ToolPencil", EActionTrigger.DOWN, SM_OnToolPencil);
+		im.RemoveActionListener("AM_ToolEraser", EActionTrigger.DOWN, SM_OnToolEraser);
+		im.RemoveActionListener("AM_ToolFill",   EActionTrigger.DOWN, SM_OnToolFill);
 		SCR_MapToolEntry.GetOnEntryToggledInvoker().Remove(SM_OnToolToggledGuard);
 		im.RemoveActionListener("MenuUp",     EActionTrigger.DOWN, SM_NavUp);
 		im.RemoveActionListener("MenuDown",   EActionTrigger.DOWN, SM_NavDown);
@@ -571,6 +587,8 @@ modded class SCR_MapMarkersUI
 			m_DrawCanvas = null;
 		}
 		m_bSMDrawDown = false;
+		m_bSMHoldMoveDown = false;
+		m_bSMHoldPointDown = false;
 		if (m_bSMDrawCursorHidden)
 		{
 			// Курсор ховали під активний інструмент малювання. Віджет CursorImage живе на корені
@@ -996,16 +1014,6 @@ modded class SCR_MapMarkersUI
 			pc.SM_RequestRemove(id);
 	}
 
-	// Модифікатор копії «останньої мітки» (Alt). Власний input-екшен AM_CopyModifier (фільтр
-	// InputFilterPressed → значення 1, поки клавішу затиснуто) доданий у ПЕРЕКРИТОМУ
-	// chimeraInputCommon.conf і прив'язаний до наявних контекстів: MapContext (мапа редактора/зевса)
-	// і GadgetMapContext (ігрова мапа гравця). Власний контекст НЕ працює — додані в override
-	// контексти не активуються рушієм, тож чіпляємо дію до вбудованих.
-	protected bool SM_CopyModifierDown()
-	{
-		InputManager im = GetGame().GetInputManager();
-		return im && im.GetActionValue("AM_CopyModifier") > 0.5;
-	}
 
 	// Чи дія гравця по мітці заблокована (мітка залочена зевсом, а ми не в редакторі).
 	// Якщо так — одразу показуємо локальне повідомлення + звук і повертаємо true (дію скасувати).
@@ -1440,8 +1448,12 @@ modded class SCR_MapMarkersUI
 		return AM_MarkerWidgets.BuildLabel(m_wSMMapFrame);
 	}
 
-	// Підказка керування внизу-зліва (над ванільними Pan/Zoom). Glyph-рядки у ванільному стилі:
-	// гліф клавіші/кнопки + підпис через SCR_InputButtonComponent (як ванільні підказки керування).
+	// Підказка керування внизу-зліва. Glyph-рядки у ванільному стилі: гліф клавіші/кнопки + підпис
+	// через SCR_InputButtonComponent.
+	//
+	// The map has no control-hint bar of its own to join — dumping the whole MapMenu tree in-game
+	// turned up 577 widgets and not one vanilla hint button. So this box IS the bar, and its position
+	// is ours to pick.
 	protected void SM_BuildHint()
 	{
 		if (!m_wSMMapFrame)
@@ -1459,13 +1471,13 @@ modded class SCR_MapMarkersUI
 		FrameSlot.SetAnchorMax(box, 0, 1);
 		FrameSlot.SetAlignment(box, 0, 1);	// нижній-лівий півот блока на якорі
 		FrameSlot.SetSizeToContent(box, true);
-		// У GM-мапі підказки вище (над ванільними Pan/Zoom редактора) і трохи правіше, щоб не накладались.
+		// У GM-мапі підказки вище (над підказками редактора) і трохи правіше, щоб не накладались.
 		float hintX = SM_HINT_X;
 		float hintY = SM_HINT_Y;
 		if (SM_IsEditorMap())
 		{
-			hintX = 200;	// справа від ванільних підказок редактора (Pan/Zoom), щоб не накладатись
-			hintY = -340;	// на рівні Pan/Zoom (не з'їжджати на нижні панелі)
+			hintX = 200;
+			hintY = -340;
 		}
 		hintX += m_fSMHintDX;	// host screen (a tablet) clearing its own bottom-left chrome
 		hintY += m_fSMHintDY;
@@ -1561,6 +1573,8 @@ modded class SCR_MapMarkersUI
 			baseState = 3;	// малювання: олівець
 		else if (m_DrawCanvas && m_DrawCanvas.IsActive() && m_DrawCanvas.GetTool() == 1)
 			baseState = 4;	// малювання: гумка
+		else if (m_DrawCanvas && m_DrawCanvas.IsActive() && m_DrawCanvas.GetTool() == 2)
+			baseState = 7;	// малювання: заливка — без цієї гілки вона падала у «звичайний» і рекламувала мітки
 		else
 			baseState = 0;	// звичайний
 
@@ -1582,7 +1596,7 @@ modded class SCR_MapMarkersUI
 			if (pad)
 				SM_SetHintRow(0, "AM_Delete", "Delete preset");
 			else
-				SM_SetHintRow(0, "MapContextualMenu", "Delete preset");
+				SM_SetHintRow(0, "AM_Cancel", "Delete preset");
 			SM_SetHintRowVisible(1, false);
 			SM_SetHintRowVisible(2, false);
 			SM_SetHintRowVisible(3, false);
@@ -1592,13 +1606,13 @@ modded class SCR_MapMarkersUI
 		{
 			if (pad)
 			{
-				SM_SetHintRow(0, "AM_Confirm",        "Release — place");	// відпустив A — поклав
-				SM_SetHintRow(1, "MapContextualMenu", "Cancel");			// B
+				SM_SetHintRow(0, "AM_MapAction",        "Release — place");	// відпустив A — поклав
+				SM_SetHintRow(1, "AM_Cancel", "Cancel");			// B
 			}
 			else
 			{
-				SM_SetHintRow(0, "MapSelect",         "Place");
-				SM_SetHintRow(1, "MapContextualMenu", "Cancel");
+				SM_SetHintRow(0, "AM_MapAction",         "Place");
+				SM_SetHintRow(1, "AM_Cancel", "Cancel");
 			}
 			SM_SetHintRowVisible(2, false);
 			SM_SetHintRowVisible(3, false);
@@ -1615,45 +1629,40 @@ modded class SCR_MapMarkersUI
 		else if (baseState == 6)	// вказуємо пальцем (палець водиться стіком/паном, відпуск — стоп)
 		{
 			if (pad)
-				SM_SetHintRow(0, "AM_Confirm", "Release — stop pointing");
+				SM_SetHintRow(0, "AM_MapAction", "Release — stop pointing");
 			else
-				SM_SetHintRow(0, "MapSelect", "Release — stop pointing");
+				SM_SetHintRow(0, "AM_MapAction", "Release — stop pointing");
 			SM_SetHintRowVisible(1, false);
 			SM_SetHintRowVisible(2, false);
 			SM_SetHintRowVisible(3, false);
 			SM_SetHintRowVisible(4, false);
 		}
+		// Інструменти малювання. Гліф щоразу з реального бінда, а модифікатор має власний рядок —
+		// писати «Shift + drag» словами в підпис означало б збрехати першому ж, хто його перебіндить.
 		else if (baseState == 3)	// малювання: олівець
 		{
+			SM_SetHintRow(0, "AM_MapAction", "Draw");
+			SM_SetHintRow(1, "AM_Cancel",    "Cancel tool");
+			SM_SetHintRow(2, "AM_Delete",    "Remove stroke");
 			if (pad)
-			{
-				SM_SetHintRow(0, "AM_Confirm",        "Hold — draw");
-				SM_SetHintRow(1, "MapContextualMenu", "Cancel tool");
-				SM_SetHintRow(2, "AM_Delete",         "Remove stroke");
-			}
+				SM_SetHintRowVisible(3, false);	// на паді модифікатора прямої лінії немає
 			else
-			{
-				SM_SetHintRow(0, "MapSelect",       "Draw");
-				SM_SetHintRow(1, "MapSelect",       "Shift + drag — straight line");
-				SM_SetHintRow(2, "MapMarkerDelete", "Remove stroke");
-			}
-			SM_SetHintRowVisible(3, false);
+				SM_SetHintRow(3, "AM_LineModifier", "+ draw — straight line");
 			SM_SetHintRowVisible(4, false);
 		}
 		else if (baseState == 4)	// малювання: гумка
 		{
-			if (pad)
-			{
-				SM_SetHintRow(0, "AM_Confirm",        "Hold — erase");
-				SM_SetHintRow(1, "MapContextualMenu", "Cancel tool");
-				SM_SetHintRow(2, "AM_Delete",         "Remove stroke");
-			}
-			else
-			{
-				SM_SetHintRow(0, "MapSelect",       "Erase — hold & drag");
-				SM_SetHintRow(1, "MapMarkerDelete", "Remove stroke");
-				SM_SetHintRowVisible(2, false);
-			}
+			SM_SetHintRow(0, "AM_MapAction", "Erase");
+			SM_SetHintRow(1, "AM_Cancel",    "Cancel tool");
+			SM_SetHintRow(2, "AM_Delete",    "Remove stroke");
+			SM_SetHintRowVisible(3, false);
+			SM_SetHintRowVisible(4, false);
+		}
+		else if (baseState == 7)	// малювання: заливка
+		{
+			SM_SetHintRow(0, "AM_MapAction", "Fill area");
+			SM_SetHintRow(1, "AM_Cancel",    "Cancel tool");
+			SM_SetHintRow(2, "AM_Delete",    "Remove fill");
 			SM_SetHintRowVisible(3, false);
 			SM_SetHintRowVisible(4, false);
 		}
@@ -1671,9 +1680,9 @@ modded class SCR_MapMarkersUI
 			if (allowPtr)
 			{
 				if (pad)
-					SM_SetHintRow(row, "AM_Confirm", "Hold empty — point");
+					SM_SetHintRow(row, "AM_Pointer", "Point at map");
 				else
-					SM_SetHintRow(row, "MapSelect", "Hold on empty — point at map");
+					SM_SetHintRow(row, "AM_Pointer", "Point at map");
 				row++;
 			}
 			for (int i = row; i < 5; i++)
@@ -1681,29 +1690,29 @@ modded class SCR_MapMarkersUI
 		}
 		else if (pad)	// звичайний — геймпад (A: тап=редаг/створ, утримання=нести/вказувати)
 		{
-			SM_SetHintRow(0, "AM_Confirm", "Tap — edit / create");
-			SM_SetHintRow(1, "AM_Confirm", "Hold — move");
+			SM_SetHintRow(0, "AM_MapAction", "Tap — edit / create");
+			SM_SetHintRow(1, "AM_MarkerMove", "Move marker");
 			SM_SetHintRow(2, "AM_Delete",  "Remove marker");
 			if (allowPtr)
-				SM_SetHintRow(3, "AM_Confirm", "Hold empty — point");
+				SM_SetHintRow(3, "AM_Pointer", "Point at map");
 			else
 				SM_SetHintRowVisible(3, false);
 			if (allowCopy)
-				SM_SetHintRow(4, "AM_Place",   "Copy last marker");
+				SM_SetHintRow(4, "AM_CopyLastPad", "Copy last marker");
 			else
 				SM_SetHintRowVisible(4, false);
 		}
 		else	// звичайний — KB/M
 		{
-			SM_SetHintRow(0, "MapSelect",       "Hold — move");
-			SM_SetHintRow(1, "MapSelect",       "Double-click — edit / create");
-			SM_SetHintRow(2, "MapMarkerDelete", "Remove marker / stroke");
+			SM_SetHintRow(0, "AM_MarkerMove",     "Move marker");
+			SM_SetHintRow(1, "AM_MarkerEdit",      "Edit / create marker");
+			SM_SetHintRow(2, "AM_Delete", "Remove marker / stroke");
 			if (allowPtr)
-				SM_SetHintRow(3, "MapSelect",   "Hold on empty — point at map");
+				SM_SetHintRow(3, "AM_Pointer",     "Point at map");
 			else
 				SM_SetHintRowVisible(3, false);	// вказування вимкнено — без підказки
 			if (allowCopy)
-				SM_SetHintRow(4, "MapSelect",   "Alt + click — copy last marker");
+				SM_SetHintRow(4, "AM_CopyLast",    "Copy last marker");
 			else
 				SM_SetHintRowVisible(4, false);	// копіювання вимкнено — без підказки
 		}
@@ -1736,12 +1745,12 @@ modded class SCR_MapMarkersUI
 		{
 			if (pad)
 			{
-				SM_SetHintRow(0, "AM_Confirm",        "Release — place");
-				SM_SetHintRow(1, "MapContextualMenu", "Cancel");	// B
+				SM_SetHintRow(0, "AM_MapAction",        "Release — place");
+				SM_SetHintRow(1, "AM_Cancel", "Cancel");	// B
 			}
 			else
 			{
-				SM_SetHintRow(0, "MapSelect", "Place");
+				SM_SetHintRow(0, "AM_MapAction", "Place");
 				SM_SetHintRowVisible(1, false);
 			}
 			SM_SetHintRowVisible(2, false);
@@ -1750,22 +1759,22 @@ modded class SCR_MapMarkersUI
 		}
 		else if (est == 6003)	// звичайний GM — геймпад
 		{
-			SM_SetHintRow(0, "AM_Confirm", "Tap — edit / create");
-			SM_SetHintRow(1, "AM_Confirm", "Hold — move");
+			SM_SetHintRow(0, "AM_MapAction", "Tap — edit / create");
+			SM_SetHintRow(1, "AM_MarkerMove", "Move marker");
 			SM_SetHintRow(2, "AM_Delete",  "Remove");
 			if (SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
-				SM_SetHintRow(3, "AM_Place", "Copy last marker");
+				SM_SetHintRow(3, "AM_CopyLastPad", "Copy last marker");
 			else
 				SM_SetHintRowVisible(3, false);
 			SM_SetHintRowVisible(4, false);
 		}
 		else if (est == 1003)	// звичайний GM — KB/M
 		{
-			SM_SetHintRow(0, "MapSelect",       "Hold — move");
-			SM_SetHintRow(1, "MapSelect",       "Double-click — edit");
-			SM_SetHintRow(2, "MapMarkerDelete", "Remove");
+			SM_SetHintRow(0, "AM_MarkerMove",     "Move marker");
+			SM_SetHintRow(1, "AM_MapAction",       "Double-click — edit");
+			SM_SetHintRow(2, "AM_Delete", "Remove");
 			if (SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
-				SM_SetHintRow(3, "MapSelect",   "Alt + click — copy last marker");
+				SM_SetHintRow(3, "AM_CopyLast",    "Copy last marker");
 			else
 				SM_SetHintRowVisible(3, false);
 			SM_SetHintRowVisible(4, false);
@@ -2167,14 +2176,63 @@ modded class SCR_MapMarkersUI
 		return true;
 	}
 
-	// Повний поллінг ЛКМ через сирий MouseLeft (фронти сигналу). Імунний до повторних/миттєвих
+	//! Утримання, доведене до порогу. The engine runs the clock (InputFilterHold on the action), which
+	//! is what makes the hint fill its own bar and what lets a player put either hold on a key of its
+	//! own. Both default to AM_MapAction's button, and which one is meant is settled by what sits
+	//! under the cursor: a marker means carry it, bare map means point at it.
+	protected bool SM_HoldMove(InputManager im)
+	{
+		return im.GetActionValue("AM_MarkerMove") > 0.5;
+	}
+
+	protected bool SM_HoldPoint(InputManager im)
+	{
+		return im.GetActionValue("AM_Pointer") > 0.5;
+	}
+
+	//! Що лежить під утриманням: id мітки, або -1 (гола мапа).
+	//!
+	//! When the hold shares the map button — the default — it belongs to that press: honour the marker
+	//! it started on, and the guard that lets you drag away to cancel it. On a key of its own there is
+	//! no press to belong to, so read whatever the cursor sits on right now.
+	protected int SM_HoldTarget(bool mapActionDown)
+	{
+		if (mapActionDown)
+		{
+			if (m_iSMPressMarkerId != -1 && SM_CursorNearPress())
+				return m_iSMPressMarkerId;
+			return -1;
+		}
+
+		SM_MarkerVisual u = SM_FindMarkerUnderCursor();
+		if (u && u.m_Data)
+			return u.m_Data.m_iId;
+		return -1;
+	}
+
+	protected void SM_StopPointing()
+	{
+		m_bSMPointing = false;
+		if (m_CursorModule)
+			m_CursorModule.HandleDialog(false);	// повертаємо інфо-текст
+		SM_SetMapCursorHidden(false);			// повертаємо віджет курсора
+
+		SCR_PlayerController lpc = SM_LocalPC();
+		if (lpc)
+		{
+			SM_PointerHub.GetInstance().Hide(lpc.GetPlayerId());
+			lpc.SM_RequestPointStop();
+		}
+	}
+
+	// Повний поллінг AM_MapAction (фронти сигналу). Імунний до повторних/миттєвих
 	// MapSelect DOWN/UP. Натиск → запам'ятати; утримання на мітці → підняти; відпуск → поставити
 	// (якщо тягнемо) АБО подвійний клік (редагувати/створити).
 	// Розміщення мітки зевсом у GM-мапі: після кнопки Create Marker наступний клік по мапі задає
 	// точку й відкриває наш діалог. Повний ввід (переміщення/редагування) тут поки не обробляємо.
 	protected void SM_PollEditorPlacement(InputManager im)
 	{
-		bool down = im.GetActionValue("MouseLeft") > 0.5;
+		bool down = im.GetActionValue("AM_MapAction") > 0.5;
 		float now = System.GetTickCount() / 1000.0;
 
 		if (SM_GmState.s_bCreatePending)
@@ -2207,20 +2265,6 @@ modded class SCR_MapMarkersUI
 		{
 			m_bSMWasCreatePending = false;
 
-			// --- Alt+ЛКМ — копія останньої мітки зевса в точці курсора (Ctrl у редакторі зайнятий мапою) ---
-			if (down && !m_bSMLmbDown && m_iSMCarryId == -1
-				&& SM_CopyModifierDown() && m_SMLastTemplate
-				&& SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
-			{
-				SM_PlaceCopyAtCursor();
-				m_fSMPressTime = now;
-				m_bSMPickedThisPress = true;
-				m_iSMPressMarkerId = -1;
-				m_fSMLastSelectTime = 0;
-				m_bSMLmbDown = down;
-				return;
-			}
-
 			// --- ФРОНТ ВНИЗ: запам'ятати мітку під курсором ---
 			if (down && !m_bSMLmbDown)
 			{
@@ -2236,11 +2280,10 @@ modded class SCR_MapMarkersUI
 
 			// --- УТРИМАННЯ на мітці ≥ HOLD → підняти (тягнути) ---
 			if (down && m_iSMCarryId == -1 && m_iSMPressMarkerId != -1
-				&& (now - m_fSMPressTime) >= SM_HOLD_SEC && SM_CursorNearPress())
+				&& SM_HoldMove(im) && SM_CursorNearPress())
 			{
 				m_iSMCarryId = m_iSMPressMarkerId;	// у редакторі зевс — lock його не стримує
 				m_bSMPickedThisPress = true;		// відпуск ЦЬОГО утримання не рахуємо як клік
-				m_fSMLastSelectTime = 0;
 			}
 
 			// --- ФРОНТ ВГОРУ ---
@@ -2258,23 +2301,6 @@ modded class SCR_MapMarkersUI
 					m_iSMCarryId = -1;
 					m_iSMPressMarkerId = -1;
 				}
-				else if ((now - m_fSMPressTime) < SM_HOLD_SEC && SM_CursorNearPress())
-				{
-					// швидкий клік на місці → детект подвійного (редагувати)
-					SM_MarkerVisual u = SM_FindMarkerUnderCursor();
-					if (u && u.m_Data)
-					{
-						if (m_fSMLastSelectTime > 0 && (now - m_fSMLastSelectTime) <= SM_DOUBLECLICK_SEC)
-						{
-							m_fSMLastSelectTime = 0;
-							SM_OpenEdit(u.m_Data);
-						}
-						else
-							m_fSMLastSelectTime = now;
-					}
-					else
-						m_fSMLastSelectTime = 0;
-				}
 			}
 		}
 		else
@@ -2289,7 +2315,7 @@ modded class SCR_MapMarkersUI
 	// Клік над панеллю параметрів не починає штрих.
 	protected void SM_PollDraw(InputManager im)
 	{
-		bool down = im.GetActionValue("MouseLeft") > 0.5;
+		bool down = im.GetActionValue("AM_MapAction") > 0.5;
 
 		// Курсор над панеллю? (фіз. px = DPI-scale від unscaled-курсора мапи)
 		WorkspaceWidget ws = GetGame().GetWorkspace();
@@ -2372,34 +2398,18 @@ modded class SCR_MapMarkersUI
 			SM_CursorPhysPx(ppx, ppy);
 			if (m_DrawPanel.IsCursorOver(ppx, ppy))
 			{
-				m_bSMLmbDown = im.GetActionValue("MouseLeft") > 0.5;	// тримаємо стан ЛКМ актуальним
+				m_bSMLmbDown = im.GetActionValue("AM_MapAction") > 0.5;	// тримаємо стан ЛКМ актуальним
 				m_iSMPressMarkerId = -1;
 				m_bSMPickedThisPress = false;
 				return;
 			}
 		}
 
-		bool down = im.GetActionValue("MouseLeft") > 0.5;
+		bool down = im.GetActionValue("AM_MapAction") > 0.5;
 		float now = System.GetTickCount() / 1000.0;
 
 		if (SM_CanAcceptMapClick())
 		{
-			// --- Alt+ЛКМ (фронт натиску) — поставити копію останньої мітки гравця і спожити натиск ---
-			if (down && !m_bSMLmbDown && m_iSMCarryId == -1 && !m_bSMPointing
-				&& SM_HasFeature(AM_EMapFeature.MARKER_TOOLS)
-				&& SM_CopyModifierDown() && m_SMLastTemplate
-				&& SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
-			{
-				SM_PlaceCopyAtCursor();
-				// споживаємо натиск: без утримання-переміщення/вказівника/подвійного кліку
-				m_fSMPressTime = now;
-				m_bSMPickedThisPress = true;
-				m_iSMPressMarkerId = -1;
-				m_fSMLastSelectTime = 0;
-				m_bSMLmbDown = down;
-				return;
-			}
-
 			// --- ФРОНТ ВНИЗ (натиск) — запам'ятати позицію/мітку ---
 			if (down && !m_bSMLmbDown)
 			{
@@ -2416,40 +2426,56 @@ modded class SCR_MapMarkersUI
 				}
 			}
 
-			// --- УТРИМАННЯ на мітці (на місці) ≥ SM_HOLD_SEC → підняти ---
-			if (down && m_iSMCarryId == -1 && m_iSMPressMarkerId != -1
-				&& (now - m_fSMPressTime) >= SM_HOLD_SEC && SM_CursorNearPress())
+			// Обидва утримання йдуть від СВОГО фронту, а не від ЛКМ: інакше перебінд «нести» чи
+			// «вказувати» на іншу клавішу робив би з них модифікатор до лівої кнопки.
+			bool holdMove  = SM_HoldMove(im);
+			bool holdPoint = SM_HoldPoint(im);
+
+			// --- УТРИМАННЯ на мітці → підняти ---
+			if (holdMove && !m_bSMHoldMoveDown && m_iSMCarryId == -1 && !m_bSMPointing
+				&& SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))
 			{
-				SM_MapMarkerData pm = SM_MapMarkerStore.GetInstance().FindById(m_iSMPressMarkerId);
-				if (SM_BlockedByLock(pm))
+				int pickId = SM_HoldTarget(down);
+				if (pickId != -1)
 				{
-					m_bSMPickedThisPress = true;	// споживаємо утримання (не піднімаємо й не ставимо)
-					m_iSMPressMarkerId = -1;		// щоб повідомлення не повторювалось щокадру
-				}
-				else
-				{
-					m_iSMCarryId = m_iSMPressMarkerId;
-					m_bSMPickedThisPress = true;	// відпуск ЦЬОГО утримання НЕ ставитиме мітку
-					m_fSMLastSelectTime = 0;	// скасувати арм подвійного кліку
+					SM_MapMarkerData pm = SM_MapMarkerStore.GetInstance().FindById(pickId);
+					if (SM_BlockedByLock(pm))
+					{
+						if (down)
+							m_bSMPickedThisPress = true;	// споживаємо утримання (не піднімаємо й не ставимо)
+						m_iSMPressMarkerId = -1;			// щоб повідомлення не повторювалось щокадру
+					}
+					else
+					{
+						m_iSMCarryId = pickId;
+						if (down)
+							m_bSMPickedThisPress = true;	// відпуск ЦЬОГО натиску НЕ ставитиме мітку
+					}
 				}
 			}
+			m_bSMHoldMoveDown = holdMove;
 
-			// --- УТРИМАННЯ на ПУСТОМУ місці ≥ SM_POINT_HOLD_SEC → режим «вказівник» (показати пальцем) ---
-			if (down && m_iSMCarryId == -1 && !m_bSMPointing && m_iSMPressMarkerId == -1
-				&& (now - m_fSMPressTime) >= SM_POINT_HOLD_SEC
+			// --- УТРИМАННЯ на ПУСТОМУ місці → режим «вказівник» (показати пальцем) ---
+			if (holdPoint && !m_bSMHoldPointDown && m_iSMCarryId == -1 && !m_bSMPointing
+				&& SM_HoldTarget(down) == -1
 				&& SM_HasFeature(AM_EMapFeature.POINTER)
 				&& SM_MarkerConfig.GetInstance().m_bAllowPointer)	// вимкнено в конфізі — не входимо в режим
 			{
 				m_bSMPointing = true;
-				m_bSMPickedThisPress = true;	// відпуск НЕ створюватиме мітку
-				m_fSMLastSelectTime = 0;
+				if (down)
+					m_bSMPickedThisPress = true;	// відпуск НЕ створюватиме мітку
 				if (m_CursorModule)
 					m_CursorModule.HandleDialog(true);	// ховає інфо-текст координат/висоти
 				SM_SetMapCursorHidden(true);			// ховає сам віджет курсора карти
 			}
+			m_bSMHoldPointDown = holdPoint;
+
+			// --- вказівник відпустили ---
+			if (m_bSMPointing && !holdPoint)
+				SM_StopPointing();
 
 			// --- поки водимо вказівником: своя точка локально + потік позиції на сервер (троттл) ---
-			if (down && m_bSMPointing)
+			if (m_bSMPointing)
 			{
 				SM_SetMapCursorHidden(true);	// тримаємо курсор схованим, якщо модуль його повертає
 				int px, py;
@@ -2471,23 +2497,7 @@ modded class SCR_MapMarkersUI
 			// --- ФРОНТ ВГОРУ (відпуск) ---
 			if (!down && m_bSMLmbDown)
 			{
-				float heldDur = now - m_fSMPressTime;
-				if (m_bSMPointing)
-				{
-					// завершуємо «вказівник»
-					m_bSMPointing = false;
-					m_bSMPickedThisPress = false;
-					if (m_CursorModule)
-						m_CursorModule.HandleDialog(false);	// повертаємо інфо-текст
-					SM_SetMapCursorHidden(false);			// повертаємо віджет курсора
-					SCR_PlayerController lpc = SM_LocalPC();
-					if (lpc)
-					{
-						SM_PointerHub.GetInstance().Hide(lpc.GetPlayerId());
-						lpc.SM_RequestPointStop();
-					}
-				}
-				else if (m_bSMPickedThisPress)
+				if (m_bSMPickedThisPress)
 				{
 					// це відпуск утримання-підняття → мітка лишається «в руці», ставимо наступним кліком
 					m_bSMPickedThisPress = false;
@@ -2501,37 +2511,13 @@ modded class SCR_MapMarkersUI
 					m_iSMCarryId = -1;
 					m_iSMPressMarkerId = -1;
 				}
-				else if (heldDur < SM_HOLD_SEC && SM_CursorNearPress()
-					&& SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))
-				{
-					// швидкий клік на місці → детект подвійного (редагувати/створити)
-					if (m_fSMLastSelectTime > 0 && (now - m_fSMLastSelectTime) <= SM_DOUBLECLICK_SEC)
-					{
-						m_fSMLastSelectTime = 0;
-						SM_MarkerVisual u = SM_FindMarkerUnderCursor();
-						if (u && u.m_Data)
-						{
-							SM_OpenEdit(u.m_Data);
-						}
-						else
-						{
-							int wx, wy;
-							if (SM_GetCursorWorld(wx, wy))
-								SM_OpenCreate(wx, wy);
-						}
-					}
-					else
-					{
-						m_fSMLastSelectTime = now;
-					}
-				}
 			}
 		}
 
 		m_bSMLmbDown = down;	// стан для наступного кадру (фронти)
 
 		// --- ПКМ по військовому пресету (коли діалог відкритий) → видалити (вбудовані захищені) ---
-		bool rdown = im.GetActionValue("MouseRight") > 0.5;
+		bool rdown = im.GetActionValue("AM_Cancel") > 0.5;
 		if (rdown && !m_bSMRmbDown && m_MarkerEditRoot)
 		{
 			if (m_iSMHoveredMilPreset >= 0)
@@ -2551,7 +2537,7 @@ modded class SCR_MapMarkersUI
 	}
 
 	// Поллінг вводу з геймпада (консоль). Дискретна модель замість мишачих жестів.
-	// Інкремент 1: A (AM_Confirm) контекстна — на мітці відкриває редагування, на пустому місці створює.
+	// A (AM_MapAction) контекстна — на мітці відкриває редагування, на пустому місці створює.
 	// Курсор той самий (SCR_MapCursorInfo). Move/copy/вказівник додамо наступними кроками.
 	protected void SM_PollGamepad(InputManager im)
 	{
@@ -2579,7 +2565,7 @@ modded class SCR_MapMarkersUI
 				focused = null;
 			}
 
-			bool draw = im.GetActionValue("AM_Confirm") > 0.5;	// A
+			bool draw = im.GetActionValue("AM_MapAction") > 0.5;	// A
 			int dwx, dwy;
 			bool haveW = SM_GetCursorWorld(dwx, dwy);
 			if (draw && !m_bSMPadDrawDown)
@@ -2600,7 +2586,7 @@ modded class SCR_MapMarkersUI
 			m_bSMPadDrawDown = draw;
 
 			// B — скасувати інструмент
-			bool cancel = im.GetActionValue("MapContextualMenu") > 0.5 || im.GetActionValue("MenuBack") > 0.5;
+			bool cancel = im.GetActionValue("AM_Cancel") > 0.5 || im.GetActionValue("MenuBack") > 0.5;
 			if (cancel && !m_bSMPadCancelDown)
 				m_DrawCanvas.SetActive(false);
 			m_bSMPadCancelDown = cancel;
@@ -2636,16 +2622,16 @@ modded class SCR_MapMarkersUI
 			// «Проковтнути» поточні натиски: стани = down, щоб після зняття фокуса (вибір у меню
 			// кнопкою A) той САМИЙ натиск не спрацював фронтом як тап/дія на мапі. Додатково
 			// позначаємо прес «спожитим»: release-гілка A інакше зробила б create/edit на відпусканні.
-			m_bSMPadConfirmDown = im.GetActionValue("AM_Confirm") > 0.5;
+			m_bSMPadConfirmDown = im.GetActionValue("AM_MapAction") > 0.5;
 			if (m_bSMPadConfirmDown)
 				m_bSMPickedThisPress = true;
-			m_bSMPadPlaceDown   = im.GetActionValue("AM_Place")   > 0.5;
+			m_bSMPadPlaceDown   = im.GetActionValue("AM_CopyLastPad") > 0.5;
 			m_bSMPadDeleteDown  = im.GetActionValue("AM_Delete")  > 0.5;
 			return;
 		}
 
-		bool confirm = im.GetActionValue("AM_Confirm") > 0.5;	// A — тап: редаг/створ; утримання: нести/вказувати
-		bool place   = im.GetActionValue("AM_Place")   > 0.5;	// Y — копія останньої мітки
+		bool confirm = im.GetActionValue("AM_MapAction") > 0.5;	// A — тап: редаг/створ; утримання: нести/вказувати
+		bool place   = im.GetActionValue("AM_CopyLastPad") > 0.5;	// Y — копія останньої мітки
 		bool del     = im.GetActionValue("AM_Delete")  > 0.5;	// X — видалити мітку під курсором
 		float now = System.GetTickCount() / 1000.0;
 
@@ -2695,7 +2681,7 @@ modded class SCR_MapMarkersUI
 
 			// --- A УТРИМАННЯ на мітці ≥ HOLD → підняти (далі слідує за курсором; відпуск поставить) ---
 			if (confirm && m_iSMCarryId == -1 && m_iSMPressMarkerId != -1
-				&& (now - m_fSMPressTime) >= SM_HOLD_SEC && SM_CursorNearPress())
+				&& SM_HoldMove(im) && SM_CursorNearPress())
 			{
 				SM_MapMarkerData pm = SM_MapMarkerStore.GetInstance().FindById(m_iSMPressMarkerId);
 				if (SM_BlockedByLock(pm))
@@ -2712,7 +2698,7 @@ modded class SCR_MapMarkersUI
 
 			// --- A УТРИМАННЯ на ПУСТОМУ ≥ SM_POINT_HOLD_SEC → вказівник (показати пальцем) ---
 			if (confirm && m_iSMCarryId == -1 && !m_bSMPointing && m_iSMPressMarkerId == -1
-				&& (now - m_fSMPressTime) >= SM_POINT_HOLD_SEC
+				&& SM_HoldPoint(im)
 				&& SM_HasFeature(AM_EMapFeature.POINTER)
 				&& SM_MarkerConfig.GetInstance().m_bAllowPointer)
 			{
@@ -2794,14 +2780,14 @@ modded class SCR_MapMarkersUI
 	// ПКМ: скасувати переміщення (мітка повертається на місце; на сервер нічого не шлемо).
 	protected void SM_OnContext(float value, EActionTrigger reason)
 	{
-		if (SM_TryPanelBack())	// пад-B у панелі часто приходить як MapContextualMenu (фокус на нашій STOP-кнопці)
+		if (SM_TryPanelBack())	// пад-B у панелі часто приходить як AM_Cancel (фокус на нашій STOP-кнопці)
 			return;
 		if (m_iSMCarryId != -1)
 			m_iSMCarryId = -1;	// наступний кадр позиціонує з m_Data (оригінал)
 	}
 
 	// Пад-B у панелі малювання: дворівневий вихід (дропдаун -> ряд -> мапа). true = оброблено.
-	// Залежно від фокуса B приходить то як MenuBack, то як MapContextualMenu, тому кличеться
+	// Залежно від фокуса B приходить то як MenuBack, то як AM_Cancel, тому кличеться
 	// з обох слухачів, а дебаунс не дає одним натиском перескочити рівень.
 	protected bool SM_TryPanelBack()
 	{
@@ -2816,7 +2802,7 @@ modded class SCR_MapMarkersUI
 			SM_PanelExit();
 		InputManager im = GetGame().GetInputManager();
 		im.ResetAction("MenuBack");
-		im.ResetAction("MapContextualMenu");
+		im.ResetAction("AM_Cancel");
 		return true;
 	}
 
@@ -2833,12 +2819,20 @@ modded class SCR_MapMarkersUI
 		if (!m_bSMMapOpen || m_MarkerEditRoot || !m_DrawPanel || SM_IsEditorMap())
 			return;
 		InputManager pim = GetGame().GetInputManager();
-		if (!pim || pim.IsUsingMouseAndKeyboard())	// лише геймпад
+		if (!pim)
 			return;
 
 		WorkspaceWidget ws = GetGame().GetWorkspace();
 		if (!ws)
 			return;
+
+		// On mouse and keyboard the panel is just shown or put away — there is a cursor to click it
+		// with, so nothing is gained by moving focus into it. Only the pad needs to be walked in.
+		if (pim.IsUsingMouseAndKeyboard())
+		{
+			AM_ToggleDrawPanel();
+			return;
+		}
 
 		if (!m_bSMDrawPanelShown)
 		{
@@ -2929,10 +2923,118 @@ modded class SCR_MapMarkersUI
 		}
 	}
 
+	// Tool hotkeys (PC only). They go through the panel's own OnAction so the buttons light up and the
+	// second press toggles the tool off, exactly as clicking them does.
+	protected void SM_OnToolPencil(float value, EActionTrigger reason)
+	{
+		SM_HotkeyTool(SM_DrawPanel.ACT_PENCIL);
+	}
+
+	protected void SM_OnToolEraser(float value, EActionTrigger reason)
+	{
+		SM_HotkeyTool(SM_DrawPanel.ACT_ERASER);
+	}
+
+	protected void SM_OnToolFill(float value, EActionTrigger reason)
+	{
+		SM_HotkeyTool(SM_DrawPanel.ACT_FILL);
+	}
+
+	protected void SM_HotkeyTool(int act)
+	{
+		if (!m_bSMMapOpen || !m_DrawPanel || m_MarkerEditRoot)
+			return;
+		if (!m_bSMDrawPanelShown)
+			return;	// панель прихована — інструментів нема чим показати, отже й вмикати нічого
+
+		InputManager tim = GetGame().GetInputManager();
+		if (!tim || !tim.IsUsingMouseAndKeyboard())
+			return;
+
+		m_DrawPanel.OnAction(act, 0);
+	}
+
+	//! Копія останньої мітки гравця в точку курсора. Клавіатура — AM_CopyLast, геймпад — Y
+	//! (AM_CopyLastPad, опитується у своєму полері).
+	//!
+	//! Alt + the left button is only the DEFAULT BINDING (an InputSourceCombo in the conf), not
+	//! something this code knows about: it listens to the action, whatever the player has moved it to.
+	//! That is the whole point of the rewrite — the old version tested the Alt modifier by hand inside
+	//! the left-button poll, so rebinding it anywhere else would have changed nothing.
+	protected void SM_OnCopyLast(float value, EActionTrigger reason)
+	{
+		if (!m_bSMMapOpen || !SM_CanAcceptMapClick() || m_MarkerEditRoot)
+			return;
+		if (!SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))
+			return;
+		if (m_iSMCarryId != -1 || m_bSMPointing)
+			return;
+		if (!m_SMLastTemplate || !SM_MarkerConfig.GetInstance().m_bAllowCopyLast)
+			return;
+		if (SM_IsEditorMap() && !SM_GmState.s_bMarkerView)
+			return;
+
+		InputManager cim = GetGame().GetInputManager();
+		if (!cim || !cim.IsUsingMouseAndKeyboard())
+			return;	// пад іде через AM_CopyLastPad у своєму полері
+
+		SM_PlaceCopyAtCursor();
+	}
+
+	//! Подвійний клік: на мітці — редагувати, на пустому місці — створити.
+	//!
+	//! The engine detects the double click (InputFilterDoubleClick on AM_MarkerEdit), not a stopwatch
+	//! of ours — so the threshold is the one shown in the keybind menu, and a player can move the
+	//! action off the left button entirely. The pad never comes here: a tap of A does this directly.
+	protected void SM_OnMarkerEdit(float value, EActionTrigger reason)
+	{
+		if (!m_bSMMapOpen || !SM_CanAcceptMapClick() || m_MarkerEditRoot)
+			return;
+		if (!SM_HasFeature(AM_EMapFeature.MARKER_TOOLS))
+			return;
+		if (m_iSMCarryId != -1 || m_bSMPointing)
+			return;	// у руці мітка / вказуємо — другий клік належить їм
+
+		InputManager eim = GetGame().GetInputManager();
+		if (!eim || !eim.IsUsingMouseAndKeyboard())
+			return;
+
+		if (m_DrawCanvas && m_DrawCanvas.IsActive())
+			return;	// інструмент малювання забирає ЛКМ повністю
+
+		if (m_DrawPanel)
+		{
+			int ppx, ppy;
+			SM_CursorPhysPx(ppx, ppy);
+			if (m_DrawPanel.IsCursorOver(ppx, ppy))
+				return;	// клік належить панелі
+		}
+
+		SM_MarkerVisual u = SM_FindMarkerUnderCursor();
+		if (u && u.m_Data)
+		{
+			SM_OpenEdit(u.m_Data);
+			return;
+		}
+
+		if (SM_IsEditorMap())
+			return;	// зевс створює мітки з тулбара, а не кліком по мапі
+
+		int wx, wy;
+		if (SM_GetCursorWorld(wx, wy))
+			SM_OpenCreate(wx, wy);
+	}
+
 	// Delete: видалити мітку під курсором.
 	protected void SM_OnDelete(float value, EActionTrigger reason)
 	{
 		if (!m_bSMMapOpen || !SM_CanAcceptMapClick())
+			return;
+
+		// AM_Delete now carries the pad button too, and the pad already deletes from its own poll —
+		// without this the one X press would delete twice.
+		InputManager dim = GetGame().GetInputManager();
+		if (!dim || !dim.IsUsingMouseAndKeyboard())
 			return;
 
 		SM_MarkerVisual vis = null;
@@ -3343,7 +3445,7 @@ modded class SCR_MapMarkersUI
 		SCR_InputButtonComponent c = SCR_InputButtonComponent.Cast(w.FindHandler(SCR_InputButtonComponent));
 		if (!c)
 			return;
-		c.SetAction("AM_Place");	// гліф → Y (бренд-залежний: Xbox Y / PS △), оновлює візуал
+		c.SetAction("AM_CopyLastPad");	// гліф → Y (бренд-залежний: Xbox Y / PS △), оновлює візуал
 		c.SM_MakeDisplayOnly();		// прибрати слухачів AM_Place, щоб кнопка не дублювала розміщення
 	}
 
@@ -3730,7 +3832,7 @@ modded class SCR_MapMarkersUI
 
 		// Place (Y / AM_Place) — опитування з детектом фронту. Працює на будь-якому рівні.
 		InputManager pim = GetGame().GetInputManager();
-		bool placeNow = pim && pim.GetActionValue("AM_Place") > 0.5;
+		bool placeNow = pim && pim.GetActionValue("AM_CopyLastPad") > 0.5;
 		if (placeNow && !m_bSMPlaceDown)
 		{
 			m_bSMPlaceDown = placeNow;
