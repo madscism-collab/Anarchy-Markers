@@ -33,21 +33,27 @@ class AMGA_DrawCache
 
 modded class GRS_DeviceDisplayComponent
 {
-	// Marker size on the RT, in HUD units. The map's BASE_SIZE (720 at max zoom) is meaningless here,
-	// but so is matching GRS's 42-unit marker layout: the RT is a 1920x1080 texture squeezed onto a
-	// palm-sized screen in the world, so 42 units comes out around a dozen actual pixels — legible in
-	// a UI mock-up, unreadable on a device strapped to your chest. Sized against what else is on that
-	// screen instead: a mid-width stroke lands near 80 units, so the marker sits a notch above it.
+	// Size of a DEFAULT marker on the RT, in HUD units. The map's BASE_SIZE (720 at max zoom) is
+	// meaningless here, and so is matching GRS's 42-unit dots: the RT is a 1920x1080 texture squeezed
+	// onto a palm-sized screen in the world, so 42 units comes out around a dozen actual pixels —
+	// legible in a UI mock-up, unreadable on a device strapped to your chest. Sized against what else
+	// is on that screen instead: a mid-width stroke lands near 80 units, so the marker sits above it.
 	//
-	// This is the number to turn if markers read wrong on the device — nothing else depends on it.
+	// This ONE screen keeps a floor and a ceiling, against the philosophy everywhere else (a marker's
+	// size belongs to the marker, not to the screen). The device is a few centimetres of glass on your
+	// chest, seen at arm's length: a marker sized for a wall map covers the whole thing, and a tablet
+	// showing one icon and no terrain is worse than useless. The minimap and the maps stay unclamped.
 	protected static const float AMGA_MARKER_BASE_PX = 120;
 	protected static const float AMGA_MARKER_MIN_PX  = 72;
-	protected static const float AMGA_MARKER_MAX_PX  = 280;	// a 1000% marker drawn for a wall map must not eat the tablet
+	protected static const float AMGA_MARKER_MAX_PX  = 280;
 	protected static const float AMGA_MIN_STROKE_PX  = 1.5;
 
 	protected CanvasWidget   m_wAMGA_Canvas;		// our strokes + fills
 	protected bool           m_bAMGA_Subscribed;
-	protected float          m_fAMGA_Unit = 1;	// HUD pixel -> canvas unit; measured, never assumed
+	// HUD pixels -> canvas units. Measured every tick from the two widgets themselves, never assumed.
+	protected float          m_fAMGA_Scale = 1;
+	protected float          m_fAMGA_OffX;
+	protected float          m_fAMGA_OffY;
 
 	protected ref map<int, ref SM_MarkerVisual> m_mAMGA_Vis = new map<int, ref SM_MarkerVisual>();
 	protected ref array<ref CanvasWidgetCommand> m_aAMGA_Cmds = {};
@@ -253,20 +259,30 @@ modded class GRS_DeviceDisplayComponent
 		if (!m_wAMGA_Canvas)
 			return;
 
-		// A CanvasWidget draws in ITS OWN unit space, which has nothing to do with the pixel grid the
-		// rest of the HUD is laid out on. Don't ASSUME the two line up (that assumption is what put
-		// the drawings in the wrong place and made them swing around the player): measure the canvas
-		// and pin its units to its real size, exactly the way our map canvas does. m_fAMGA_Unit then
-		// converts a HUD pixel into a canvas unit, whatever the DPI is doing.
-		float cw, ch;
+		// Bridge the canvas to the MARKER CONTAINER, not to the HUD grid.
+		//
+		// A CanvasWidget draws in its own unit space, and deriving the conversion from HUD_CENTER_X
+		// assumes the canvas rect and the marker container are the same rectangle. They are two
+		// different widgets: let them differ by a hair and the drawings come out at a slightly wrong
+		// zoom from the markers, which is exactly what that looks like. So measure both and convert
+		// between them — markers land correctly by definition, so a stroke expressed in their space
+		// cannot land anywhere else.
+		float mcw, mch, mcx, mcy, cw, ch, cx, cy;
+		m_wMarkerContainer.GetScreenSize(mcw, mch);
+		m_wMarkerContainer.GetScreenPos(mcx, mcy);
 		m_wAMGA_Canvas.GetScreenSize(cw, ch);
-		if (cw <= 0 || ch <= 0)
+		m_wAMGA_Canvas.GetScreenPos(cx, cy);
+		if (mcw <= 0 || cw <= 0)
 			return;	// not laid out yet
 
+		// One canvas unit = one physical pixel; a HUD pixel is m_fAMGA_Scale of them, offset by however
+		// far the two widgets sit apart on screen.
 		m_wAMGA_Canvas.SetSizeInUnits(Vector(cw, ch, 0));
 		m_wAMGA_Canvas.SetZoom(1.0);
 		m_wAMGA_Canvas.SetOffsetPx(Vector(0, 0, 0));
-		m_fAMGA_Unit = cw / (HUD_CENTER_X * 2);
+		m_fAMGA_Scale = mcw / (HUD_CENTER_X * 2);
+		m_fAMGA_OffX  = mcx - cx;
+		m_fAMGA_OffY  = mcy - cy;
 
 		m_aAMGA_Cmds.Clear();
 
@@ -342,7 +358,7 @@ modded class GRS_DeviceDisplayComponent
 		return cache;
 	}
 
-	//! HUD pixels -> canvas units (m_fAMGA_Unit), so the commands land where the markers do.
+	//! HUD pixels -> canvas units, so the commands land exactly where the markers do.
 	protected void AMGA_ProjectPoints(notnull SM_MapDrawingData d, vector playerPos, float scale, out array<float> scr)
 	{
 		int n = d.GetPointCount();
@@ -353,8 +369,8 @@ modded class GRS_DeviceDisplayComponent
 			d.GetPoint(i, wx, wz);
 			float px, py;
 			AMGA_ProjectWorld(wx, wz, playerPos, scale, px, py);
-			scr[i * 2]     = px * m_fAMGA_Unit;
-			scr[i * 2 + 1] = py * m_fAMGA_Unit;
+			scr[i * 2]     = m_fAMGA_OffX + px * m_fAMGA_Scale;
+			scr[i * 2 + 1] = m_fAMGA_OffY + py * m_fAMGA_Scale;
 		}
 	}
 
@@ -365,7 +381,7 @@ modded class GRS_DeviceDisplayComponent
 		float widthPx = SM_DrawCanvas.WidthMeters(d.m_iWidthIdx) * scale;
 		if (widthPx < AMGA_MIN_STROKE_PX)
 			widthPx = AMGA_MIN_STROKE_PX;
-		widthPx *= m_fAMGA_Unit;	// the vertices are in canvas units, so the width has to be too
+		widthPx *= m_fAMGA_Scale;	// the vertices are in canvas units, so the width has to be too
 
 		LineDrawCommand line = new LineDrawCommand();
 		line.m_iColor = d.m_iColor;
