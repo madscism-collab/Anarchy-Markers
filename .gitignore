@@ -16,6 +16,7 @@
 !/Anarchy Markers/
 !/Anarchy Markers - EE Compat/
 !/Anarchy Markers - GRS ATAK/
+!/Anarchy Markers x GRS-ATAK DEV/
 
 # Build output / editor state inside the addons. resourceDatabase.rdb is deliberately NOT ignored:
 # Workbench maintains it and it is currently tracked; dropping it is a separate decision to test.
