@@ -67,7 +67,7 @@ FrameWidgetClass {
        Slot LayoutSlot "{69C29B7052DBE592}" {
         VerticalAlign 1
        }
-       Color 0.0231 0.0231 0.0231 1
+       Color 0.0231 0.0231 0.0231 0
        {
         FrameWidgetClass "{69C29B72D876512D}" {
          Name "ButtonContentFrame"
@@ -137,7 +137,7 @@ FrameWidgetClass {
         VerticalAlign 1
         Padding 5 0 0 0
        }
-       Color 0.0231 0.0231 0.0231 1
+       Color 0.0231 0.0231 0.0231 0
        {
         FrameWidgetClass "{69C29B74C915AD26}" {
          Name "ButtonContentFrame"
@@ -207,7 +207,7 @@ FrameWidgetClass {
         VerticalAlign 1
         Padding 5 0 0 0
        }
-       Color 0.0231 0.0231 0.0231 1
+       Color 0.0231 0.0231 0.0231 0
        {
         FrameWidgetClass "{69C8E77090823FA6}" {
          Name "ButtonContentFrame"
@@ -277,6 +277,7 @@ FrameWidgetClass {
         VerticalAlign 1
         Padding 5 0 0 0
        }
+       Color 1 1 1 0
        {
         FrameWidgetClass "{69C29B7E4A8E2A3D}" {
          Name "SizeDropdown"
@@ -669,7 +670,7 @@ FrameWidgetClass {
           OffsetBottom -40
           SizeToContent 1
          }
-         Color 0.0231 0.0231 0.0231 1
+         Color 0.0231 0.0231 0.0231 0
          {
           FrameWidgetClass "{69C29B79B1CFAEC7}" {
            Name "ButtonContentFrame"
@@ -755,6 +756,7 @@ FrameWidgetClass {
         VerticalAlign 1
         Padding 5 0 0 0
        }
+       Color 1 1 1 0
        {
         FrameWidgetClass "{69C29B4353093FF6}" {
          Name "ColorDropdown"
@@ -4044,7 +4046,7 @@ FrameWidgetClass {
           OffsetBottom -30
           SizeToContent 1
          }
-         Color 0.0231 0.0231 0.0231 1
+         Color 0.0231 0.0231 0.0231 0
          {
           FrameWidgetClass "{69C29B435315E23A}" {
            Name "ButtonContentFrame"
@@ -4116,6 +4118,7 @@ FrameWidgetClass {
         VerticalAlign 1
         Padding 5 0 0 0
        }
+       Color 1 1 1 0
        {
         FrameWidgetClass "{69C8E77542BE69A6}" {
          Name "OpacityDropdown"
@@ -4189,7 +4192,7 @@ FrameWidgetClass {
          Slot FrameWidgetSlot "{69C8E775708184B9}" {
           SizeToContent 1
          }
-         Color 0.0231 0.0231 0.0231 1
+         Color 0.0231 0.0231 0.0231 0
          {
           FrameWidgetClass "{69C8E77247D36D0F}" {
            Name "ButtonContentFrame"
@@ -4271,6 +4274,7 @@ FrameWidgetClass {
         VerticalAlign 1
         Padding 5 0 0 0
        }
+       Color 1 1 1 0
        {
         FrameWidgetClass "{69C29B4669267795}" {
          Name "VisibilityDropdown"
@@ -4509,7 +4513,7 @@ FrameWidgetClass {
           OffsetBottom -30
           SizeToContent 1
          }
-         Color 0.0231 0.0231 0.0231 1
+         Color 0.0231 0.0231 0.0231 0
          {
           FrameWidgetClass "{69C29B466922F56E}" {
            Name "ButtonContentFrame"
@@ -4563,6 +4567,4149 @@ FrameWidgetClass {
                 VerticalAlign 1
                 SizeMode Auto
                }
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowDown"
+               Size 22 22
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{69DCF4B22C28E701}" {
+       Name "TemplatesCombo"
+       Slot LayoutSlot "{69C29B439A84DAA9}" {
+        HorizontalAlign 1
+        VerticalAlign 1
+        Padding 5 0 0 0
+       }
+       {
+        FrameWidgetClass "{69DCF4B22C288097}" {
+         Name "TemplatesDropdown"
+         Slot FrameWidgetSlot "{69C29B7E4A8E2BD8}" {
+          Anchor 0 1 1 1
+          PositionX 0
+          OffsetLeft 0
+          PositionY 10
+          OffsetTop 10
+          SizeX 0
+          OffsetRight 0
+          SizeY 0
+          OffsetBottom -10
+         }
+         {
+          OverlayWidgetClass "{69DCF4B61FE2AACA}" {
+           Name "TmpDrpOverlay"
+           Slot FrameWidgetSlot "{69DCF4B61FE2AAD5}" {
+            Anchor 0.5 1 0.5 1
+            PositionX 0
+            OffsetLeft 0
+            PositionY 0
+            OffsetTop 0
+            SizeX 125
+            OffsetRight -125
+            SizeY 30
+            OffsetBottom -30
+            Alignment 0.5 0
+            SizeToContent 1
+           }
+           {
+            SmartPanelWidgetClass "{69DCF4B22C288099}" {
+             Name "Background1"
+             Slot OverlayWidgetSlot "{69DCF4A07D0CEC5C}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             Opacity 0.95
+             Color 0.0116 0.016 0.0252 1
+             style rounded_12px
+            }
+            VerticalLayoutWidgetClass "{69DD2061006CC9A7}" {
+             Name "ButtonsLayout"
+             Slot OverlayWidgetSlot "{69DCF4A07D0CEC69}" {
+              HorizontalAlign 3
+              VerticalAlign 0
+              Padding -175 0 0 0
+             }
+             {
+              SizeLayoutWidgetClass "{69DD7B0567880887}" {
+               Name "SizeLayout0"
+               Slot LayoutSlot "{69DD7B17A80E60D2}" {
+                HorizontalAlign 0
+                Padding 0 0 0 20
+               }
+               AllowWidthOverride 1
+               WidthOverride 165
+               AllowHeightOverride 1
+               HeightOverride 40
+               {
+                ButtonWidgetClass "{69DD7B04BF845AAD}" : "{0022F0B45ADBC5AC}UI/layouts/WidgetLibrary/EditBox/WLib_EditBox.layout" {
+                 Name "TemplateNameEdit"
+                 Slot AlignableSlot "{5538C206F1963489}" {
+                  HorizontalAlign 0
+                  VerticalAlign 0
+                  Padding 0 0 0 0
+                 }
+                 {
+                  VerticalLayoutWidgetClass "{5AA4D27F39EB2514}" {
+                   Prefab "{5AA4D27F39EB2514}"
+                   Slot ButtonWidgetSlot "{5AA4D27F39EB25D3}" {
+                    VerticalAlign 3
+                   }
+                   {
+                    SizeLayoutWidgetClass "{5538C205B27B0F5D}" {
+                     Prefab "{5538C205B27B0F5D}"
+                     AllowWidthOverride 1
+                     WidthOverride 250
+                     HeightOverride 25
+                     {
+                      OverlayWidgetClass "{55367D8E531FD623}" {
+                       Prefab "{55367D8E531FD623}"
+                       {
+                        PanelWidgetClass "{55367D8E4A135500}" {
+                         Prefab "{55367D8E4A135500}"
+                         style outline_4px
+                        }
+                        HorizontalLayoutWidgetClass "{55367D8E4592BC6E}" {
+                         Prefab "{55367D8E4592BC6E}"
+                         Slot OverlayWidgetSlot "{55367D8E4592B383}" {
+                          Padding 3 3 3 3
+                         }
+                         {
+                          OverlayWidgetClass "{5538C2059A570E94}" {
+                           Prefab "{5538C2059A570E94}"
+                           {
+                            ImageWidgetClass "{5538C20588BB6BD0}" {
+                             Prefab "{5538C20588BB6BD0}"
+                             Slot OverlayWidgetSlot "{5538C20588BB6BFF}" {
+                              Padding -83 0 0 0
+                             }
+                            }
+                            ScaleWidgetClass "{553AB38C59601DA1}" {
+                             Prefab "{553AB38C59601DA1}"
+                             {
+                              ImageWidgetClass "{5538C207E37BAF83}" {
+                               Prefab "{5538C207E37BAF83}"
+                               Slot OverlayWidgetSlot "{5538C2078EC8DD73}" {
+                                Padding -90 0 0 0
+                               }
+                              }
+                             }
+                            }
+                            HorizontalLayoutWidgetClass "{58D095EE846E2B93}" {
+                             Prefab "{58D095EE846E2B93}"
+                             Slot OverlayWidgetSlot "{58D095EE846E2A50}" {
+                              Padding -83 0 0 0
+                             }
+                             {
+                              ScaleWidgetClass "{553AB38C60AA560D}" {
+                               Prefab "{553AB38C60AA560D}"
+                               {
+                                ButtonWidgetClass "{5E08E3A68C685A4A}" {
+                                 Prefab "{5E08E3A68C685A4A}"
+                                 {
+                                  ImageWidgetClass "{5538C2078EC8DD38}" {
+                                   Prefab "{5538C2078EC8DD38}"
+                                   Size 24 24
+                                  }
+                                 }
+                                }
+                               }
+                              }
+                              EditBoxWidgetClass "{5538C2058B18F877}" {
+                               Prefab "{5538C2058B18F877}"
+                               components {
+                                EditBoxFilterComponent "{5538D70DF38310BC}" {
+                                 m_iCharacterLimit 26
+                                }
+                               }
+                               "Font Size" 14
+                              }
+                             }
+                            }
+                           }
+                          }
+                         }
+                        }
+                       }
+                      }
+                     }
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DD2982F32DCBD5}" {
+               Name "AddNewTemplateButton"
+               Slot LayoutSlot "{69C29B7052DBE592}" {
+                VerticalAlign 1
+                Padding 0 0 -65 5
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DD2982F32DCBD6}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                  Padding 0 0 -35 0
+                 }
+                 {
+                  SmartPanelWidgetClass "{69DD2982F32DCBD7}" {
+                   Name "Background1"
+                   Slot FrameWidgetSlot "{69C29B729EF76341}" {
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 165
+                    OffsetRight -165
+                    SizeY 40
+                    OffsetBottom -40
+                   }
+                   Color 0.0123 0.0123 0.0123 1
+                   style rounded_12px
+                  }
+                  HorizontalLayoutWidgetClass "{69DD2982F32DCBD8}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 100
+                    OffsetRight -100
+                    SizeY 40
+                    OffsetBottom -40
+                   }
+                   {
+                    ImageWidgetClass "{69DD2982F32DEEC0}" {
+                     Name "Image0"
+                     Slot LayoutSlot "{69C29B70F5285B46}" {
+                      HorizontalAlign 1
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                     }
+                     Texture "{CDDB411774059C6F}add.edds"
+                     Size 24 24
+                    }
+                    TextWidgetClass "{69DD2982F32DEEC1}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B75A636B028}" {
+                      HorizontalAlign 1
+                      VerticalAlign 1
+                     }
+                     Text "New Template"
+                     "Font Size" 16
+                     "Min Font Size" 16
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DD2982F2B7A6D1}" {
+               Name "RemoveTemplateButton"
+               Slot LayoutSlot "{69C29B7052DBE592}" {
+                VerticalAlign 1
+                Padding 0 0 -65 5
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DD2982F2B01EE6}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                  Padding 0 0 -35 0
+                 }
+                 {
+                  SmartPanelWidgetClass "{69DD2982F2B01EE4}" {
+                   Name "Background1"
+                   Slot FrameWidgetSlot "{69C29B729EF76341}" {
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 165
+                    OffsetRight -165
+                    SizeY 40
+                    OffsetBottom -40
+                   }
+                   Color 0.0123 0.0123 0.0123 1
+                   style rounded_12px
+                  }
+                  HorizontalLayoutWidgetClass "{69DD2982F2B0EA5B}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 100
+                    OffsetRight -100
+                    SizeY 40
+                    OffsetBottom -40
+                   }
+                   {
+                    ImageWidgetClass "{69DD2982F2B0EA5C}" {
+                     Name "Image0"
+                     Slot LayoutSlot "{69C29B70F5285B46}" {
+                      HorizontalAlign 1
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                     }
+                     Texture "{7D069354A267029D}remove.edds"
+                     Size 24 24
+                    }
+                    TextWidgetClass "{69DD2982F2B0EA5D}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B75A636B028}" {
+                      HorizontalAlign 1
+                      VerticalAlign 1
+                     }
+                     Text "Remove Template"
+                     "Font Size" 16
+                     "Min Font Size" 16
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DD2982F4BA64C0}" {
+               Name "ApplyAndPlaceButton"
+               Slot LayoutSlot "{69C29B7052DBE592}" {
+                VerticalAlign 1
+                Padding 0 0 0 5
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DD2982F4BA64C1}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  SmartPanelWidgetClass "{69DD2982F4BA7D3E}" {
+                   Name "Background1"
+                   Slot FrameWidgetSlot "{69C29B729EF76341}" {
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 105
+                    OffsetRight -105
+                    SizeY 40
+                    OffsetBottom -40
+                   }
+                   Color 0.0123 0.0123 0.0123 1
+                   style rounded_12px
+                  }
+                  HorizontalLayoutWidgetClass "{69DD2982F4BA7D3D}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 100
+                    OffsetRight -100
+                    SizeY 40
+                    OffsetBottom -40
+                   }
+                   {
+                    ImageWidgetClass "{69DD2982F4BA7D3C}" {
+                     Name "Image0"
+                     Slot LayoutSlot "{69C29B70F5285B46}" {
+                      HorizontalAlign 1
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                     }
+                     Texture "{2BEBE21E26545440}apply.edds"
+                     Size 24 24
+                    }
+                    TextWidgetClass "{69DD2982F4BA7D3B}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B75A636B028}" {
+                      HorizontalAlign 1
+                      VerticalAlign 1
+                     }
+                     Text "Apply"
+                     "Font Size" 16
+                     "Min Font Size" 16
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DD2982F465C114}" {
+               Name "CancelButton"
+               Slot LayoutSlot "{69C29B7052DBE592}" {
+                VerticalAlign 1
+                Padding 0 0 0 5
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DD2982F465C113}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  SmartPanelWidgetClass "{69DD2982F4645B4F}" {
+                   Name "Background1"
+                   Slot FrameWidgetSlot "{69C29B729EF76341}" {
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 105
+                    OffsetRight -105
+                    SizeY 40
+                    OffsetBottom -40
+                   }
+                   Color 0.0123 0.0123 0.0123 1
+                   style rounded_12px
+                  }
+                  HorizontalLayoutWidgetClass "{69DD2982F4645B4D}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 100
+                    OffsetRight -100
+                    SizeY 40
+                    OffsetBottom -40
+                   }
+                   {
+                    ImageWidgetClass "{69DD2982F4640FA5}" {
+                     Name "Image0"
+                     Slot LayoutSlot "{69C29B70F5285B46}" {
+                      HorizontalAlign 1
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                     }
+                     Texture "{B0C8DAAE25501B3A}cancel.edds"
+                     Size 24 24
+                    }
+                    TextWidgetClass "{69DD2982F4640FA4}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B75A636B028}" {
+                      HorizontalAlign 1
+                      VerticalAlign 1
+                     }
+                     Text "Cancel"
+                     "Font Size" 16
+                     "Min Font Size" 16
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            VerticalLayoutWidgetClass "{69DCF4B22C28B096}" {
+             Name "VerticalLayout0"
+             Slot OverlayWidgetSlot "{69DCF4A07D0CEC69}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 0 0 0 0
+             }
+             {
+              ButtonWidgetClass "{69DCF4B22C28B097}" {
+               Name "Template0"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4B22C290706}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4B22C290705}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4B22C29E2D0}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BB29F825E1}" {
+               Name "Template1"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BB29F825E0}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BB29F85ABF}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BB29F85AA1}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBD2C32A29}" {
+               Name "Template2"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBD2C32A2A}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBD2C32A2B}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBD2DCDE7C}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBD26935E4}" {
+               Name "Template3"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBD26935E3}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBD26935E2}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBD26929CF}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBD772D5DE}" {
+               Name "Template4"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBD77258E6}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBD77258E4}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBD7722036}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBDB87A7D4}" {
+               Name "Template5"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBDB87A7D5}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBDB87A7D6}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBDB866446}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBDB8667F9}" {
+               Name "Template6"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBDB8667FA}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBDB8622A0}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBDB8622A1}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBDB86DEAA}" {
+               Name "Template7"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBDB8688AA}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBDB8688AD}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBDB8536F5}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBDB8536BA}" {
+               Name "Template8"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBDB85A61E}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBDB845495}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBDB845492}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBDB840E96}" {
+               Name "Template9"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBDB840E97}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBDB84B366}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBDB84B361}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            VerticalLayoutWidgetClass "{69DCF4BBC657188A}" {
+             Name "VerticalLayout1"
+             Slot OverlayWidgetSlot "{69DCF4BBC656E5E7}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 125 0 0 0
+             }
+             "Is Visible" 0
+             {
+              ButtonWidgetClass "{69DCF4BBC6573377}" {
+               Name "Template0"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC6573375}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC6573AF9}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC6573AFE}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBC6573AFC}" {
+               Name "Template1"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC657B36C}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC657B36D}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC6561F19}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBC6567957}" {
+               Name "Template2"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC656E597}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC656E596}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC656F9D4}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBC6556854}" {
+               Name "Template3"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC6556855}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC655B1DB}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC655B1DC}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBC6542AFC}" {
+               Name "Template4"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC6544B62}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC6544B61}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC65486CB}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBC654B834}" {
+               Name "Template5"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC65B0507}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC65B0518}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC65B1788}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBC65B2BAB}" {
+               Name "Template6"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC65B2BA8}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC65B901A}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC65B901B}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBC65BD5E3}" {
+               Name "Template7"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC65BD5E4}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC65A1D15}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC65A1D14}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBC65A7A51}" {
+               Name "Template8"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC65ABD31}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC65ABD30}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC65AE16C}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBC6591DC2}" {
+               Name "Template9"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBC6596249}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBC6596248}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBC659609F}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            VerticalLayoutWidgetClass "{69DCF4BBBBC91A10}" {
+             Name "VerticalLayout2"
+             Slot OverlayWidgetSlot "{69DCF4BBC656E5E7}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 250 0 0 0
+             }
+             "Is Visible" 0
+             {
+              ButtonWidgetClass "{69DCF4BBBBC941BC}" {
+               Name "Template0"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC941BE}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC941B1}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC8A717}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBBBC8A554}" {
+               Name "Template1"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC8A555}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC8F1C3}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC8F1C4}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBBBC807F0}" {
+               Name "Template2"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC807F3}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC873D0}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC873D1}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBBBC7BF88}" {
+               Name "Template3"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC7BF77}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC7BF76}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC7BB68}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBBBC7FB8D}" {
+               Name "Template4"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC7FB8C}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC709D3}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC709D4}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBBBC73B54}" {
+               Name "Template5"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC6AD55}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC6AD56}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC6D94E}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBBBC6286F}" {
+               Name "Template6"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC62860}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC5908F}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC5908E}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBBBC48EC0}" {
+               Name "Template7"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC48EC3}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC4F168}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC4F169}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBBBC41265}" {
+               Name "Template8"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC41264}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC388AB}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC3BAE1}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BBBBC3BAE3}" {
+               Name "Template9"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BBBBC3D384}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BBBBC3D39B}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BBBBC3E468}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            VerticalLayoutWidgetClass "{69DCF4BA2900761B}" {
+             Name "VerticalLayout3"
+             Slot OverlayWidgetSlot "{69DCF4BBC656E5E7}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 375 0 0 0
+             }
+             "Is Visible" 0
+             {
+              ButtonWidgetClass "{69DCF4BA2900761C}" {
+               Name "Template0"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2900761D}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2900C692}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2900C69F}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA29015ADD}" {
+               Name "Template1"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA290180D1}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA290180D2}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA290180D3}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2901C3FC}" {
+               Name "Template2"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA290250B3}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA290250B2}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA29027D4B}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2902D8B1}" {
+               Name "Template3"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2902D8B0}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2902C6B1}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2902C6AE}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA29030E54}" {
+               Name "Template4"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA29039008}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2903900B}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2903B815}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2903C387}" {
+               Name "Template5"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2903C380}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA291C0725}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA291C0724}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA291C8637}" {
+               Name "Template6"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA291C8634}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA291CFBDF}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA291CFBDE}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA291D48AE}" {
+               Name "Template7"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA291DACE5}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA291DACE4}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA291E1731}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA291E7F99}" {
+               Name "Template8"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA291E7F98}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA291ECCBD}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA291ECCBA}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA291F02CA}" {
+               Name "Template9"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA291F8547}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA291F8544}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA291FD2F6}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            VerticalLayoutWidgetClass "{69DCF4BA2E19125C}" {
+             Name "VerticalLayout4"
+             Slot OverlayWidgetSlot "{69DCF4BBC656E5E7}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 500 0 0 0
+             }
+             "Is Visible" 0
+             {
+              ButtonWidgetClass "{69DCF4BA2E19125D}" {
+               Name "Template0"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E1EDE31}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E1EDE33}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E1EDA21}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2E1EDA2F}" {
+               Name "Template1"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E1E946F}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E1E946C}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E1EB176}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2E1EA7EF}" {
+               Name "Template2"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E1EA7E8}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E1E6245}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E1E6244}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2E1E18C7}" {
+               Name "Template3"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E1FEF3C}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E1F422B}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E1F422A}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2E1CDA0F}" {
+               Name "Template4"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E1CD6B3}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E1CD6B2}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E1C8F26}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2E1C4DE9}" {
+               Name "Template5"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E1C3CF1}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E1C3CF0}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E1DF24B}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2E1DE35D}" {
+               Name "Template6"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E1DE35C}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E1D7F3B}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E1D7F38}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2E1D1881}" {
+               Name "Template7"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E1D1880}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E1D305D}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E1D3052}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2E1D2F77}" {
+               Name "Template8"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E12F379}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E12F37A}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E125262}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA2E126B67}" {
+               Name "Template9"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA2E122DEE}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA2E122DE9}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA2E122C6D}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            VerticalLayoutWidgetClass "{69DCF4BA9972C086}" {
+             Name "VerticalLayout5"
+             Slot OverlayWidgetSlot "{69DCF4BBC656E5E7}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 625 0 0 0
+             }
+             "Is Visible" 0
+             {
+              ButtonWidgetClass "{69DCF4BA9972C089}" {
+               Name "Template0"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9972C088}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9972C08B}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA99736700}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA99734F45}" {
+               Name "Template1"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA99734F44}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9973E112}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9973E10D}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9973D3D3}" {
+               Name "Template2"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9970385D}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9970385E}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA99703F29}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9970B139}" {
+               Name "Template3"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9970B13E}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9970852A}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9970CD73}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA997166EE}" {
+               Name "Template4"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA997166ED}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA997185AB}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA997185AA}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9976062A}" {
+               Name "Template5"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA99760625}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA997698F6}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA997698F7}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9976C399}" {
+               Name "Template6"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA99777079}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA99777078}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA99774274}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9977B21C}" {
+               Name "Template7"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9977D846}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9977D847}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA99747A1C}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9974A2A9}" {
+               Name "Template8"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9974A2A8}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9974ED90}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA99752461}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA99750241}" {
+               Name "Template9"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA99750240}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9975B390}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9975B393}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            VerticalLayoutWidgetClass "{69DCF4BA9F4405FF}" {
+             Name "VerticalLayout6"
+             Slot OverlayWidgetSlot "{69DCF4BBC656E5E7}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 750 0 0 0
+             }
+             "Is Visible" 0
+             {
+              ButtonWidgetClass "{69DCF4BA9F4405E0}" {
+               Name "Template0"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9F4405E1}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CBBCD41}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CBBCD43}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9CBB8A1B}" {
+               Name "Template1"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9CBB8A1A}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CBB0BEC}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CBAFFAD}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9CBAFFAF}" {
+               Name "Template2"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9CBAB8B1}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CBAB8BE}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CBA20EA}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9CB9E68E}" {
+               Name "Template3"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9CB9E68D}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CB9AA59}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CB9AA58}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9CB954CD}" {
+               Name "Template4"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9CB93BD8}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CB93BD9}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CB900C8}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9CB904C4}" {
+               Name "Template5"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9CB904C5}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CB8A210}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CB8A2EF}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9CB8529F}" {
+               Name "Template6"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9CBFFC31}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CBFFC32}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CBF7ADA}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9CBF3068}" {
+               Name "Template7"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9CBEAF67}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CBEAF60}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CBE6FA8}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9CBE2AB2}" {
+               Name "Template8"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9CBE2AB1}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CBE10D2}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CBE10D3}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA9CBD825F}" {
+               Name "Template9"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA9CBD6FCE}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA9CBD6FCF}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA9CBD3C46}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            VerticalLayoutWidgetClass "{69DCF4BA8A2CB2D2}" {
+             Name "VerticalLayout7"
+             Slot OverlayWidgetSlot "{69DCF4BBC656E5E7}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 875 0 0 0
+             }
+             "Is Visible" 0
+             {
+              ButtonWidgetClass "{69DCF4BA8A2CB2D1}" {
+               Name "Template0"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A2CB2D0}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A2D45C0}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A2D45FE}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA8A2D11A5}" {
+               Name "Template1"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A2DC0E8}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A2DC0E9}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A2D8860}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA8A227A52}" {
+               Name "Template2"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A227A53}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A223F3C}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A223F3F}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA8A22D3A0}" {
+               Name "Template3"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A22D3A1}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A22BD45}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A22BD4A}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA8A236B4B}" {
+               Name "Template4"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A236BC5}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A236BC6}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A233D0C}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA8A2303F0}" {
+               Name "Template5"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A23C007}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A23C000}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A206541}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA8A2004E5}" {
+               Name "Template6"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A2004E6}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A20E8A6}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A20E084}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA8A20D5CE}" {
+               Name "Template7"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A20D5D1}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A20BC6C}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A20BC6D}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA8A215DC7}" {
+               Name "Template8"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A21F616}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A219282}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A219283}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+              ButtonWidgetClass "{69DCF4BA8A2191CE}" {
+               Name "Template9"
+               Slot LayoutSlot "{69C29B439A84DAF7}" {
+               }
+               Color 0.0231 0.0231 0.0231 0
+               {
+                FrameWidgetClass "{69DCF4BA8A2658C2}" {
+                 Name "ButtonContentFrame"
+                 Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                  HorizontalAlign 3
+                  VerticalAlign 3
+                 }
+                 {
+                  HorizontalLayoutWidgetClass "{69DCF4BA8A2658C3}" {
+                   Name "DrawSerttingsLayout0"
+                   Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                    Anchor 0 0 0 0
+                    PositionX 0
+                    OffsetLeft 0
+                    PositionY 0
+                    OffsetTop 0
+                    SizeX 123
+                    OffsetRight -123
+                    SizeY 35
+                    OffsetBottom -35
+                   }
+                   {
+                    TextWidgetClass "{69DCF4BA8A2630FF}" {
+                     Name "Text0"
+                     Slot LayoutSlot "{69C29B74C915ADC1}" {
+                      VerticalAlign 1
+                      Padding 5 0 5 0
+                      SizeMode Fill
+                     }
+                     Text "Template Name"
+                     "Font Size" 22
+                     "Min Font Size" 10
+                    }
+                   }
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+          CanvasWidgetClass "{69DCF4A0CCC2EF56}" {
+           Name "PreviewCanvas"
+           Slot FrameWidgetSlot "{69DD29878A328C19}" {
+            Anchor 0.5 1 0.5 1
+            OffsetLeft 0
+            PositionY 375
+            OffsetTop 375
+            SizeX 100
+            OffsetRight -100
+            SizeY 30
+            OffsetBottom -405
+            Alignment 0.5 0
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69DCF4B22C2CB9F5}" {
+         Name "TemplatesButton"
+         Slot FrameWidgetSlot "{69C29B79B1CFE15C}" {
+          Anchor 0 0 0 0
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 50
+          OffsetRight -50
+          SizeY 40
+          OffsetBottom -40
+          SizeToContent 1
+         }
+         Color 0.0231 0.0231 0.0231 0
+         {
+          OverlayWidgetClass "{69DCF4B505BA68EF}" {
+           Name "TemplatesOverlay"
+           Slot ButtonWidgetSlot "{69DCF4B505BA68F4}" {
+            HorizontalAlign 3
+            VerticalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69DCF4B520BDC073}" {
+             Name "Background1"
+             Slot OverlayWidgetSlot "{69DCF4A07D0D1BB5}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+             }
+             Color 0.0123 0.0123 0.0123 1
+             style rounded_12px
+            }
+            HorizontalLayoutWidgetClass "{69DCF4B52E807BB4}" {
+             Name "Content"
+             Slot OverlayWidgetSlot "{69DCF4A07D0D1BC1}" {
+              HorizontalAlign 3
+              VerticalAlign 3
+              Padding 0 6.5 0 6.75
+             }
+             {
+              TextWidgetClass "{69DCF4B52E807BB6}" {
+               Name "Text0"
+               Slot LayoutSlot "{69C29B74C915ADC1}" {
+                Padding 5 0 5 0
+               }
+               Text "Templates"
+               "Font Size" 22
+               "Min Font Size" 22
+              }
+              ImageWidgetClass "{69DCF4B52E808254}" {
+               Name "Arrow"
+               Slot LayoutSlot "{69C29B439A84D8BE}" {
+                HorizontalAlign 2
+                VerticalAlign 1
+                SizeMode Fill
+               }
+               "Z Order" 1
                Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
                Image "sortArrowDown"
                Size 22 22

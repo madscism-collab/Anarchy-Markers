@@ -137,4 +137,52 @@ class SM_PolylineUtil
 		}
 		return best;
 	}
+
+	//! Does the segment p->q touch the axis-aligned rectangle at all? Used by the template selection
+	//! box, where an AABB overlap is not enough: a long diagonal's box can straddle the rectangle while
+	//! the line itself passes well clear of it.
+	//!
+	//! Liang-Barsky: clip the segment against the four edges and see whether anything survives.
+	static bool SegmentIntersectsRect(int px, int pz, int qx, int qz, int loX, int loZ, int hiX, int hiZ)
+	{
+		float dx = qx - px;
+		float dz = qz - pz;
+
+		float t0 = 0;
+		float t1 = 1;
+
+		float p[4];
+		float q[4];
+		p[0] = -dx;  q[0] = px - loX;
+		p[1] =  dx;  q[1] = hiX - px;
+		p[2] = -dz;  q[2] = pz - loZ;
+		p[3] =  dz;  q[3] = hiZ - pz;
+
+		for (int i = 0; i < 4; i++)
+		{
+			if (p[i] == 0)
+			{
+				if (q[i] < 0)
+					return false;	// parallel to this edge and outside it
+				continue;
+			}
+
+			float r = q[i] / p[i];
+			if (p[i] < 0)
+			{
+				if (r > t1)
+					return false;
+				if (r > t0)
+					t0 = r;
+			}
+			else
+			{
+				if (r < t0)
+					return false;
+				if (r < t1)
+					t1 = r;
+			}
+		}
+		return true;
+	}
 }

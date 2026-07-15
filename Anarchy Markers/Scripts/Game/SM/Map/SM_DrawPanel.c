@@ -46,6 +46,14 @@ class SM_DrawPanel
 	static const int ACT_GMLOCK     = 10;
 	static const int ACT_GMHIDE     = 11;
 	static const int ACT_FILL       = 12;	// інструмент «Заливка»
+	static const int ACT_TEMPLATES     = 14;	// інструмент «Темплейти» — розмістити й авто-намалювати
+	static const int ACT_TEMPLATE_SAVE = 15;	// інструмент «Виділити й зберегти як темплейт»
+	static const int ACT_OPEN_TEMPLATES = 16;	// відкрити/закрити список темплейтів
+	static const int ACT_TPL_SLOT       = 17;	// клік по слоту (param = індекс слота)
+	static const int ACT_TPL_APPLY      = 18;	// «Apply and place»
+	static const int ACT_TPL_CANCEL     = 19;	// «Cancel»
+	static const int ACT_TPL_ADD        = 20;	// «Add new template»
+	static const int ACT_TPL_REMOVE     = 21;	// «Remove template»
 	static const int ACT_OPEN_OPACITY = 13;	// відкрити дропдаун прозорості
 
 	// Палітра кольорів малювання (ARGB) — кружечки Color0..ColorN у layout, КОЛОНКАМИ ПО 7.
@@ -129,6 +137,37 @@ class SM_DrawPanel
 	protected int m_iForcedVis = -1;	// host pinned the channel; -1 = the player picks (the normal map)
 	protected Widget m_wVisDropdown;
 	protected Widget m_wOpacityDropdown;	// опційний (слайдер прозорості)
+
+	// Templates. 8 columns of 10 slots. The slot BUTTONS all share the names Template0..Template9
+	// inside their own column, so they can only be resolved per column — FindAnyWidget on the root
+	// would hand back the first column's button eight times over.
+	protected Widget m_wTemplatesDropdown;
+	protected Widget m_wTemplatesOpener;
+	protected CanvasWidget m_wTplPreview;					// big preview under the list
+	protected Widget m_wTplApply, m_wTplCancel, m_wTplAdd, m_wTplRemove;
+	protected Widget m_wTplChrome;	// the dropdown's own background
+	protected Widget m_wTplNameOverlay;			// name field, shown only while saving
+	protected EditBoxWidget m_wTplNameEdit;		// the input widget inside the WLib_EditBox prefab
+	protected SCR_EditBoxComponent m_TplNameComp;	// present if the field carries the SCR wrapper (as the marker dialog does)
+	protected bool m_bTplNaming;				// modal: entering the template name, all map input suspended
+	protected ref SM_TemplateDeleteDialog m_TplDeleteDialog;	// modal: "really delete?" is up
+	protected ref array<Widget> m_aTplGlyphs = {};	// pad glyphs, one to the LEFT of each template button
+	protected const int TPL_NAME_MAX = 26;
+	protected ref array<ref CanvasWidgetCommand> m_aTplPreviewCmds = {};	// member: the canvas keeps a reference
+	protected ref array<Widget> m_aTplCols  = {};	// VerticalLayout0..7
+	protected ref array<Widget> m_aTplSlots = {};	// flat, column-major: col0 slots 0..9, col1 10..19, ...
+	protected int m_iTplHighlight = -1;				// which slot the player has picked, -1 = none
+	protected int m_iTplState = -1;					// change gate for TickTemplateState
+
+	protected const int TPL_COLS      = 8;
+	protected const int TPL_PER_COL   = 10;
+	protected const float TPL_PREVIEW_PAD     = 10;	// px kept clear of the canvas edge
+	protected const float TPL_PREVIEW_LINE_PX = 3;	// px, fixed: see BuildTemplatePreview
+	// The box the preview may grow into. It takes the template's OWN proportions inside this, so a
+	// wide template gets a wide canvas and a tall one a tall canvas — no letterboxing either way.
+	protected const float TPL_PREVIEW_MAX_W = 640;
+	protected const float TPL_PREVIEW_MAX_H = 420;
+	protected const float TPL_PREVIEW_MIN   = 80;	// a template that is a straight line still needs a rect
 	protected ButtonWidget m_wOpacityOpener;
 	protected SliderWidget m_wOpacitySlider;
 	protected ButtonWidget m_wSizeOpener;
@@ -226,6 +265,8 @@ class SM_DrawPanel
 
 		// Колір: опенер + 14 кружечків (тонуємо палітрою)
 		m_wColorOpener   = ButtonWidget.Cast(m_wRoot.FindAnyWidget("ColorButton"));
+		BuildTemplates();
+
 		m_wColorDropdown = m_wRoot.FindAnyWidget("ColorDropdown");
 		Wire(m_wColorOpener, ACT_OPEN_COLOR, 0);
 		for (int c = 0; c < COLORS.Count(); c++)
@@ -352,6 +393,8 @@ class SM_DrawPanel
 			m_aTopRow.Insert(m_wOpacityOpener);
 		if (m_wVisOpener)	// null when the host pinned the channel — the picker isn't on the panel
 			m_aTopRow.Insert(m_wVisOpener);
+		if (m_wTemplatesOpener)
+			m_aTopRow.Insert(m_wTemplatesOpener);	// hidden when the server disallows — NavRowVisible skips it
 		if (m_bEditorMap && m_wSideOpener)
 			m_aTopRow.Insert(m_wSideOpener);
 
@@ -508,6 +551,8 @@ class SM_DrawPanel
 	}
 
 	//! Увімкнути/вимкнути фокусність кнопок панелі (пад-вхід LB / вихід). Кліки миші незалежні від фокуса.
+	//! The template ACTION buttons stay unfocusable always: on the pad they are pressed as A/B/Y/X,
+	//! never navigated to — a focused Apply would make the same A press mean two things at once.
 	void SetPadFocusMode(bool on)
 	{
 		m_bPadFocus = on;
@@ -515,11 +560,17 @@ class SM_DrawPanel
 		{
 			if (!w)
 				continue;
-			if (on)
+			if (on && !IsTplActionButton(w))
 				w.ClearFlags(WidgetFlags.NOFOCUS);
 			else
 				w.SetFlags(WidgetFlags.NOFOCUS);
 		}
+	}
+
+	protected bool IsTplActionButton(Widget w)
+	{
+		return (m_wTplApply && w == m_wTplApply) || (m_wTplCancel && w == m_wTplCancel)
+			|| (m_wTplAdd && w == m_wTplAdd) || (m_wTplRemove && w == m_wTplRemove);
 	}
 
 	protected void DisableEngineNav(Widget w)
@@ -543,6 +594,12 @@ class SM_DrawPanel
 	{
 		if (m_wHintBox)	// живе під map-frame, а не під m_wRoot — прибираємо окремо (рядки — його діти)
 			m_wHintBox.RemoveFromHierarchy();
+		foreach (Widget g : m_aTplGlyphs)	// теж під map-frame
+		{
+			if (g)
+				g.RemoveFromHierarchy();
+		}
+		m_aTplGlyphs.Clear();
 		if (m_wRoot)
 			m_wRoot.RemoveFromHierarchy();
 		m_wRoot = null;
@@ -589,7 +646,120 @@ class SM_DrawPanel
 			return true;
 		if (m_wOpacityDropdown && m_wOpacityDropdown.IsVisible() && OverWidget(m_wOpacityDropdown, px, py))
 			return true;
+		// Leaving this one out let the canvas treat a click on Apply as a click on the MAP: the button
+		// confirmed the template and the very same click re-anchored it, wiping the confirmation. From
+		// the outside the buttons simply did nothing.
+		if (m_wTemplatesDropdown && m_wTemplatesDropdown.IsVisible() && OverWidget(m_wTemplatesDropdown, px, py))
+			return true;
 		return false;
+	}
+
+
+	//! True while the name modal is up. The layer suspends ALL of its map input polling for this, which
+	//! is what lets the edit box keep focus — nothing re-reads the mouse to steal it back.
+	bool IsTypingName()
+	{
+		return m_bTplNaming;
+	}
+
+	//! True while ANY template modal is up (naming, or the delete confirmation). Map input polling
+	//! stands down for both, for the same reason it does for the name field.
+	bool IsModalBusy()
+	{
+		return m_bTplNaming || m_TplDeleteDialog != null;
+	}
+
+	bool IsTemplatesOpen()
+	{
+		return m_wTemplatesDropdown && m_wTemplatesDropdown.IsVisible();
+	}
+
+	bool IsDeleteDialogOpen()
+	{
+		return m_TplDeleteDialog != null;
+	}
+
+	//! A slot is lit. What the pad's hints need to know to advertise Place/Remove. Called every frame
+	//! by the hint bar, so no allocation here.
+	bool HasTemplatePicked()
+	{
+		return m_iTplHighlight >= 0 && m_iTplHighlight < SM_TemplateStore.GetInstance().Count();
+	}
+
+	//! A pad button (or a rebound key) standing in for a click on one of the template buttons. It may
+	//! act exactly when the button itself could be clicked — the button's visibility IS the state
+	//! machine, so nothing is decided twice here. Returns true when the press was taken.
+	bool PressTemplateButton(int action)
+	{
+		if (m_TplDeleteDialog)
+			return false;	// the dialog owns confirm/cancel now
+		if (!IsTemplatesOpen())
+			return false;
+
+		Widget b;
+		switch (action)
+		{
+			case ACT_TPL_APPLY:  b = m_wTplApply;  break;
+			case ACT_TPL_CANCEL: b = m_wTplCancel; break;
+			case ACT_TPL_ADD:    b = m_wTplAdd;    break;
+			case ACT_TPL_REMOVE: b = m_wTplRemove; break;
+			default: return false;
+		}
+		if (!b || !b.IsVisible())
+			return false;
+
+		// Pad, name entry, screen keyboard up (write mode): the buttons wait. Y confirming here would
+		// commit a half-typed name; it means Confirm only once the keyboard has been put away.
+		if (m_bTplNaming && m_wTplNameEdit && m_wTplNameEdit.IsInWriteMode())
+		{
+			InputManager im = GetGame().GetInputManager();
+			if (im && !im.IsUsingMouseAndKeyboard())
+				return false;
+		}
+
+		// Discarding a half-drawn template undoes strokes that are already on the map. That stays a
+		// deliberate click on the button that says "Discard", not a B press that usually means "back".
+		if (action == ACT_TPL_CANCEL && SM_TemplateSession.GetInstance().IsConfirmed())
+			return false;
+
+		// While the ghost is loose the map click IS the placement; Apply has nothing to add yet, and
+		// answering it with "pick a template" or a re-select notice would only confuse.
+		if (action == ACT_TPL_APPLY && !SM_TemplateSession.GetInstance().IsPlaced()
+			&& m_Canvas && m_Canvas.IsActive() && m_Canvas.GetTool() == SM_DrawCanvas.TOOL_TEMPLATE)
+			return false;
+
+		// The A that dropped the anchor must not double as the A that confirms it: the map poll and
+		// this listener ride the same physical button and their order inside a frame is not ours.
+		if (action == ACT_TPL_APPLY && SM_TemplateSession.GetInstance().JustPlaced())
+			return false;
+
+		OnAction(action, 0);
+		return true;
+	}
+
+
+	//! Called every frame from the layer. The panel lives on the map frame, so nothing holds keyboard
+	//! focus for it — the moment anything else is hovered the field drops out of write mode. Hold it
+	//! there while the player is typing, the same way the marker dialog holds its own name field.
+	//!
+	//! KB/M ONLY. On the pad, write mode is what summons the engine's screen keyboard, and it opens
+	//! asynchronously: for a few frames the box reads as "not writing", and re-activating it here
+	//! knocked the keyboard down before it ever appeared. One activation (OnTemplateAdd) is the whole
+	//! job there — the marker dialog types the same way.
+	void TickNameField()
+	{
+		if (!m_bTplNaming || !m_wTplNameEdit)
+			return;
+		InputManager im = GetGame().GetInputManager();
+		if (im && !im.IsUsingMouseAndKeyboard())
+			return;
+		if (!m_wTplNameEdit.IsInWriteMode())
+		{
+			if (m_TplNameComp)
+				m_TplNameComp.ActivateWriteMode(true);
+			else
+				m_wTplNameEdit.ActivateWriteMode();
+		}
 	}
 
 	protected bool OverWidget(Widget w, float px, float py)
@@ -603,6 +773,821 @@ class SM_DrawPanel
 	}
 
 	//------------------------------------------------------------------------------
+	//! End any template flow in progress and put the UI back to a clean slate: a framed selection, a
+	//! ghost on the cursor, an anchor waiting for Apply — all gone. Called when the player picks another
+	//! tool or closes the map. A template that is already DRAWING is left alone; its strokes are real
+	//! now, and only Discard removes them.
+	void AbortTemplateFlow()
+	{
+		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+		if (!sess.IsConfirmed())
+			sess.Clear();
+
+		SM_TemplateStore.GetInstance().Select("");
+		m_iTplHighlight = -1;
+		m_bTplNaming = false;
+		if (m_TplDeleteDialog)
+		{
+			m_TplDeleteDialog.Close();	// the map is going away under it; an orphaned question helps nobody
+			m_TplDeleteDialog = null;
+		}
+		m_Canvas.ClearSelection();
+		BuildTemplatePreview(null);
+		if (m_wTemplatesDropdown)
+			m_wTemplatesDropdown.SetVisible(false);
+		RefreshTemplates();
+	}
+
+	//! Pick the highlighted template up and arm the tool. The fit check happens HERE, not after the
+	//! player has held the button for half an hour: the client knows the server's drawing limits, so a
+	//! template that cannot possibly land is refused up front, with the number that explains why.
+	protected void OnTemplateApply()
+	{
+		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+
+		// Already drawing, and the player has come back from another tool: put the tool back in his
+		// hand. Nothing else has to happen — the ghost and the progress were never lost. When the tool
+		// is already armed this is the pad's A landing here mid-draw — nothing to do, nothing to say.
+		if (sess.IsConfirmed())
+		{
+			bool alreadyArmed = m_Canvas.IsActive() && m_Canvas.GetTool() == SM_DrawCanvas.TOOL_TEMPLATE;
+			m_Canvas.SetTool(SM_DrawCanvas.TOOL_TEMPLATE);
+			m_Canvas.SetActive(true);
+			if (!alreadyArmed)
+			{
+				CloseDropdowns();
+				TemplateNotice("Hold on the template to carry on drawing it.");
+			}
+			return;
+		}
+
+		// Second press, ghost at rest: this is the confirmation. Only now may it draw.
+		if (sess.IsAnchored())
+		{
+			sess.Confirm();
+			RefreshTemplates();
+			TemplateNotice("Hold on the template to draw it. Hold Delete on it to throw it away.");
+			return;
+		}
+
+		SM_DrawTemplate t = TemplateForSlot(m_iTplHighlight);
+		if (!t)
+		{
+			TemplateNotice("Pick a template first.");
+			return;
+		}
+
+		int detail;
+		SM_ETemplateFit fit = SM_TemplateStore.CheckFit(t, m_Canvas.GetVisibility(), detail);
+		if (fit != SM_ETemplateFit.FIT)
+		{
+			TemplateNotice(SM_TemplateStore.FitMessage(fit, detail, t.StrokeCount()));
+			return;
+		}
+
+		// First press: take it in hand. The dropdown STAYS open — its buttons are the flow from here,
+		// and the columns get out of the way on their own.
+		SM_TemplateStore.GetInstance().Select(t.m_sId);
+		SM_TemplateSession.GetInstance().Clear();
+
+		m_Canvas.SetTool(SM_DrawCanvas.TOOL_TEMPLATE);
+		m_Canvas.SetActive(true);
+		RefreshTemplates();
+		TemplateNotice("Click the map to place it.");
+	}
+
+	//! Two presses, no text box. First press arms the selection tool and gets out of the way; drag a
+	//! box around your own drawings. Second press saves what the box caught.
+	//! Three steps behind one button:
+	//!   nothing framed    -> arm the box tool, drag a selection
+	//!   box framed         -> open the NAME step (this is the modal — the tool goes off and all our
+	//!                         map input is suspended, so the edit box finally holds focus)
+	//!   naming             -> save under the typed name
+	protected void OnTemplateAdd()
+	{
+		if (m_bTplNaming)
+		{
+			CommitTemplateSave();
+			return;
+		}
+
+		if (m_Canvas.HasSelection())
+		{
+			// Enter the name step. The tool is switched off and the panel goes into a modal state: from
+			// here until Confirm, SM_PollMouse stands down entirely, which is the ONLY way the edit box
+			// keeps focus on the map frame — the same thing the marker dialog relies on.
+			m_bTplNaming = true;
+			m_Canvas.SetActive(false);
+			RefreshTemplates();
+
+			if (m_TplNameComp)
+			{
+				m_TplNameComp.SetValue("");
+				m_TplNameComp.ActivateWriteMode(true);
+			}
+			else if (m_wTplNameEdit)
+			{
+				m_wTplNameEdit.SetText("");
+				GetGame().GetWorkspace().SetFocusedWidget(m_wTplNameEdit);
+				m_wTplNameEdit.ActivateWriteMode();
+			}
+			// The overlay became visible THIS frame; on the pad the screen keyboard sometimes ignores
+			// an activation that early. One deferred retry; a no-op when write mode already took.
+			GetGame().GetCallqueue().CallLater(NameActivateLate, 120, false);
+			TemplateNotice("Type a name, then press Confirm.");
+			return;
+		}
+
+		m_Canvas.SetTool(SM_DrawCanvas.TOOL_SELECT);
+		m_Canvas.SetActive(true);
+		RefreshTemplates();
+		TemplateNotice("Drag a box around your own drawings, then press Save Template.");
+	}
+
+	//! Deferred second shot at write mode (and with it the pad's screen keyboard).
+	protected void NameActivateLate()
+	{
+		if (!m_bTplNaming || !m_wTplNameEdit || m_wTplNameEdit.IsInWriteMode())
+			return;
+		if (m_TplNameComp)
+			m_TplNameComp.ActivateWriteMode(true);
+		else
+			m_wTplNameEdit.ActivateWriteMode();
+	}
+
+	protected void CommitTemplateSave()
+	{
+		string name;
+		if (m_TplNameComp)
+			name = m_TplNameComp.GetValue();
+		else if (m_wTplNameEdit)
+			name = m_wTplNameEdit.GetText();
+		name.TrimInPlace();
+		if (name.Length() > TPL_NAME_MAX)
+			name = name.Substring(0, TPL_NAME_MAX);
+		if (name == "")
+			name = string.Format("Template %1", SM_TemplateStore.GetInstance().Count() + 1);
+
+		string id = SM_TemplateStore.GetInstance().SaveSelection(m_Canvas, name);
+		if (id == "")
+		{
+			TemplateNotice("Nothing of yours inside the box.");
+			return;
+		}
+
+		m_bTplNaming = false;
+		m_Canvas.SetActive(false);
+		m_iTplHighlight = -1;
+		if (m_TplNameComp)
+			m_TplNameComp.SetValue("");
+		else if (m_wTplNameEdit)
+			m_wTplNameEdit.SetText("");
+		RefreshTemplates();
+		TemplateNotice(string.Format("Saved as '%1'.", name));
+	}
+
+	//! Cancel walks the flow BACK one step, it does not blow it away. Anchored -> the ghost is loose
+	//! again and can be moved; loose -> back to the list. Throwing a CONFIRMED template away is a hold
+	//! on the map, not a button: it undoes drawing that already happened.
+	protected void OnTemplateCancel()
+	{
+		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+
+		// Naming: one step back to the framed box. The selection is still standing, so Save simply
+		// opens the name step again. Without this branch the modal flag survived the reset below and
+		// the map stayed deaf with no way out.
+		if (m_bTplNaming)
+		{
+			m_bTplNaming = false;
+			m_Canvas.SetTool(SM_DrawCanvas.TOOL_SELECT);
+			m_Canvas.SetActive(true);
+			RefreshTemplates();
+			return;
+		}
+
+		// Confirmed: this throws the whole thing away, the strokes it already drew included.
+		if (sess.IsConfirmed())
+		{
+			sess.Discard();
+			m_iTplHighlight = -1;
+			SM_TemplateStore.GetInstance().Select("");
+			m_Canvas.SetActive(false);
+			BuildTemplatePreview(null);
+			RefreshTemplates();
+			TemplateNotice("Template discarded.");
+			return;
+		}
+
+		if (sess.IsAnchored())
+		{
+			sess.Unanchor();
+			RefreshTemplates();
+			TemplateNotice("Click the map to place it somewhere else.");
+			return;
+		}
+
+		// Take it out of hand, not just off the canvas: the ghost follows whatever is SELECTED, so
+		// leaving the selection set kept it glued to the cursor after Cancel. The lit slot stays, so
+		// Place and Remove are still one press away.
+		SM_TemplateStore.GetInstance().Select("");
+		m_Canvas.ClearSelection();	// drops the box if one was being framed
+		m_Canvas.SetActive(false);
+		sess.Clear();
+		RefreshTemplates();
+	}
+
+	protected void OnTemplateRemove()
+	{
+		SM_DrawTemplate t = TemplateForSlot(m_iTplHighlight);
+		if (!t)
+		{
+			TemplateNotice("Pick a template first.");
+			return;
+		}
+		if (t.m_bBuiltIn)
+		{
+			TemplateNotice("This template is built in and cannot be removed.");
+			return;
+		}
+		if (m_TplDeleteDialog)
+			return;
+
+		// Deleting is a file gone from disk, so it gets one explicit question. The vanilla
+		// configurable dialog provides the chrome; the preset is just a confirm/cancel pair whose
+		// texts are overwritten below.
+		SM_TemplateDeleteDialog dlg = new SM_TemplateDeleteDialog();
+		dlg.SM_Setup(this, t.m_sId);
+		if (!SCR_ConfigurableDialogUi.CreateFromPreset(SCR_CommonDialogs.DIALOGS_CONFIG, "exit_game", dlg))
+		{
+			ConfirmTemplateDelete(t.m_sId);	// no dialog to ask with — better deleted than a dead button
+			return;
+		}
+		m_TplDeleteDialog = dlg;
+		dlg.SetTitle("Delete template");
+		dlg.SetMessage(string.Format("Delete '%1'? Its file is removed from disk; this cannot be undone.", t.m_sName));
+		SCR_InputButtonComponent confirmBtn = dlg.FindButton("confirm");
+		if (confirmBtn)
+			confirmBtn.SetLabel("Delete");
+	}
+
+	//! The dialog said yes.
+	void ConfirmTemplateDelete(string id)
+	{
+		m_TplDeleteDialog = null;
+
+		SM_DrawTemplate t = SM_TemplateStore.GetInstance().Find(id);
+		string name;
+		if (t)
+			name = t.m_sName;
+
+		if (!SM_TemplateStore.GetInstance().Delete(id))
+		{
+			TemplateNotice("This template is built in and cannot be removed.");
+			return;
+		}
+		m_iTplHighlight = -1;
+		BuildTemplatePreview(null);
+		RefreshTemplates();
+		TemplateNotice(string.Format("Deleted '%1'.", name));
+	}
+
+	//! The dialog said no, or was closed some other way.
+	void OnTemplateDeleteDialogClosed()
+	{
+		m_TplDeleteDialog = null;
+	}
+
+	//! Draw the picked template into the preview canvas.
+	//!
+	//! Fitted by BOUNDING BOX, so a 500 m template and a 50 m one fill the same area — which is the
+	//! only thing a preview is for. Stroke width is a FIXED number of pixels, deliberately NOT scaled
+	//! with the geometry: our brush widths are metres, and a 5 m brush on a 500 m template would come
+	//! out under a pixel and vanish, while a small template would turn into one solid blob.
+	//!
+	//! Built once per click, never per frame.
+	protected void BuildTemplatePreview(SM_DrawTemplate t)
+	{
+		if (!m_wTplPreview)
+			return;
+
+		m_aTplPreviewCmds.Clear();
+
+		if (!t)
+		{
+			m_wTplPreview.SetDrawCommands(m_aTplPreviewCmds);	// empty list = blank
+			return;
+		}
+
+		float spanX = t.m_iSpanX;
+		float spanZ = t.m_iSpanZ;
+		if (spanX < 1) spanX = 1;	// a straight line has no width in one axis
+		if (spanZ < 1) spanZ = 1;
+
+		// Size the CANVAS to the template rather than fitting the template into a fixed canvas. A
+		// CanvasWidget has no content a layout can measure — SizeToContent gives it nothing and it
+		// collapses — so the size has to be handed to it, and the template is what knows the shape.
+		float k = Math.Min(TPL_PREVIEW_MAX_W / spanX, TPL_PREVIEW_MAX_H / spanZ);
+		float cw = Math.Max(spanX * k, TPL_PREVIEW_MIN);
+		float ch = Math.Max(spanZ * k, TPL_PREVIEW_MIN);
+
+		FrameSlot.SetSize(m_wTplPreview, cw, ch);
+
+		// Declare the unit space to BE those pixels. Measuring with GetScreenSize would read the size
+		// from BEFORE the line above — the layout has not run yet — and the preview would lag a click
+		// behind, drawn to the previous template's shape.
+		m_wTplPreview.SetSizeInUnits(Vector(cw, ch, 0));
+		m_wTplPreview.SetZoom(1.0);
+		m_wTplPreview.SetOffsetPx(Vector(0, 0, 0));
+
+		float availW = cw - TPL_PREVIEW_PAD * 2;
+		float availH = ch - TPL_PREVIEW_PAD * 2;
+		if (availW <= 0 || availH <= 0)
+			return;
+
+		float scale = Math.Min(availW / spanX, availH / spanZ);
+		float ox = cw * 0.5;
+		float oy = ch * 0.5;
+
+		// Fills first, then strokes: paint under ink, exactly as the map layers them.
+		for (int pass = 0; pass < 2; pass++)
+		{
+			bool wantFill = (pass == 0);
+			foreach (SM_DrawTemplateStroke st : t.m_aStrokes)
+			{
+				if (!st || st.GetPointCount() < 2)
+					continue;
+				if ((st.m_iFill != 0) != wantFill)
+					continue;
+
+				int n = st.GetPointCount();
+				array<float> pts = {};
+				pts.Resize(n * 2);
+				for (int i = 0; i < n; i++)
+				{
+					// Z grows north, screen Y grows down — hence the minus, or the preview comes out
+					// mirrored against what the map shows.
+					pts[i * 2]     = ox + st.m_aPoints[i * 2]     * scale;
+					pts[i * 2 + 1] = oy - st.m_aPoints[i * 2 + 1] * scale;
+				}
+
+				if (wantFill)
+				{
+					array<int> tri = st.FillIndices();
+					if (!tri)
+						continue;	// an outline the triangulator cannot handle is skipped, not forced
+
+					TriMeshDrawCommand mesh = new TriMeshDrawCommand();
+					mesh.m_iColor   = st.m_iColor;
+					mesh.m_Vertices = pts;
+					mesh.m_Indices  = tri;
+					m_aTplPreviewCmds.Insert(mesh);
+				}
+				else
+				{
+					LineDrawCommand line = new LineDrawCommand();
+					line.m_iColor   = st.m_iColor;
+					line.m_fWidth   = TPL_PREVIEW_LINE_PX;
+					line.m_Vertices = pts;
+					m_aTplPreviewCmds.Insert(line);
+				}
+			}
+		}
+
+		m_wTplPreview.SetDrawCommands(m_aTplPreviewCmds);
+	}
+
+	// ---------------------------------------------------------------- templates
+
+	protected void BuildTemplates()
+	{
+		m_wTemplatesDropdown = m_wRoot.FindAnyWidget("TemplatesDropdown");
+		m_wTemplatesOpener   = m_wRoot.FindAnyWidget("TemplatesButton");
+		if (!m_wTemplatesDropdown || !m_wTemplatesOpener)
+			return;	// panel without the templates combo (an older layout) — everything else still works
+
+		Wire(m_wTemplatesOpener, ACT_OPEN_TEMPLATES, 0);
+		m_wTemplatesDropdown.SetVisible(false);
+
+		m_aTplCols.Clear();
+		m_aTplSlots.Clear();
+
+		for (int c = 0; c < TPL_COLS; c++)
+		{
+			Widget col = m_wTemplatesDropdown.FindAnyWidget("VerticalLayout" + c.ToString());
+			if (!col)
+				break;
+			m_aTplCols.Insert(col);
+
+			// The slot names repeat in every column, so search INSIDE the column, never from the root.
+			for (int i = 0; i < TPL_PER_COL; i++)
+			{
+				ButtonWidget slot = ButtonWidget.Cast(col.FindAnyWidget("Template" + i.ToString()));
+				if (!slot)
+					continue;
+				Wire(slot, ACT_TPL_SLOT, m_aTplSlots.Count());
+				m_aTplSlots.Insert(slot);
+			}
+		}
+
+		m_wTplPreview = CanvasWidget.Cast(m_wTemplatesDropdown.FindAnyWidget("PreviewCanvas"));
+		Widget overlay = m_wTemplatesDropdown.FindAnyWidget("TmpDrpOverlay");
+		if (overlay)
+			m_wTplChrome = overlay.FindAnyWidget("Background1");
+
+		m_wTplNameOverlay = m_wTemplatesDropdown.FindAnyWidget("TemplateNameEdit");
+		if (m_wTplNameOverlay)
+		{
+			// The edit widget lives inside the WLib_EditBox prefab and has no name of its own, so it is
+			// found by TYPE. Reaching into the prefab like this is why nothing has to be wired by hand
+			// in Workbench beyond dropping the field in.
+			m_TplNameComp = SCR_EditBoxComponent.Cast(m_wTplNameOverlay.FindHandler(SCR_EditBoxComponent));
+			m_wTplNameEdit = FindEditBox(m_wTplNameOverlay);
+			if (m_wTplNameEdit)
+				m_wTplNameEdit.SetPlaceholderText("Name");	// the prefab ships a "Write..." placeholder
+
+			// The WLib_EditBox prefab also carries a static label ("EditBox") baked in. It lives in the
+			// prefab, so it cannot be removed in Workbench — blank every stray text widget in there,
+			// leaving only the edit widget itself.
+			HidePrefabLabels(m_wTplNameOverlay);
+
+			m_wTplNameOverlay.SetVisible(false);	// hidden until the player is framing a save
+		}
+
+		m_wTplApply  = m_wRoot.FindAnyWidget("ApplyAndPlaceButton");
+		m_wTplCancel = m_wRoot.FindAnyWidget("CancelButton");
+		m_wTplAdd    = m_wRoot.FindAnyWidget("AddNewTemplateButton");
+		m_wTplRemove = m_wRoot.FindAnyWidget("RemoveTemplateButton");
+
+		Wire(m_wTplApply,  ACT_TPL_APPLY,  0);
+		Wire(m_wTplCancel, ACT_TPL_CANCEL, 0);
+		Wire(m_wTplAdd,    ACT_TPL_ADD,    0);
+		Wire(m_wTplRemove, ACT_TPL_REMOVE, 0);
+
+		BuildTemplateGlyphs();
+
+		// The server can switch the whole feature off; TickTemplatesAllowed brings the opener back
+		// if the flag flips after a late config sync.
+		if (!SM_MarkerConfig.GetInstance().m_bAllowTemplates)
+			m_wTemplatesOpener.SetVisible(false);
+
+		RefreshTemplates();
+	}
+
+	//! One pad glyph per template button, floating just LEFT of it: the button carries no room of its
+	//! own for a glyph, and the layout is not ours to grow. They live under the map frame and follow
+	//! the buttons every frame; on mouse and keyboard they stay hidden.
+	protected void BuildTemplateGlyphs()
+	{
+		m_aTplGlyphs.Clear();
+		if (!m_wMapFrame)
+			return;
+
+		m_aTplGlyphs.Insert(MakeTplGlyph("AM_TplApply"));
+		m_aTplGlyphs.Insert(MakeTplGlyph("AM_TplCancel"));
+		m_aTplGlyphs.Insert(MakeTplGlyph("AM_TplAdd"));
+		m_aTplGlyphs.Insert(MakeTplGlyph("AM_TplRemove"));
+	}
+
+	protected Widget MakeTplGlyph(string action)
+	{
+		Widget row = GetGame().GetWorkspace().CreateWidgets(
+			"{CB8563509DEF3E0E}UI/layouts/WidgetLibrary/Buttons/WLib_NavigationButtonSmall.layout", m_wMapFrame);
+		if (!row)
+			return null;
+		row.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		row.SetZOrder(130);	// above the dropdown
+		FrameSlot.SetAnchorMin(row, 0, 0);
+		FrameSlot.SetAnchorMax(row, 0, 0);
+		FrameSlot.SetAlignment(row, 1, 0.5);	// pivot on the right edge: SetPos points at the button's left
+		FrameSlot.SetSizeToContent(row, true);
+
+		SCR_InputButtonComponent c = SCR_InputButtonComponent.Cast(row.FindHandler(SCR_InputButtonComponent));
+		if (c)
+		{
+			c.SetAction(action);
+			c.SetLabel("");	// the button next to it is the label
+			c.SetClickSoundDisabled(true);
+			c.SM_MakeDisplayOnly();
+		}
+		row.SetVisible(false);
+		return row;
+	}
+
+	protected Widget TplButtonForGlyph(int idx)
+	{
+		switch (idx)
+		{
+			case 0: return m_wTplApply;
+			case 1: return m_wTplCancel;
+			case 2: return m_wTplAdd;
+			case 3: return m_wTplRemove;
+		}
+		return null;
+	}
+
+	//! Follow the buttons. Cheap — four widgets — and only while the dropdown is up on a pad.
+	protected void TickTemplateGlyphs()
+	{
+		if (m_aTplGlyphs.IsEmpty() || !m_wMapFrame)
+			return;
+
+		InputManager im = GetGame().GetInputManager();
+		bool pad = im && !im.IsUsingMouseAndKeyboard();
+		bool open = IsTemplatesOpen() && pad && !m_TplDeleteDialog;
+
+		WorkspaceWidget ws = GetGame().GetWorkspace();
+		float fx, fy;
+		m_wMapFrame.GetScreenPos(fx, fy);
+
+		foreach (int i, Widget g : m_aTplGlyphs)
+		{
+			if (!g)
+				continue;
+			Widget b = TplButtonForGlyph(i);
+			bool show = open && b && b.IsVisible();
+			g.SetVisible(show);
+			if (!show)
+				continue;
+
+			float bx, by, bw, bh;
+			b.GetScreenPos(bx, by);
+			b.GetScreenSize(bw, bh);
+			FrameSlot.SetPos(g, ws.DPIUnscale(bx - fx) - 6, ws.DPIUnscale(by - fy + bh * 0.5));
+		}
+	}
+
+	//! The server's allowTemplates switch can arrive after the panel was built (the config sync is a
+	//! round trip). Watched per frame; flipping it off aborts whatever the flow was doing.
+	protected void TickTemplatesAllowed()
+	{
+		if (!m_wTemplatesOpener)
+			return;
+		bool allowed = SM_MarkerConfig.GetInstance().m_bAllowTemplates;
+		if (m_wTemplatesOpener.IsVisible() == allowed)
+			return;
+		m_wTemplatesOpener.SetVisible(allowed);
+		if (!allowed)
+			AbortTemplateFlow();	// hides the dropdown too
+	}
+
+	//! Fill the slots, and show only as many columns as there is something to put in.
+	//!
+	//! A column appears once the one before it is FULL — so an empty list is one column of "Empty"
+	//! rather than eight, and the dropdown grows with the collection instead of standing there mostly
+	//! blank. The first empty slot of the last shown column is where the next template will land.
+	void RefreshTemplates()
+	{
+		if (m_aTplSlots.IsEmpty())
+			return;
+
+		array<SM_DrawTemplate> list = {};
+		SM_TemplateStore.GetInstance().GetAll(list);
+
+		foreach (int i, Widget slot : m_aTplSlots)
+		{
+			if (!slot)
+				continue;
+
+			string label = "Empty";
+			if (i < list.Count() && list[i])
+				label = list[i].m_sName;
+
+			SetSlotText(slot, label);
+			TintSlot(slot, i == m_iTplHighlight);
+		}
+
+		// Column N is shown when column N-1 is full. The first is always shown.
+		int shown = 1 + list.Count() / TPL_PER_COL;
+		if (shown > m_aTplCols.Count())
+			shown = m_aTplCols.Count();
+
+		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+		// The columns are what give TmpDrpOverlay its size — it sizes to content, and ButtonsLayout
+		// hangs outside it on a negative padding. Hide the columns and the overlay collapses, taking
+		// the buttons out of its rectangle with it: the hit test stops descending and every press on
+		// Apply falls straight through to the map. That is exactly what happened.
+		//
+		// So the list stays up. To hide it during placement, ButtonsLayout has to stop depending on
+		// the overlay's size — put it and the columns side by side in a horizontal row inside the
+		// overlay, with no negative padding, and this becomes safe again.
+		foreach (int c, Widget col : m_aTplCols)
+		{
+			if (col)
+				col.SetVisible(c < shown);
+		}
+
+		RefreshTemplateButtons();
+	}
+
+	//! Which buttons exist depends on where the player is, and there is only ever one sensible next
+	//! step showing.
+	//!
+	//!   browsing                    Add
+	//!   picked (a slot is lit)      Place, Remove
+	//!   armed, ghost on the cursor  Place, Cancel     (Place reminds you: the MAP is what you click)
+	//!   anchored, ghost at rest     Apply, Cancel     (Cancel un-anchors, so you can move it again)
+	//!   confirmed, drawing          none              (the map's hints take over: draw, or discard)
+	//!   framing a new template      Save, Cancel      (Save is greyed out until the box holds something)
+	void RefreshTemplateButtons()
+	{
+		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+
+		// "picked" is a lit SLOT, not the store's selection: the store only learns about a template
+		// once it is taken in hand, and requiring that here made Place a button you had to press in
+		// order for it to appear.
+		bool picked    = TemplateForSlot(m_iTplHighlight) != null;
+		bool framing   = m_Canvas.GetTool() == SM_DrawCanvas.TOOL_SELECT && m_Canvas.IsActive();
+		bool armed     = SM_TemplateStore.GetInstance().Selected() != null
+			&& m_Canvas.GetTool() == SM_DrawCanvas.TOOL_TEMPLATE && m_Canvas.IsActive();
+		bool anchored  = sess.IsAnchored();
+		bool confirmed = sess.IsConfirmed();
+
+		// A confirmed template needs a way BACK. Hiding every button left the player stranded: switch
+		// to the pencil and there was nothing left anywhere that could re-arm the tool.
+		if (m_wTplAdd)
+		{
+			m_wTplAdd.SetVisible((!picked && !armed && !confirmed) || framing || m_bTplNaming);
+			SetSlotText(m_wTplAdd, AddLabel(framing, m_bTplNaming));
+		}
+		if (m_wTplRemove)
+			m_wTplRemove.SetVisible(picked && !armed && !confirmed && !framing && !m_bTplNaming);
+		if (m_wTplApply)
+		{
+			m_wTplApply.SetVisible((picked && !framing && !m_bTplNaming) || confirmed);
+			SetSlotText(m_wTplApply, ApplyLabel(anchored, confirmed));
+		}
+		if (m_wTplCancel)
+		{
+			m_wTplCancel.SetVisible(armed || framing || confirmed || m_bTplNaming);
+			SetSlotText(m_wTplCancel, CancelLabel(confirmed));
+		}
+
+		// The name field belongs to the save step: it shows exactly while a box is being framed —
+		// alongside the Save button — and nowhere else.
+		if (m_wTplNameOverlay)
+			m_wTplNameOverlay.SetVisible(m_bTplNaming);
+	}
+
+	//! Place while the ghost is loose, Apply once it has come to rest, Resume once it is drawing and
+	//! the player has wandered off to another tool. Same button; the word says what the press will do.
+	protected string ApplyLabel(bool anchored, bool confirmed)
+	{
+		if (confirmed)
+			return "Resume";
+		if (anchored)
+			return "Apply";
+		return "Place";
+	}
+
+	//! Cancel steps back — except on a confirmed template, where stepping back means undoing drawing
+	//! that already happened. The word has to say so.
+	protected string CancelLabel(bool confirmed)
+	{
+		if (confirmed)
+			return "Discard";
+		return "Cancel";
+	}
+
+	//! Same trick for the other one: it starts the box, then it saves what the box caught.
+	protected string AddLabel(bool framing, bool naming)
+	{
+		if (naming)
+			return "Confirm";
+		if (framing)
+			return "Save Template";
+		return "Add New Template";
+	}
+
+	//! The anchor is dropped by clicking the MAP, so the panel cannot know the state has moved on
+	//! unless it looks. Called every frame from the layer; change-gated, so the steady state costs one
+	//! integer compare.
+	void TickTemplateState()
+	{
+		TickTemplatesAllowed();
+		TickTemplateGlyphs();	// before the early-out: they must also HIDE when the dropdown closes
+
+		if (!m_wTemplatesDropdown || !m_wTemplatesDropdown.IsVisible())
+			return;
+
+		// Pad navigation: FOCUSING a slot is picking it. A separate confirm press cannot exist — A is
+		// Apply here — so the highlight follows the focus, exactly like a mouse hover that commits.
+		if (m_bPadFocus)
+		{
+			WorkspaceWidget fws = GetGame().GetWorkspace();
+			if (fws)
+			{
+				int fsi = m_aTplSlots.Find(fws.GetFocusedWidget());
+				if (fsi != -1 && fsi != m_iTplHighlight)
+				{
+					m_iTplHighlight = fsi;
+					RefreshTemplates();
+					BuildTemplatePreview(TemplateForSlot(fsi));
+				}
+			}
+		}
+
+		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+		int state = 0;
+		if (SM_TemplateStore.GetInstance().Selected())
+			state |= 1;
+		if (m_Canvas && m_Canvas.GetTool() == SM_DrawCanvas.TOOL_TEMPLATE && m_Canvas.IsActive())
+			state |= 2;
+		if (m_Canvas && m_Canvas.GetTool() == SM_DrawCanvas.TOOL_SELECT && m_Canvas.IsActive())
+			state |= 16;
+		if (m_Canvas && m_Canvas.HasSelection())
+			state |= 32;
+		if (m_iTplHighlight >= 0)
+			state |= 64;
+		if (sess.IsAnchored())
+			state |= 4;
+		if (sess.IsConfirmed())
+			state |= 8;
+		if (m_bTplNaming)
+			state |= 128;
+
+		if (state == m_iTplState)
+			return;
+		m_iTplState = state;
+		RefreshTemplates();
+	}
+
+	//! Mark the picked slot. The template slots carry no Background1 of their own — unlike the toolbar
+	//! buttons — so with one there we tint it like everything else, and without one we fall back to the
+	//! label. Tinting the BUTTON itself is not an option: TickFocusHighlight caches a button's colour to
+	//! restore after a pad highlight, and changing it underneath would leave the cache stale.
+	protected void TintSlot(notnull Widget slot, bool picked)
+	{
+		Widget bg = slot.FindAnyWidget("Background1");
+		if (bg)
+		{
+			if (picked)
+				bg.SetColor(Color.FromInt(BG_ARMED));
+			else
+				bg.SetColor(Color.FromInt(BG_IDLE));
+			return;
+		}
+
+		TextWidget t = TextWidget.Cast(slot.FindAnyWidget("Text0"));
+		if (!t)
+			return;
+		if (picked)
+			t.SetColor(Color.FromInt(BG_ARMED));	// amber, the same "this one is on" the tools use
+		else
+			t.SetColor(Color.FromInt(0xFFFFFFFF));
+	}
+
+	//! Blank the decorative TextWidgets the edit-box prefab drags along. The typed text is an
+	//! EditBoxWidget, never a TextWidget, so clearing every TextWidget cannot touch the input.
+	protected void HidePrefabLabels(Widget w)
+	{
+		for (Widget c = w.GetChildren(); c; c = c.GetSibling())
+		{
+			TextWidget t = TextWidget.Cast(c);
+			if (t)
+				t.SetText("");
+			HidePrefabLabels(c);
+		}
+	}
+
+	//! First EditBoxWidget anywhere under w. The prefab buries it several levels down and unnamed.
+	protected EditBoxWidget FindEditBox(Widget w)
+	{
+		for (Widget c = w.GetChildren(); c; c = c.GetSibling())
+		{
+			EditBoxWidget eb = EditBoxWidget.Cast(c);
+			if (eb)
+				return eb;
+			eb = FindEditBox(c);
+			if (eb)
+				return eb;
+		}
+		return null;
+	}
+
+	protected void SetSlotText(notnull Widget slot, string text)
+	{
+		TextWidget t = TextWidget.Cast(slot.FindAnyWidget("Text0"));
+		if (t)
+			t.SetText(text);
+	}
+
+	//! The template a slot points at, or null for an empty slot.
+	protected SM_DrawTemplate TemplateForSlot(int idx)
+	{
+		array<SM_DrawTemplate> list = {};
+		SM_TemplateStore.GetInstance().GetAll(list);
+		if (idx < 0 || idx >= list.Count())
+			return null;
+		return list[idx];
+	}
+
+	protected void TemplateNotice(string msg)
+	{
+		SCR_HintManagerComponent hm = SCR_HintManagerComponent.GetInstance();
+		if (hm)
+			hm.ShowCustom(msg, "Templates", 6, false);
+	}
+
 	protected void Wire(Widget b, int action, int param)
 	{
 		if (!b)
@@ -710,6 +1695,13 @@ class SM_DrawPanel
 		else if (m_wSideDropdown    && m_wSideDropdown.IsVisible())    opener = m_wSideOpener;
 		else if (m_wOpacityDropdown && m_wOpacityDropdown.IsVisible()) opener = m_wOpacityOpener;
 
+		if (!opener && m_wTemplatesDropdown && m_wTemplatesDropdown.IsVisible())
+		{
+			AbortTemplateFlow();	// closing the tab drops a framing/placement, exactly as the opener does
+			FocusW(m_wTemplatesOpener);
+			return true;
+		}
+
 		if (!opener)
 			return false;
 
@@ -750,6 +1742,42 @@ class SM_DrawPanel
 				else
 					ni = (ci - 7 + nCol) % nCol;
 				FocusW(m_aColorItems[ni]);
+			}
+			return;
+		}
+
+		// --- сітка слотів темплейтів (колонки по 10, показуються в міру заповнення):
+		// вгору/вниз у колонці з wrap-ом, вліво/вправо між ВИДИМИМИ колонками ---
+		int si = m_aTplSlots.Find(f);
+		if (si != -1)
+		{
+			int visCols = 0;
+			foreach (Widget col : m_aTplCols)
+			{
+				if (col && col.IsVisible())
+					visCols++;
+			}
+			if (visCols < 1)
+				visCols = 1;
+			int maxIdx = visCols * TPL_PER_COL;
+			if (maxIdx > m_aTplSlots.Count())
+				maxIdx = m_aTplSlots.Count();
+
+			if (dy != 0)
+			{
+				int scol = si / TPL_PER_COL;
+				int rows = maxIdx - scol * TPL_PER_COL;
+				if (rows > TPL_PER_COL)
+					rows = TPL_PER_COL;
+				if (rows > 0)
+				{
+					int srow = (si % TPL_PER_COL + dy + rows) % rows;
+					FocusW(m_aTplSlots[scol * TPL_PER_COL + srow]);
+				}
+			}
+			else if (dx != 0 && maxIdx > 0)
+			{
+				FocusW(m_aTplSlots[(si + dx * TPL_PER_COL + maxIdx) % maxIdx]);
 			}
 			return;
 		}
@@ -870,9 +1898,14 @@ class SM_DrawPanel
 	}
 
 	// Публічний вихід для шару: закрити всі відкриті дропдауни (напр. при виході з панелі падом).
+	// The templates tab is exempt: on the pad the flow CONTINUES on the map after leaving the panel
+	// (place the ghost, A to apply), and the tab is that flow's UI. Its own opener/B closes it.
 	void ClosePanelDropdowns()
 	{
+		bool tplOpen = IsTemplatesOpen();
 		CloseDropdowns();
+		if (tplOpen)
+			m_wTemplatesDropdown.SetVisible(true);
 	}
 
 	protected void CloseDropdowns()
@@ -882,6 +1915,7 @@ class SM_DrawPanel
 		if (m_wVisDropdown)     m_wVisDropdown.SetVisible(false);
 		if (m_wSideDropdown)    m_wSideDropdown.SetVisible(false);
 		if (m_wOpacityDropdown) m_wOpacityDropdown.SetVisible(false);
+		if (m_wTemplatesDropdown) m_wTemplatesDropdown.SetVisible(false);
 	}
 
 	protected void ToggleDropdown(Widget dd)
@@ -905,6 +1939,7 @@ class SM_DrawPanel
 		switch (action)
 		{
 			case ACT_PENCIL:
+				AbortTemplateFlow();
 				CloseDropdowns();
 				if (m_Canvas.IsActive() && m_Canvas.GetTool() == 0)
 					m_Canvas.SetActive(false);
@@ -916,6 +1951,7 @@ class SM_DrawPanel
 				break;
 
 			case ACT_ERASER:
+				AbortTemplateFlow();
 				CloseDropdowns();
 				if (m_Canvas.IsActive() && m_Canvas.GetTool() == 1)
 					m_Canvas.SetActive(false);
@@ -927,12 +1963,73 @@ class SM_DrawPanel
 				break;
 
 			case ACT_FILL:
+				AbortTemplateFlow();
 				CloseDropdowns();
 				if (m_Canvas.IsActive() && m_Canvas.GetTool() == 2)
 					m_Canvas.SetActive(false);
 				else
 				{
 					m_Canvas.SetTool(2);
+					m_Canvas.SetActive(true);
+				}
+				break;
+
+			case ACT_TEMPLATES:
+				CloseDropdowns();
+				if (m_Canvas.IsActive() && m_Canvas.GetTool() == SM_DrawCanvas.TOOL_TEMPLATE)
+					m_Canvas.SetActive(false);
+				else
+				{
+					m_Canvas.SetTool(SM_DrawCanvas.TOOL_TEMPLATE);
+					m_Canvas.SetActive(true);
+				}
+				break;
+
+			case ACT_OPEN_TEMPLATES:
+				ToggleDropdown(m_wTemplatesDropdown);
+				if (m_wTemplatesDropdown && m_wTemplatesDropdown.IsVisible())
+				{
+					SM_TemplateStore.GetInstance().Reload();	// picks up anything dropped in the folder
+					RefreshTemplates();
+				}
+				else
+				{
+					AbortTemplateFlow();	// closing the tab drops a framing/placement in progress
+				}
+				break;
+
+			case ACT_TPL_SLOT:
+				m_iTplHighlight = param;
+				RefreshTemplates();				// re-tints; the pick is not acted on until Apply
+				BuildTemplatePreview(TemplateForSlot(param));
+				break;
+
+			case ACT_TPL_APPLY:
+				OnTemplateApply();
+				break;
+
+			case ACT_TPL_CANCEL:
+				OnTemplateCancel();
+				break;
+
+			case ACT_TPL_ADD:
+				OnTemplateAdd();
+				break;
+
+			case ACT_TPL_REMOVE:
+				OnTemplateRemove();
+				break;
+
+			case ACT_TEMPLATE_SAVE:
+				CloseDropdowns();
+				if (m_Canvas.IsActive() && m_Canvas.GetTool() == SM_DrawCanvas.TOOL_SELECT)
+				{
+					m_Canvas.ClearSelection();	// leaving the tool drops the box
+					m_Canvas.SetActive(false);
+				}
+				else
+				{
+					m_Canvas.SetTool(SM_DrawCanvas.TOOL_SELECT);
 					m_Canvas.SetActive(true);
 				}
 				break;
@@ -997,8 +2094,17 @@ class SM_DrawPanel
 		// слайдер, а не список, тож ЛИШАЄМО фокус на опенері (ліво/право крутить слайдер у NavMove).
 		// Вибір ЗНАЧЕННЯ (колір/розмір/видимість/сторона) — лишаємось у панелі, повертаємо фокус на опенер
 		// комбо. Інструмент/чекбокс — знімаємо фокус, повертаючи керування мапі для малювання.
-		if (action == ACT_OPEN_SIZE || action == ACT_OPEN_COLOR || action == ACT_OPEN_VIS || action == ACT_OPEN_SIDE)
+		if (action == ACT_OPEN_SIZE || action == ACT_OPEN_COLOR || action == ACT_OPEN_VIS || action == ACT_OPEN_SIDE || action == ACT_OPEN_TEMPLATES)
 			FocusDropdownFirst(action);
+		else if (m_bPadFocus && action == ACT_TPL_SLOT)
+		{
+			// Picking a slot is browsing, not leaving: the pad stays on it so Y/X/A read naturally.
+		}
+		else if (action == ACT_TPL_ADD && m_bTplNaming)
+		{
+			// The name step just focused the edit box and write mode is summoning the (pad) screen
+			// keyboard. ClearFocus here killed both on the very frame they were born.
+		}
 		else if (action == ACT_OPEN_OPACITY)
 		{
 			if (m_bPadFocus && m_wOpacityOpener)
@@ -1054,6 +2160,8 @@ class SM_DrawPanel
 			first = m_wRoot.FindAnyWidget("VisibilityLocal");
 		else if (openAction == ACT_OPEN_SIDE && m_wSideDropdown && m_wSideDropdown.IsVisible() && m_wSideCombo)
 			first = m_wSideCombo.FindAnyWidget("SideBLUFOR");
+		else if (openAction == ACT_OPEN_TEMPLATES && m_wTemplatesDropdown && m_wTemplatesDropdown.IsVisible() && !m_aTplSlots.IsEmpty())
+			first = m_aTplSlots[0];
 
 		if (first)
 			ws.SetFocusedWidget(first);
@@ -1312,6 +2420,34 @@ class SM_DrawPanel
 			if (ot)
 				ot.SetText(m_Canvas.GetOpacityPct().ToString() + "%");
 		}
+	}
+}
+
+//! "Really delete this template?" — the vanilla configurable dialog with our texts. Confirm deletes
+//! the file; Cancel (and Esc, which lands in OnCancel) just puts the question away.
+class SM_TemplateDeleteDialog : SCR_ConfigurableDialogUi
+{
+	protected SM_DrawPanel m_Panel;	// weak on purpose: the panel owns the dialog, not the other way round
+	protected string m_sTemplateId;
+
+	void SM_Setup(SM_DrawPanel panel, string id)
+	{
+		m_Panel = panel;
+		m_sTemplateId = id;
+	}
+
+	override protected void OnConfirm()
+	{
+		if (m_Panel)
+			m_Panel.ConfirmTemplateDelete(m_sTemplateId);
+		super.OnConfirm();
+	}
+
+	override protected void OnCancel()
+	{
+		if (m_Panel)
+			m_Panel.OnTemplateDeleteDialogClosed();
+		super.OnCancel();
 	}
 }
 

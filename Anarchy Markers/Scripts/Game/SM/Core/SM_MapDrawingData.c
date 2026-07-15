@@ -106,6 +106,36 @@ class SM_MapDrawingData
 		return true;
 	}
 
+	//! Bring the client's meta back into range. Everything in it arrives over the WIRE, and nothing on
+	//! the way here has to have come from our panel — a hand-edited template file or a patched client
+	//! can put any integer in any field. The width preset is the one that bites: index 5 is the
+	//! ERASER's 100 m, which the panel never lets a pencil reach, and without this a forged stroke was
+	//! two and a half times wider than anything a player could draw legitimately.
+	//!
+	//! Server only. gmLocked/hideInfo are cleared for non-GMs by the network layer, and the channel is
+	//! assigned there too, so neither is touched here.
+	void ServerSanitise()
+	{
+		if (m_iWidthIdx < 0)
+			m_iWidthIdx = 0;
+		if (m_iWidthIdx > SM_DrawCanvas.WIDTH_IDX_MAX_PENCIL)
+			m_iWidthIdx = SM_DrawCanvas.WIDTH_IDX_MAX_PENCIL;
+
+		if (m_iFill != 0)
+			m_iFill = 1;	// any non-zero was treated as "filled"; make it mean exactly one thing
+
+		switch (m_iVisibility)
+		{
+			case SM_EMarkerVisibility.PERSONAL:
+			case SM_EMarkerVisibility.GROUP:
+			case SM_EMarkerVisibility.FACTION:
+			case SM_EMarkerVisibility.ALL:
+				break;
+			default:
+				m_iVisibility = SM_EMarkerVisibility.FACTION;
+		}
+	}
+
 	// Канал із meta (для GM Side: сервер бере обрану зевсом сторону звідси). -1 якщо некоректно.
 	static int ChannelFromMeta(array<int> a)
 	{

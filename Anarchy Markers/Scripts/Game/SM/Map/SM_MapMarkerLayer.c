@@ -456,6 +456,13 @@ modded class SCR_MapMarkersUI
 			im.AddActionListener("AM_ToolEraser", EActionTrigger.DOWN, SM_OnToolEraser);
 			im.AddActionListener("AM_ToolFill",   EActionTrigger.DOWN, SM_OnToolFill);
 
+			// Template buttons from the map side (pad A/B/Y/X by default, rebindable). Each press is a
+			// remote click on the matching panel button and obeys the same visibility.
+			im.AddActionListener("AM_TplApply",  EActionTrigger.DOWN, SM_OnTplApply);
+			im.AddActionListener("AM_TplCancel", EActionTrigger.DOWN, SM_OnTplCancel);
+			im.AddActionListener("AM_TplAdd",    EActionTrigger.DOWN, SM_OnTplAdd);
+			im.AddActionListener("AM_TplRemove", EActionTrigger.DOWN, SM_OnTplRemove);
+
 			// Пад-режим панелі: ванільні шорткати інструментів мапи (подвійний тап хрестовини = компас/
 			// лінійка) не заглушити конфігом — тож відкочуємо: щойно інструмент увімкнувся в цей час,
 			// одразу вимикаємо його назад.
@@ -493,6 +500,9 @@ modded class SCR_MapMarkersUI
 
 	override void OnMapClose(MapConfiguration config)
 	{
+		if (m_DrawPanel)
+			m_DrawPanel.AbortTemplateFlow();	// a half-done template does not survive the map closing
+
 		if (m_DrawCanvas)
 			m_DrawCanvas.FinishLineChain();	// map closed mid-polyline; keep what was drawn
 
@@ -511,6 +521,10 @@ modded class SCR_MapMarkersUI
 		im.RemoveActionListener("AM_ToolPencil", EActionTrigger.DOWN, SM_OnToolPencil);
 		im.RemoveActionListener("AM_ToolEraser", EActionTrigger.DOWN, SM_OnToolEraser);
 		im.RemoveActionListener("AM_ToolFill",   EActionTrigger.DOWN, SM_OnToolFill);
+		im.RemoveActionListener("AM_TplApply",  EActionTrigger.DOWN, SM_OnTplApply);
+		im.RemoveActionListener("AM_TplCancel", EActionTrigger.DOWN, SM_OnTplCancel);
+		im.RemoveActionListener("AM_TplAdd",    EActionTrigger.DOWN, SM_OnTplAdd);
+		im.RemoveActionListener("AM_TplRemove", EActionTrigger.DOWN, SM_OnTplRemove);
 		SCR_MapToolEntry.GetOnEntryToggledInvoker().Remove(SM_OnToolToggledGuard);
 		im.RemoveActionListener("MenuUp",     EActionTrigger.DOWN, SM_NavUp);
 		im.RemoveActionListener("MenuDown",   EActionTrigger.DOWN, SM_NavDown);
@@ -770,6 +784,8 @@ modded class SCR_MapMarkersUI
 			baseAllowed = baseAllowed && m_bSMDrawPanelShown;	// host screen's own toolbar button
 			m_DrawPanel.SetVisible(baseAllowed);
 			m_DrawPanel.TickFocusHighlight();
+			m_DrawPanel.TickTemplateState();	// the anchor is dropped on the MAP; the panel has to notice
+			m_DrawPanel.TickNameField();		// hold the name field's write mode while typing
 
 			// Анти-автофокус: рушій сам фокусить перший focusable-віджет при відкритті мапи.
 			// Якщо фокус на панелі без свідомого входу — знімаємо, інакше пад залипає в меню.
@@ -780,7 +796,9 @@ modded class SCR_MapMarkersUI
 				Widget pf = fws.GetFocusedWidget();
 				if (pf && m_DrawPanel.ContainsWidget(pf))
 				{
-					if (!m_bSMPanelPadNav)
+					if (m_DrawPanel.IsTypingName())
+						focusInPanel = true;	// name field owns the keyboard — this anti-autofocus was what kept knocking it out
+					else if (!m_bSMPanelPadNav)
 						fws.SetFocusedWidget(null);
 					else
 						focusInPanel = true;
@@ -797,7 +815,9 @@ modded class SCR_MapMarkersUI
 
 			// Той самий контекст, що й діалог мітки: тримає мапу відкритою на B
 			// (B тоді фаєрить MenuBack, його ловить SM_NavBack). Поновлюється щокадру.
-			if (m_bSMPanelPadNav && onPad)
+			// Модалки темплейтів (ввід назви, діалог видалення) — з тієї ж причини: B там означає
+			// «скасувати модалку», і без цього контексту той самий натиск закривав ще й мапу.
+			if ((m_bSMPanelPadNav || m_DrawPanel.IsModalBusy()) && onPad)
 				gim.ActivateContext("MapMarkerEditContext");
 
 			if (focusInPanel && onPad)
@@ -1560,6 +1580,10 @@ modded class SCR_MapMarkersUI
 		InputManager him = GetGame().GetInputManager();
 		bool pad = him && !him.IsUsingMouseAndKeyboard();	// геймпад → показуємо наші AM-кнопки (A/Y/X/B)
 
+		// The template flow owns the map while any of its states is on — before this block the tool
+		// fell into "normal" and the bar advertised marker controls that would not work.
+		SM_TemplateSession tsess = SM_TemplateSession.GetInstance();
+
 		int baseState;
 		if (m_MarkerEditRoot)
 			baseState = 2;	// відкритий діалог редагування/створення
@@ -1569,6 +1593,18 @@ modded class SCR_MapMarkersUI
 			baseState = 6;
 		else if (m_iSMCarryId != -1)
 			baseState = 1;	// перенесення мітки
+		else if (m_DrawPanel && m_DrawPanel.IsTypingName())
+			baseState = 8;	// темплейти: модал вводу назви
+		else if (tsess.IsAnchored())
+			baseState = 9;	// темплейти: привид на якорі, чекає Apply
+		else if (tsess.IsConfirmed())
+			baseState = 10;	// темплейти: підтверджено, малюється утриманням
+		else if (m_DrawCanvas && m_DrawCanvas.IsActive() && m_DrawCanvas.GetTool() == SM_DrawCanvas.TOOL_SELECT)
+			baseState = 11;	// темплейти: рамка виділення для збереження
+		else if (m_DrawCanvas && m_DrawCanvas.IsActive() && m_DrawCanvas.GetTool() == SM_DrawCanvas.TOOL_TEMPLATE)
+			baseState = 12;	// темплейти: привид у руці, шукає місце
+		else if (m_DrawPanel && m_DrawPanel.IsTemplatesOpen())
+			baseState = 13;	// темплейти: відкритий список (перегляд)
 		else if (m_DrawCanvas && m_DrawCanvas.IsActive() && m_DrawCanvas.GetTool() == 0)
 			baseState = 3;	// малювання: олівець
 		else if (m_DrawCanvas && m_DrawCanvas.IsActive() && m_DrawCanvas.GetTool() == 1)
@@ -1586,6 +1622,8 @@ modded class SCR_MapMarkersUI
 			state += 200;
 		if (pad)
 			state += 500;
+		if (m_DrawPanel && m_DrawPanel.IsTemplatesOpen() && m_DrawPanel.HasTemplatePicked())
+			state += 1000;	// перегляд списку: підсвічений слот вмикає рядки Place/Remove
 
 		if (state == m_iSMHintState)
 			return;
@@ -1663,6 +1701,102 @@ modded class SCR_MapMarkersUI
 			SM_SetHintRow(0, "AM_MapAction", "Fill area");
 			SM_SetHintRow(1, "AM_Cancel",    "Cancel tool");
 			SM_SetHintRow(2, "AM_Delete",    "Remove fill");
+			SM_SetHintRowVisible(3, false);
+			SM_SetHintRowVisible(4, false);
+		}
+		// Template states. On KB/M the panel's buttons are right there for the mouse, so only the map
+		// GESTURES get a row; the pad gets its A/B/Y/X, and those glyphs also sit beside the buttons.
+		else if (baseState == 8)	// темплейти: ввід назви
+		{
+			if (pad)
+			{
+				SM_SetHintRow(0, "AM_TplAdd",    "Confirm name");
+				SM_SetHintRow(1, "AM_TplCancel", "Back");
+				SM_SetHintRowVisible(2, false);
+			}
+			else
+			{
+				// The keyboard is busy typing — advertising keys here would be advertising trouble.
+				SM_SetHintRowVisible(0, false);
+				SM_SetHintRowVisible(1, false);
+				SM_SetHintRowVisible(2, false);
+			}
+			SM_SetHintRowVisible(3, false);
+			SM_SetHintRowVisible(4, false);
+		}
+		else if (baseState == 9)	// темплейти: на якорі
+		{
+			if (pad)
+			{
+				SM_SetHintRow(0, "AM_TplApply",  "Apply — start drawing");
+				SM_SetHintRow(1, "AM_TplCancel", "Move it again");
+			}
+			else
+			{
+				SM_SetHintRow(0, "AM_Cancel", "Move it again");
+				SM_SetHintRowVisible(1, false);
+			}
+			SM_SetHintRowVisible(2, false);
+			SM_SetHintRowVisible(3, false);
+			SM_SetHintRowVisible(4, false);
+		}
+		else if (baseState == 10)	// темплейти: підтверджено — малює утримання
+		{
+			SM_SetHintRow(0, "AM_MapAction", "Hold — draw template");
+			SM_SetHintRowVisible(1, false);	// Discard навмисно лише кнопкою: він стирає вже намальоване
+			SM_SetHintRowVisible(2, false);
+			SM_SetHintRowVisible(3, false);
+			SM_SetHintRowVisible(4, false);
+		}
+		else if (baseState == 11)	// темплейти: рамка виділення
+		{
+			SM_SetHintRow(0, "AM_MapAction", "Drag a box around your drawings");
+			if (pad)
+			{
+				SM_SetHintRow(1, "AM_TplAdd",    "Save template");
+				SM_SetHintRow(2, "AM_TplCancel", "Cancel");
+			}
+			else
+			{
+				SM_SetHintRow(1, "AM_Cancel", "Cancel");
+				SM_SetHintRowVisible(2, false);
+			}
+			SM_SetHintRowVisible(3, false);
+			SM_SetHintRowVisible(4, false);
+		}
+		else if (baseState == 12)	// темплейти: привид у руці
+		{
+			SM_SetHintRow(0, "AM_MapAction", "Place template");
+			if (pad)
+				SM_SetHintRow(1, "AM_TplCancel", "Cancel");
+			else
+				SM_SetHintRow(1, "AM_Cancel", "Cancel");
+			SM_SetHintRowVisible(2, false);
+			SM_SetHintRowVisible(3, false);
+			SM_SetHintRowVisible(4, false);
+		}
+		else if (baseState == 13)	// темплейти: перегляд списку
+		{
+			bool tplPicked = m_DrawPanel && m_DrawPanel.HasTemplatePicked();
+			if (pad && tplPicked)
+			{
+				SM_SetHintRow(0, "AM_TplApply",  "Place template");
+				SM_SetHintRow(1, "AM_TplRemove", "Delete template");
+				SM_SetHintRow(2, "AM_TplAdd",    "New template");
+			}
+			else if (pad)
+			{
+				SM_SetHintRow(0, "AM_TplAdd", "New template");
+				SM_SetHintRowVisible(1, false);
+				SM_SetHintRowVisible(2, false);
+			}
+			else
+			{
+				// Mouse users click the buttons themselves; showing marker controls here was the bug.
+				SM_SetHintRowVisible(0, false);
+				SM_SetHintRowVisible(1, false);
+				SM_SetHintRowVisible(2, false);
+			}
 			SM_SetHintRowVisible(3, false);
 			SM_SetHintRowVisible(4, false);
 		}
@@ -2366,6 +2500,12 @@ modded class SCR_MapMarkersUI
 		if (!im)
 			return;
 
+		// A template modal is up (typing the name, or the delete confirmation): hands off. Our polling
+		// re-reads the mouse every frame and would knock the edit box out of write mode — and a click
+		// meant for a dialog button must not land on the map underneath it.
+		if (m_DrawPanel && m_DrawPanel.IsModalBusy())
+			return;
+
 		// Режим малювання перехоплює ЛКМ повністю (без логіки міток). ПЕРЕД editor-гілкою:
 		// зевс теж малює (інструмент вмикається лише з відкритою панеллю «Drawing tools»).
 		if (m_DrawCanvas && m_DrawCanvas.IsActive() && im.IsUsingMouseAndKeyboard())
@@ -2585,15 +2725,21 @@ modded class SCR_MapMarkersUI
 			}
 			m_bSMPadDrawDown = draw;
 
+			// Template tools answer to the AM_Tpl* listeners (B steps the flow back through the panel's
+			// Cancel, X belongs to Remove) — the generic tool-off and stroke-delete must stand down, or
+			// one B press would both un-anchor the ghost AND drop the tool.
+			int padTool = m_DrawCanvas.GetTool();
+			bool tplTool = (padTool == SM_DrawCanvas.TOOL_TEMPLATE || padTool == SM_DrawCanvas.TOOL_SELECT);
+
 			// B — скасувати інструмент
 			bool cancel = im.GetActionValue("AM_Cancel") > 0.5 || im.GetActionValue("MenuBack") > 0.5;
-			if (cancel && !m_bSMPadCancelDown)
+			if (cancel && !m_bSMPadCancelDown && !tplTool)
 				m_DrawCanvas.SetActive(false);
 			m_bSMPadCancelDown = cancel;
 
 			// X — видалити штрих під курсором
 			bool delx = im.GetActionValue("AM_Delete") > 0.5;
-			if (delx && !m_bSMPadDeleteDown)
+			if (delx && !m_bSMPadDeleteDown && !tplTool)
 				SM_TryDeleteStrokeAtCursor();
 			m_bSMPadDeleteDown = delx;
 
@@ -2627,6 +2773,19 @@ modded class SCR_MapMarkersUI
 				m_bSMPickedThisPress = true;
 			m_bSMPadPlaceDown   = im.GetActionValue("AM_CopyLastPad") > 0.5;
 			m_bSMPadDeleteDown  = im.GetActionValue("AM_Delete")  > 0.5;
+			return;
+		}
+
+		// The templates tab is open and the pad is on the map: A/B/Y/X belong to the template flow
+		// (the AM_Tpl* listeners run it). Marker tap/create, copy-last and delete must not fire
+		// underneath the same press.
+		if (m_DrawPanel && m_DrawPanel.IsTemplatesOpen())
+		{
+			m_bSMPadConfirmDown = im.GetActionValue("AM_MapAction") > 0.5;
+			if (m_bSMPadConfirmDown)
+				m_bSMPickedThisPress = true;
+			m_bSMPadPlaceDown  = im.GetActionValue("AM_CopyLastPad") > 0.5;
+			m_bSMPadDeleteDown = im.GetActionValue("AM_Delete") > 0.5;
 			return;
 		}
 
@@ -2782,8 +2941,69 @@ modded class SCR_MapMarkersUI
 	{
 		if (SM_TryPanelBack())	// пад-B у панелі часто приходить як AM_Cancel (фокус на нашій STOP-кнопці)
 			return;
+		if (SM_TryTemplateBack())
+			return;
 		if (m_iSMCarryId != -1)
 			m_iSMCarryId = -1;	// наступний кадр позиціонує з m_Data (оригінал)
+	}
+
+	// One B press = one step back in the template flow, whichever listener it arrives through —
+	// AM_Cancel, MenuBack and AM_TplCancel all ride the same button, hence the shared debounce.
+	// CONSUMING the press (ResetAction) is the actual protection for the map: without it the very
+	// same B walks on to the vanilla map menu and closes it — the context activation alone was not
+	// enough, which is exactly how the panel's own two-level back already works.
+	protected float m_fSMLastTplBack;
+	protected bool SM_TryTemplateBack()
+	{
+		if (!m_DrawPanel || m_MarkerEditRoot)
+			return false;
+		if (m_bSMPanelPadNav && !m_DrawPanel.IsModalBusy())
+			return false;	// inside the panel SM_TryPanelBack owns B — except when a modal is up
+		if (!m_DrawPanel.IsTemplatesOpen() && !m_DrawPanel.IsModalBusy())
+			return false;
+
+		InputManager im = GetGame().GetInputManager();
+		bool kbm = !im || im.IsUsingMouseAndKeyboard();
+
+		float now = System.GetTickCount() / 1000.0;
+		if (now - m_fSMLastTplBack < 0.15)
+			return true;	// the same physical press, delivered again
+
+		// The delete dialog cancels itself on B; we only stop the press from also reaching the map.
+		if (m_DrawPanel.IsDeleteDialogOpen())
+		{
+			m_fSMLastTplBack = now;
+			SM_EatBackPress(im, kbm);
+			return true;
+		}
+
+		bool stepped = false;
+		if (!(kbm && m_DrawPanel.IsTypingName()))	// while typing on KB/M the keys belong to the text
+			stepped = m_DrawPanel.PressTemplateButton(SM_DrawPanel.ACT_TPL_CANCEL);
+
+		if (!stepped)
+		{
+			if (kbm)
+				return false;	// RMB with nothing to step back: not ours (radial menu and friends)
+
+			// Pad. During the name step an unaccepted B most likely just closed the screen keyboard —
+			// swallow it and stay. Anywhere else B closes the TAB, which is what it must not do to
+			// the map underneath.
+			if (!m_DrawPanel.IsTypingName())
+				m_DrawPanel.AbortTemplateFlow();
+		}
+		m_fSMLastTplBack = now;
+		SM_EatBackPress(im, kbm);
+		return true;
+	}
+
+	protected void SM_EatBackPress(InputManager im, bool kbm)
+	{
+		if (!im || kbm)
+			return;	// RMB does not close the map; only the pad's B needs eating
+		im.ResetAction("MenuBack");
+		im.ResetAction("AM_Cancel");
+		im.ResetAction("AM_TplCancel");
 	}
 
 	// Пад-B у панелі малювання: дворівневий вихід (дропдаун -> ряд -> мапа). true = оброблено.
@@ -2793,6 +3013,8 @@ modded class SCR_MapMarkersUI
 	{
 		if (!m_bSMPanelPadNav || !m_DrawPanel)
 			return false;
+		if (m_DrawPanel.IsModalBusy())
+			return false;	// a template modal owns B (SM_TryTemplateBack), even with panel focus alive
 		float now = System.GetTickCount() / 1000.0;
 		if (now - m_fSMLastPanelBack < 0.15)
 			return true;
@@ -2952,6 +3174,54 @@ modded class SCR_MapMarkersUI
 			return;
 
 		m_DrawPanel.OnAction(act, 0);
+	}
+
+	protected void SM_OnTplApply(float value, EActionTrigger reason)
+	{
+		SM_TplButton(SM_DrawPanel.ACT_TPL_APPLY);
+	}
+
+	protected void SM_OnTplCancel(float value, EActionTrigger reason)
+	{
+		// Routed through the shared back handler: the default binding is B, the same button
+		// AM_Cancel and MenuBack arrive on, and the debounce in there is what makes the three
+		// listeners act once. A rebound key lands here too and behaves identically.
+		SM_TryTemplateBack();
+	}
+
+	protected void SM_OnTplAdd(float value, EActionTrigger reason)
+	{
+		SM_TplButton(SM_DrawPanel.ACT_TPL_ADD);
+	}
+
+	protected void SM_OnTplRemove(float value, EActionTrigger reason)
+	{
+		SM_TplButton(SM_DrawPanel.ACT_TPL_REMOVE);
+	}
+
+	//! A template action from the map side: a remote click on the matching panel button. The panel
+	//! decides whether the button could be clicked at all; here only the map-level context is vetted.
+	protected void SM_TplButton(int act)
+	{
+		if (!m_bSMMapOpen || !m_DrawPanel || m_MarkerEditRoot)
+			return;
+
+		// Inside the panel the actions work too — the pad has no other way to press these buttons,
+		// they are unfocusable by design. Except B: in the panel it stays "back" (SM_TryPanelBack
+		// closes the list), and stepping the flow back on top of that would act twice on one press.
+		if (m_bSMPanelPadNav)
+		{
+			if (act == SM_DrawPanel.ACT_TPL_CANCEL || !m_DrawPanel.IsTemplatesOpen())
+				return;
+		}
+
+		// A key rebound onto a letter must not fire while the player is typing the name. The pad's Y
+		// is still the Confirm — a controller has no other way to press it.
+		InputManager im = GetGame().GetInputManager();
+		if (im && im.IsUsingMouseAndKeyboard() && m_DrawPanel.IsTypingName())
+			return;
+
+		m_DrawPanel.PressTemplateButton(act);
 	}
 
 	//! Копія останньої мітки гравця в точку курсора. Клавіатура — AM_CopyLast, геймпад — Y
@@ -4140,6 +4410,8 @@ modded class SCR_MapMarkersUI
 	protected void SM_NavBack(float value, EActionTrigger reason)
 	{
 		if (SM_TryPanelBack())	// панель малювання: дворівневий вихід, не закриваючи мапу
+			return;
+		if (SM_TryTemplateBack())	// B у темплейт-флоу: крок назад/закрити вкладку, НЕ мапу
 			return;
 
 		if (!m_bSMNavActive || !m_MarkerEditRoot || m_bSMNavTyping || SM_NavOnKBM())

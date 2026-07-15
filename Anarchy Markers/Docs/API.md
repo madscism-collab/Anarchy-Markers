@@ -10,7 +10,7 @@ Public integration surface for other mods. Two entry points:
 
 **Setup:** add `Anarchy Markers` to `Dependencies` in your `addon.gproj` and call the static methods directly. Do not touch internal classes (`SM_MapMarkerStore`, `SM_MarkerNet`, ...) — only what is documented here is kept stable.
 
-`AM_MarkerAPI.API_VERSION` (currently `7`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
+`AM_MarkerAPI.API_VERSION` (currently `8`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
 
 ---
 
@@ -293,6 +293,24 @@ SM_MapDrawingData AM_MarkerAPI.NewDrawing(int argb, int widthIdx, bool fill,
 | `m_iFill` | 1 = filled area (points form a closed polygon), 0 = polyline. |
 | `m_iGmLocked`, `m_iHideInfo` | GM flags. |
 | `m_aPoints` | World coordinates, flat `x,z` pairs in meters. |
+
+### Drawing templates (API v8)
+
+A template is a set of strokes the player saved to stamp down again anywhere on the map. Templates are **entirely client-side**: each is a plain JSON file in `$profile:SavingMarkers/Templates/` (one file per template, the file name is the id, shareable by copying the file), and when one is drawn its strokes go through the normal drawing path under all the usual server limits. A dedicated server has no templates. The in-game placement flow (ghost, auto-draw pacing) belongs to our map UI and is not exposed.
+
+```c
+AM_MarkerAPI.AreTemplatesAllowed();                  // server's allowTemplates switch (replicated)
+AM_MarkerAPI.GetTemplateCount();
+AM_MarkerAPI.GetAllTemplates(out array<SM_DrawTemplate> list);  // sorted by name, read-only objects
+AM_MarkerAPI.FindTemplate(id);                       // id = file name without extension, null if absent
+AM_MarkerAPI.ReloadTemplates();                      // re-scan the folder (after dropping files in)
+AM_MarkerAPI.SaveTemplate(name, strokes);            // array<SM_MapDrawingData> -> new id, "" on failure
+AM_MarkerAPI.DeleteTemplate(id);                     // deletes the file; built-ins refuse
+```
+
+`SM_DrawTemplate` read fields: `m_sId`, `m_sName`, `m_bBuiltIn`, `m_iSpanX`/`m_iSpanZ` (bounding box in meters), `m_aStrokes` (`SM_DrawTemplateStroke`: `m_iColor`, `m_iWidthIdx`, `m_iFill`, `m_aPoints` — flat `x,z` pairs in meters **relative to the template's anchor**, its bounding-box centre).
+
+Server owners can remove the feature's UI for their players with `allowTemplates=false` in `SM_Config.cfg`; `AreTemplatesAllowed()` reflects that on clients, and a host screen with its own template UI should hide it when this says no.
 
 ---
 

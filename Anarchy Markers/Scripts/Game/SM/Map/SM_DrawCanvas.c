@@ -99,6 +99,16 @@ class SM_DrawCanvas
 	protected ref map<int, ref SM_RenderStroke>  m_mStrokes  = new map<int, ref SM_RenderStroke>();
 	protected ref array<int>                     m_aOrder    = {};	// id у порядку малювання (зрост. = нові поверх старих)
 	protected ref array<ref CanvasWidgetCommand> m_aPreviewCmds = {};	// команди штриха «в процесі»
+
+	// Templates. The selection rectangle (tool 4) and the placement ghost (tool 3) both ride the
+	// preview canvas: they are live, rebuilt every frame, and must never touch the committed strokes.
+	protected bool m_bSelActive;			// dragging the rectangle right now
+	protected bool m_bSelValid;				// a rectangle is on the map, waiting to be saved
+	protected int  m_iSelX0, m_iSelZ0, m_iSelX1, m_iSelZ1;	// world metres, unordered
+	protected bool m_bTplHeld;				// holding the button on a placed template
+	protected ref array<ref CanvasWidgetCommand> m_aGhostTmp = {};	// scratch: BuildStrokeCommands clears what it is given
+	protected const int GHOST_ALPHA_STROKE = 200;
+	protected const int GHOST_ALPHA_FILL   = 90;
 	protected ref array<ref CanvasWidgetCommand> m_aCommands = {};
 	protected bool m_bMembershipDirty = true;	// штрих додано/прибрано
 
@@ -343,6 +353,287 @@ class SM_DrawCanvas
 			s_iWidthIdx = WIDTH_IDX_MAX_PENCIL;
 	}
 	int  GetTool()            { return m_iTool; }
+
+	static const int TOOL_TEMPLATE = 3;
+	static const int TOOL_SELECT   = 4;
+
+	// ---------------------------------------------------------------- templates
+
+	//! A template's strokes leave through the same door a hand-drawn one does. No new RPC, no
+	//! server-side knowledge of templates, and every limit applies for free.
+	void SM_TemplateEmit(notnull SM_MapDrawingData d, notnull array<int> points)
+	{
+		SM_DrawAddOrLocal(d, points);
+	}
+
+	//! Click with the template tool: the first click drops the anchor, and from then on the button is
+	//! held to draw. Clicking again with nothing placed re-anchors; clicking while one is placed just
+	//! starts drawing it (that is what "hold on your template" means).
+	protected void TemplatePressDown(int wx, int wz)
+	{
+		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+
+		// Confirmed: the button is what draws it, and holding it is what keeps it going.
+		if (sess.IsConfirmed())
+		{
+			sess.ClearDenied();	// pressing again IS the decision to carry on after a refusal
+			m_bTplHeld = true;
+			return;
+		}
+
+		// Anchored: the map is deaf, the panel owns this step. A click that re-anchored here would land
+		// on the same press that hit Apply — the button confirmed, the map un-confirmed, and from the
+		// outside the buttons did nothing. Moving the ghost again is what Cancel is for.
+		if (sess.IsAnchored())
+			return;
+
+		SM_DrawTemplate t = SM_TemplateStore.GetInstance().Selected();
+		if (!t)
+			return;	// nothing in hand
+
+		// A click drops the anchor. Nothing is drawn until Apply — a template is forty minutes of
+		// drawing, and a stray click must not start it.
+		sess.Place(t, wx, wz, s_iVisibility);
+	}
+
+	//! Frame-by-frame while the template tool is armed. Emits at most one stroke, paced under the
+	//! server's per-minute window.
+	//! A template waiting on the map, or one in hand with the tool armed (then it follows the cursor).
+	protected bool TemplateGhostWanted()
+	{
+		if (SM_TemplateSession.GetInstance().IsPlaced())
+			return true;
+		return m_bActive && m_iTool == TOOL_TEMPLATE && SM_TemplateStore.GetInstance().Selected() != null;
+	}
+
+	protected void TemplateTick()
+	{
+		if (!m_bTplHeld)
+			return;
+		if (!SM_TemplateSession.GetInstance().Tick(this))
+			m_bTplHeld = false;	// finished, refused, or not confirmed
+	}
+
+
+	//! The ghost. Before the anchor it follows the cursor; after it, only the strokes still MISSING are
+	//! ghosted — so the ghost thins out as the template lands, and is its own progress bar.
+	protected void BuildTemplateGhost()
+	{
+		m_aPreviewCmds.Clear();
+
+		SM_DrawTemplate t;
+		int ax, az;
+
+		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+		array<int> todo = {};
+
+		if (sess.IsPlaced())
+		{
+			t = sess.Template();
+			ax = sess.AnchorX();
+			az = sess.AnchorZ();
+			sess.GetTodo(todo);
+		}
+		else
+		{
+			t = SM_TemplateStore.GetInstance().Selected();
+			if (!t)
+				return;
+			if (!CursorWorld(ax, az))
+				return;
+			for (int i = 0; i < t.m_aStrokes.Count(); i++)
+				todo.Insert(i);
+		}
+
+		if (!t)
+			return;
+
+		float ppm = PxPerMeter();
+
+		// Two passes: fills FIRST, then strokes. Drawing in template order let a fill that came later
+		// paint straight over the lines before it — paint under ink, exactly as the map layers them.
+		for (int pass = 0; pass < 2; pass++)
+		{
+			bool wantFill = (pass == 0);
+			foreach (int idx : todo)
+			{
+				SM_DrawTemplateStroke st = t.m_aStrokes[idx];
+				if (!st || st.GetPointCount() < 2)
+					continue;
+				if ((st.m_iFill != 0) != wantFill)
+					continue;
+
+				int n = st.GetPointCount();
+				array<float> scr = {};
+				scr.Resize(n * 2);
+				for (int k = 0; k < n; k++)
+				{
+					int sx, sy;
+					WorldToCanvas(st.m_aPoints[k * 2] + ax, st.m_aPoints[k * 2 + 1] + az, sx, sy);
+					scr[k * 2]     = sx;
+					scr[k * 2 + 1] = sy;
+				}
+
+				if (wantFill)
+				{
+					array<int> tri = st.FillIndices();
+					if (!tri)
+						continue;
+					TriMeshDrawCommand mesh = new TriMeshDrawCommand();
+					mesh.m_iColor   = GhostColor(st.m_iColor, true);
+					mesh.m_Vertices = scr;
+					mesh.m_Indices  = tri;
+					m_aPreviewCmds.Insert(mesh);
+					continue;
+				}
+
+				// BuildStrokeCommands CLEARS the array it is handed — it was written for the one stroke
+				// being drawn, where that is exactly right. Called in a loop straight onto the preview
+				// list, every stroke wiped the ones before it and the fills under them, and only the
+				// last one ever survived. Build into a scratch list and append.
+				m_aGhostTmp.Clear();
+				BuildStrokeCommands(scr, GhostColor(st.m_iColor, false), WidthPxForZoom(st.m_iWidthIdx, ppm), m_aGhostTmp);
+				foreach (CanvasWidgetCommand gc : m_aGhostTmp)
+					m_aPreviewCmds.Insert(gc);
+			}
+		}
+	}
+
+	//! Ghost colour: the stroke's own hue at a FIXED alpha.
+	//!
+	//! Scaling the author's alpha was the mistake — a fill drawn at 25% opacity came out at 8% and was
+	//! simply not there, and any stroke short of full opacity faded with it. What the ghost has to say
+	//! is "not yet", and that is the same statement whatever the stroke's own transparency happens to
+	//! be. Fills sit lower than strokes because they cover ground rather than trace it.
+	protected int GhostColor(int argb, bool fill)
+	{
+		int a = GHOST_ALPHA_STROKE;
+		if (fill)
+			a = GHOST_ALPHA_FILL;
+		return (a << 24) | (argb & 0x00FFFFFF);
+	}
+
+	//! The selection rectangle, drawn on the preview canvas like a Windows marquee: a translucent fill
+	//! under a solid outline.
+	protected void BuildSelectionRect()
+	{
+		m_aPreviewCmds.Clear();
+		if (!m_bSelActive && !m_bSelValid)
+			return;
+
+		int loX = Math.Min(m_iSelX0, m_iSelX1);
+		int hiX = Math.Max(m_iSelX0, m_iSelX1);
+		int loZ = Math.Min(m_iSelZ0, m_iSelZ1);
+		int hiZ = Math.Max(m_iSelZ0, m_iSelZ1);
+
+		int c0x, c0y, c1x, c1y;
+		WorldToCanvas(loX, loZ, c0x, c0y);
+		WorldToCanvas(hiX, hiZ, c1x, c1y);
+
+		array<float> quad = {};
+		quad.Insert(c0x); quad.Insert(c0y);
+		quad.Insert(c1x); quad.Insert(c0y);
+		quad.Insert(c1x); quad.Insert(c1y);
+		quad.Insert(c0x); quad.Insert(c1y);
+
+		TriMeshDrawCommand fill = new TriMeshDrawCommand();
+		fill.m_iColor = 0x2233AAFF;
+		array<float> fv = {};
+		fv.Copy(quad);
+		fill.m_Vertices = fv;
+		array<int> tri = {0, 1, 2, 0, 2, 3};
+		fill.m_Indices = tri;
+		m_aPreviewCmds.Insert(fill);
+
+		array<float> loop = {};
+		loop.Copy(quad);
+		loop.Insert(c0x); loop.Insert(c0y);	// close the outline
+
+		LineDrawCommand edge = new LineDrawCommand();
+		edge.m_iColor = 0xFF66CCFF;
+		edge.m_fWidth = 2;
+		edge.m_Vertices = loop;
+		m_aPreviewCmds.Insert(edge);
+	}
+
+	//! Every OWN stroke the rectangle touches, whole. "Touches" is taken literally: a stroke that only
+	//! clips a corner comes along in full, as asked.
+	void CollectSelected(out array<SM_MapDrawingData> outStrokes)
+	{
+		if (!outStrokes)
+			outStrokes = {};
+		outStrokes.Clear();
+		if (!m_bSelValid)
+			return;
+
+		int loX = Math.Min(m_iSelX0, m_iSelX1);
+		int hiX = Math.Max(m_iSelX0, m_iSelX1);
+		int loZ = Math.Min(m_iSelZ0, m_iSelZ1);
+		int hiZ = Math.Max(m_iSelZ0, m_iSelZ1);
+
+		SCR_PlayerController pc = SCR_PlayerController.Cast(GetGame().GetPlayerController());
+		int myId = -1;
+		if (pc)
+			myId = pc.GetPlayerId();
+
+		array<SM_MapDrawingData> all = {};
+		SM_MapDrawingStore.GetInstance().GetAll(all);
+
+		foreach (SM_MapDrawingData d : all)
+		{
+			if (!d || d.GetPointCount() < 2)
+				continue;
+
+			// A Local drawing's owner is set on this machine, but leaning on that alone has bitten us
+			// before — the id says it is ours by construction, so ask that too.
+			if (d.m_iOwnerId != myId && !SM_MapDrawingStore.IsLocalId(d.m_iId))
+				continue;
+
+			if (StrokeTouchesRect(d, loX, hiX, loZ, hiZ))
+				outStrokes.Insert(d);
+		}
+	}
+
+	//! AABB is only a prefilter: a long diagonal has a box that overlaps the rectangle while the line
+	//! itself passes nowhere near it. So test the segments too.
+	protected bool StrokeTouchesRect(notnull SM_MapDrawingData d, int loX, int hiX, int loZ, int hiZ)
+	{
+		int bx0, bx1, bz0, bz1;
+		if (d.GetAABB(bx0, bx1, bz0, bz1)
+			&& (bx1 < loX || bx0 > hiX || bz1 < loZ || bz0 > hiZ))
+			return false;	// nowhere near it — skip the segment walk
+
+		int n = d.GetPointCount();
+		int px, pz;
+		d.GetPoint(0, px, pz);
+		if (px >= loX && px <= hiX && pz >= loZ && pz <= hiZ)
+			return true;
+
+		for (int i = 1; i < n; i++)
+		{
+			int qx, qz;
+			d.GetPoint(i, qx, qz);
+			if (qx >= loX && qx <= hiX && qz >= loZ && qz <= hiZ)
+				return true;
+			if (SM_PolylineUtil.SegmentIntersectsRect(px, pz, qx, qz, loX, loZ, hiX, hiZ))
+				return true;
+			px = qx;
+			pz = qz;
+		}
+		return false;
+	}
+
+	bool HasSelection()
+	{
+		return m_bSelValid;
+	}
+
+	void ClearSelection()
+	{
+		m_bSelActive = false;
+		m_bSelValid  = false;
+	}
+
 	void SetColor(int argb)   { s_iColor = argb; }
 	int  GetColor()           { return s_iColor; }
 	void SetWidthIdx(int i)   { s_iWidthIdx = ClampWidthIdx(i); }
@@ -425,9 +716,26 @@ class SM_DrawCanvas
 
 		// Прев'ю штриха в процесі — на окремому легкому полотні, перебудова щокадру під час малювання.
 		// An open line chain keeps previewing with LMB up: placed vertices plus the rubber band.
-		if (m_bCapturing || m_bLineChain)
+		// The template ghost and the selection box ride the same canvas: live, per-frame, and never
+		// mixed into the committed strokes.
+		if (m_iTool == TOOL_TEMPLATE)
+			TemplateTick();		// at most one stroke goes out, paced under the server's window
+
+		if (m_iTool == TOOL_SELECT)
 		{
-			ProjectPreview();
+			BuildSelectionRect();
+			PushPreview(cw, ch);
+		}
+		else if (m_bCapturing || m_bLineChain)
+		{
+			ProjectPreview();	// a stroke being drawn owns the preview canvas for as long as it lasts
+			PushPreview(cw, ch);
+		}
+		else if (TemplateGhostWanted())
+		{
+			// The ghost stays up even when another tool is in hand. An unfinished template vanishing
+			// off the map the moment you pick up the pencil is how you lose track of it entirely.
+			BuildTemplateGhost();
 			PushPreview(cw, ch);
 		}
 		else if (!m_aPreviewCmds.IsEmpty())
@@ -503,6 +811,19 @@ class SM_DrawCanvas
 			HandleFillClick(wx, wz);	// заливка — одиночний клік, без перетягування
 			return;
 		}
+		if (m_iTool == TOOL_TEMPLATE)
+		{
+			TemplatePressDown(wx, wz);
+			return;
+		}
+		if (m_iTool == TOOL_SELECT)
+		{
+			m_bSelActive = true;
+			m_bSelValid  = false;	// a fresh drag replaces whatever was framed before
+			m_iSelX0 = wx; m_iSelZ0 = wz;
+			m_iSelX1 = wx; m_iSelZ1 = wz;
+			return;
+		}
 		m_iMaxCapturePts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
 
 		if (HasLineChain())
@@ -575,6 +896,17 @@ class SM_DrawCanvas
 		}
 		if (m_iTool == 2)
 			return;	// заливка не тягнеться
+		if (m_iTool == TOOL_TEMPLATE)
+			return;	// the anchor is fixed; holding is what draws, and Tick does that
+		if (m_iTool == TOOL_SELECT)
+		{
+			if (m_bSelActive)
+			{
+				m_iSelX1 = wx;
+				m_iSelZ1 = wz;
+			}
+			return;
+		}
 		if (!m_bCapturing)
 			return;
 		// Straight-line mode: fixed vertices plus one moving point (the rubber band).
@@ -612,6 +944,20 @@ class SM_DrawCanvas
 		}
 		if (m_iTool == 2)
 			return;
+		if (m_iTool == TOOL_TEMPLATE)
+		{
+			m_bTplHeld = false;	// auto-drawing pauses; the instance survives
+			return;
+		}
+		if (m_iTool == TOOL_SELECT)
+		{
+			if (m_bSelActive)
+			{
+				m_bSelActive = false;
+				m_bSelValid  = (Math.AbsInt(m_iSelX1 - m_iSelX0) > 1 && Math.AbsInt(m_iSelZ1 - m_iSelZ0) > 1);
+			}
+			return;
+		}
 		if (!m_bCapturing)
 			return;
 		m_bCapturing = false;

@@ -239,6 +239,17 @@ modded class SCR_PlayerController
 	// Локальний показ повідомлення про відмову (кличе і RPC-обробник, і прямий шлях на хості).
 	void SM_ShowPlaceDenied(SM_EPlaceDenyReason reason, int limit)
 	{
+		// A template that hits a DRAWING limit stops there. It is NOT abandoned: the anchor and the ghost
+		// stay, so the player waits the window out and holds the button again. Marker refusals are none
+		// of its business — hitting the marker cap must not halt a template that is drawing fine.
+		if (reason == SM_EPlaceDenyReason.DRAW_PER_MINUTE_LIMIT
+			|| reason == SM_EPlaceDenyReason.DRAW_PER_PLAYER_LIMIT
+			|| reason == SM_EPlaceDenyReason.DRAW_TOTAL_LIMIT
+			|| reason == SM_EPlaceDenyReason.DRAW_CHANNEL_DISABLED)
+		{
+			SM_TemplateSession.GetInstance().OnDenied();
+		}
+
 		string msg;
 		switch (reason)
 		{
@@ -378,6 +389,7 @@ modded class SCR_PlayerController
 		// Спершу шлемо дозволені канали (щоб діалог одразу блокував заборонені кнопки), тоді мітки.
 		SM_MarkerConfig cfg = SM_MarkerConfig.GetInstance();
 		SM_SendConfig(cfg.m_bAllowLocal, cfg.m_bAllowGroup, cfg.m_bAllowSide, cfg.m_bAllowGlobal, cfg.m_bVanillaFactionNames, cfg.m_bAllowPointer, cfg.m_bAllowCopyLast, cfg.m_iDrawBatchIntervalMs);
+		SM_SendDrawLimits(cfg.m_iDrawPerMinuteLimit, cfg.m_iDrawMaxPerPlayer, cfg.m_iDrawMaxTotal, cfg.m_iDrawMaxPointsPerStroke, cfg.m_bAllowTemplates);
 
 		// This game's codes (separate for markers and drawings) — the client uses them to
 		// activate its own Local markers/drawings for this server.
@@ -414,6 +426,22 @@ modded class SCR_PlayerController
 		if (Replication.IsServer())
 			return;
 		SM_MarkerConfig.GetInstance().SetClientFlags(allowLocal, allowGroup, allowSide, allowGlobal, vanillaFactionNames, allowPointer, allowCopyLast, drawBatchMs);
+	}
+
+	// Server -> client: the drawing limits. A separate packet rather than four more parameters on
+	// RpcDo_Config, which is already at eight. The client needs them to pace template auto-drawing
+	// and to tell the player, before he starts, that a template cannot fit on this server.
+	void SM_SendDrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates)
+	{
+		Rpc(RpcDo_DrawLimits, perMinute, maxPerPlayer, maxTotal, maxPointsPerStroke, allowTemplates);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_DrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates)
+	{
+		if (Replication.IsServer())
+			return;
+		SM_MarkerConfig.GetInstance().SetClientDrawLimits(perMinute, maxPerPlayer, maxTotal, maxPointsPerStroke, allowTemplates);
 	}
 
 	// Server -> client: this game's codes (separate for markers and drawings). The client keys

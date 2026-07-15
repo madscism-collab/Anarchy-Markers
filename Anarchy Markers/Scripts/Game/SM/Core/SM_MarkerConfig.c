@@ -75,6 +75,10 @@ class SM_MarkerConfig
 	//     The Local channel is always instant. 0 = off (send immediately, the old behavior).
 	//     Replicated to clients.
 	int  m_iDrawBatchIntervalMs = 3000;
+	// 27. Дозволити темплейти (збереження/розміщення заготовок малюнків). Фіча суто клієнтська —
+	//     штрихи йдуть звичайним шляхом під усі ліміти вище — тож вимикач лише прибирає UI у
+	//     гравців цього сервера. Реплікується клієнтам.
+	bool m_bAllowTemplates = true;
 
 	protected const string DIR      = "$profile:SavingMarkers";
 	protected const string FILE     = "$profile:SavingMarkers/SM_Config.cfg";
@@ -188,6 +192,7 @@ class SM_MarkerConfig
 		else if (key == "drawRdpEpsilonMeters")   m_iDrawRdpEpsilon       = val.ToInt();
 		else if (key == "drawEraseOthersAllowed") m_bDrawEraseOthers      = ParseBool(val);
 		else if (key == "drawBatchIntervalMs")    m_iDrawBatchIntervalMs  = val.ToInt();
+		else if (key == "allowTemplates")         m_bAllowTemplates       = ParseBool(val);
 	}
 
 	protected bool ParseBool(string v)
@@ -313,6 +318,9 @@ class SM_MarkerConfig
 		h.WriteLine("# strokes instantly (optimistic); others see them after the packet is sent. Local channel is always");
 		h.WriteLine("# instant. 0 = off (send immediately, as before). Replicated to clients.");
 		h.WriteLine("drawBatchIntervalMs=" + m_iDrawBatchIntervalMs.ToString());
+		h.WriteLine("# Allow drawing templates (saving/stamping reusable drawings). The strokes a template");
+		h.WriteLine("# draws are ordinary strokes under all the limits above; false just removes the feature's UI.");
+		h.WriteLine("allowTemplates=" + B2S(m_bAllowTemplates));
 
 		h.Close();
 	}
@@ -342,5 +350,18 @@ class SM_MarkerConfig
 		m_bAllowPointer = allowPointer;
 		m_bAllowCopyLast = allowCopyLast;
 		m_iDrawBatchIntervalMs = drawBatchMs;
+	}
+
+	// Клієнт: серверні ліміти малювання. Раніше клієнт їх не знав — сервер просто відхиляв зайве.
+	// Темплейтам вони потрібні ЗАЗДАЛЕГІДЬ: авто-малювання тримає темп під ліміт за хвилину, а
+	// нездійсненний темплейт (штрихів більше, ніж сервер узагалі дозволить) треба показати гравцю
+	// ДО того, як він півгодини протримає ЛКМ.
+	void SetClientDrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates)
+	{
+		m_iDrawPerMinuteLimit     = perMinute;
+		m_iDrawMaxPerPlayer       = maxPerPlayer;
+		m_iDrawMaxTotal           = maxTotal;
+		m_iDrawMaxPointsPerStroke = maxPointsPerStroke;
+		m_bAllowTemplates         = allowTemplates;
 	}
 }

@@ -29,7 +29,9 @@ class AM_MarkerAPI
 	//!     own toolbar button owns our panel) and SetHintNudgeForMode (move our hints off its chrome).
 	//! 7 = AM_VanillaBridge.SetIncludeLocal actually works. Local markers were silently dropped by the
 	//!     eligibility check regardless of the flag, so no consumer could ever see one.
-	static const int API_VERSION = 7;
+	//! 8 = drawing templates: read/save/delete the player's template files, AreTemplatesAllowed
+	//!     (the server's allowTemplates switch, replicated).
+	static const int API_VERSION = 8;
 
 	//! true on the authoritative side: dedicated server, listen-host or the SP editor.
 	static bool IsServer()
@@ -406,6 +408,58 @@ class AM_MarkerAPI
 			return false;
 		SM_DrawingNet.BroadcastRemove(id);
 		return true;
+	}
+
+	// --- Drawing templates ---
+	//
+	// A template is a set of strokes the player saved to stamp down again anywhere; it lives as a
+	// plain JSON file in $profile:SavingMarkers/Templates/, one file per template. Everything here
+	// is CLIENT-SIDE: a dedicated server has no templates, and when a template is drawn its strokes
+	// go through the normal drawing path under all the usual server limits. The in-game placement
+	// flow (ghost, auto-draw) belongs to our map UI and is not exposed.
+
+	//! false when this server switched templates off (allowTemplates in SM_Config.cfg, replicated).
+	//! A host screen with its own template UI should hide it when this says no.
+	static bool AreTemplatesAllowed()
+	{
+		return SM_MarkerConfig.GetInstance().m_bAllowTemplates;
+	}
+
+	static int GetTemplateCount()
+	{
+		return SM_TemplateStore.GetInstance().Count();
+	}
+
+	//! Every template on disk, sorted by name. Live objects — treat them as read-only.
+	static void GetAllTemplates(out array<SM_DrawTemplate> outTemplates)
+	{
+		SM_TemplateStore.GetInstance().GetAll(outTemplates);
+	}
+
+	//! id = the file name without extension. null if there is no such template.
+	static SM_DrawTemplate FindTemplate(string id)
+	{
+		return SM_TemplateStore.GetInstance().Find(id);
+	}
+
+	//! Re-scan the folder. Call after dropping files in from outside; cheap.
+	static void ReloadTemplates()
+	{
+		SM_TemplateStore.GetInstance().Reload();
+	}
+
+	//! Save a set of drawings as a new template file. Points are taken in world metres and stored
+	//! relative to the centre of their combined bounding box. Returns the new template's id, or ""
+	//! when there was nothing usable to save.
+	static string SaveTemplate(string name, notnull array<SM_MapDrawingData> strokes)
+	{
+		return SM_TemplateStore.GetInstance().SaveFromStrokes(name, strokes);
+	}
+
+	//! Deletes the file too. Built-in templates refuse.
+	static bool DeleteTemplate(string id)
+	{
+		return SM_TemplateStore.GetInstance().Delete(id);
 	}
 
 	//! widthIdx 0..4 picks the brush preset (2/5/10/20/40 m). A fill wants a closed outline of at

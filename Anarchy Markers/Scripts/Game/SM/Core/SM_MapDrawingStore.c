@@ -82,6 +82,7 @@ class SM_MapDrawingStore
 		SM_MapDrawingData d = new SM_MapDrawingData();
 		if (!d.UnpackMeta(meta))
 			return null;
+		d.ServerSanitise();	// meta came off the wire — no field in it is trustworthy
 		d.SetPoints(points);
 		d.m_iOwnerId   = ownerId;
 		d.m_iChannel   = channel;	// канал ставить сервер (фракція/група), не клієнт
