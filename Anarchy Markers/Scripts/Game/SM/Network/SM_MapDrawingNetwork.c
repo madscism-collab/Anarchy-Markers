@@ -447,7 +447,11 @@ class SM_DrawingNet
 					pts.Insert(blob[pos]);
 					pos++;
 				}
-				addRealIds.Insert(ServerHandleAdd(requesterId, meta, pts, null));
+				// pc (not null) so a rate-limited add tells the player WHY his strokes vanished, and a
+				// template learns it hit the window. The popup is throttled client-side against a batch
+				// carrying many rejects. Remove/erase below stay silent: their only denial is GM-lock,
+				// which would spam on a mass-erase and is not what any rate cap is about.
+				addRealIds.Insert(ServerHandleAdd(requesterId, meta, pts, pc));
 			}
 			else if (type == SM_DrawOutbox.OP_REMOVE)
 			{

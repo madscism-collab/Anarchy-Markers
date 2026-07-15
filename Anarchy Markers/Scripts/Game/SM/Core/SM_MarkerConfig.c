@@ -59,8 +59,11 @@ class SM_MarkerConfig
 	int  m_iDrawMaxPerPlayer = 0;
 	// 22. Загальний ліміт штрихів на сервері (0 = без обмеження)
 	int  m_iDrawMaxTotal = 0;
-	// 23. Ліміт штрихів на гравця за хвилину (єдине дієве обмеження з коробки; 0 = вимкнути)
-	int  m_iDrawPerMinuteLimit = 30;
+	// 23. Ліміт штрихів на гравця за хвилину (єдине дієве обмеження з коробки; 0 = вимкнути).
+	//     Це вікно ділять і ручне малювання, і авто-малювання темплейтів: темплейт випускає штрихи
+	//     БЕЗ пауз, поки їх уміщається в це вікно, тож темплейт на стільки ж штрихів малюється за
+	//     секунди. 60 = типова заготовка йде швидко, і водночас це стеля проти спаму.
+	int  m_iDrawPerMinuteLimit = 60;
 	// 24. RDP-епсилон у метрах (спрощення штриха для економії трафіку). 0 = ВИМКНЕНО (дефолт):
 	//     навіть 1 м спрощення робить видимі зломи на товстих лініях (сегменти без стиків),
 	//     а капчур і так обмежений кроком 3 м + стелею точок — форма важливіша за ~1.5 КБ.
@@ -306,6 +309,8 @@ class SM_MarkerConfig
 		h.WriteLine("# Max strokes total on the server (0 = unlimited; default off).");
 		h.WriteLine("drawMaxTotal=" + m_iDrawMaxTotal.ToString());
 		h.WriteLine("# Max strokes per player per minute — the only limit active by default (0 = unlimited).");
+		h.WriteLine("# Templates share this window: a template draws its strokes with no delay as long as they");
+		h.WriteLine("# fit in it, so one of <= this many strokes stamps down in seconds. Raise it for bigger templates.");
 		h.WriteLine("drawPerPlayerPerMinute=" + m_iDrawPerMinuteLimit.ToString());
 		h.WriteLine("# RDP stroke simplification in meters (traffic saving). 0 = OFF (recommended):");
 		h.WriteLine("# even 1m creates visible kinks on thick lines; capture is already capped anyway.");

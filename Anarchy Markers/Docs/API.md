@@ -37,12 +37,15 @@ enum AM_EMapFeature
     POINTER       = 4,   // "point a finger" (hold LMB/A on an empty spot; nearby teammates see it)
     MARKER_TOOLS  = 8,   // marker dialog, place/move/edit/delete, Del/double-click/gamepad actions
     DRAWING_TOOLS = 16,  // the drawing panel (pencil/eraser/fill) and its input
+    TEMPLATES     = 32,  // the Templates tab in the drawing panel (API v8)
 }
 
 AM_MapFeatures.NONE  // 0
 AM_MapFeatures.VIEW  // MARKERS | DRAWINGS
-AM_MapFeatures.FULL  // everything
+AM_MapFeatures.FULL  // everything, incl. TEMPLATES
 ```
+
+`TEMPLATES` is deliberately **not** part of `DRAWING_TOOLS`: saving and stamping a template drives the fullscreen map's own input, so it does not work on a tablet-style screen. A host that wants the tab anyway opts in explicitly — `AM_MapFeatures.VIEW | AM_EMapFeature.DRAWING_TOOLS | AM_EMapFeature.TEMPLATES`. The player's fullscreen map and the GM editor (`FULL`) get it by default.
 
 ### Choosing features for your map screen
 

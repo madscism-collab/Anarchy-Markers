@@ -236,19 +236,34 @@ modded class SCR_PlayerController
 			Rpc(RpcDo_PlaceDenied, reason, limit);
 	}
 
+	// The batch path can carry many rejected strokes in one packet — each would otherwise fire its own
+	// popup and sound. Throttle: one message per reason per few seconds.
+	protected static float s_fSMLastDenyMsgAt;
+	protected static int   s_iSMLastDenyReason = -1;
+	protected const float  SM_DENY_MSG_THROTTLE = 3.0;
+
 	// Локальний показ повідомлення про відмову (кличе і RPC-обробник, і прямий шлях на хості).
 	void SM_ShowPlaceDenied(SM_EPlaceDenyReason reason, int limit)
 	{
-		// A template that hits a DRAWING limit stops there. It is NOT abandoned: the anchor and the ghost
-		// stay, so the player waits the window out and holds the button again. Marker refusals are none
-		// of its business — hitting the marker cap must not halt a template that is drawing fine.
-		if (reason == SM_EPlaceDenyReason.DRAW_PER_MINUTE_LIMIT
-			|| reason == SM_EPlaceDenyReason.DRAW_PER_PLAYER_LIMIT
+		// A template that hits a per-minute limit is just going too fast: it WAITS the window out and
+		// keeps drawing on its own (OnRateLimited), no re-press needed. The other drawing caps won't
+		// clear by waiting (the player must erase, or the server is full, or the channel is off), so
+		// those stop it (OnDenied). Marker refusals are none of a template's business.
+		if (reason == SM_EPlaceDenyReason.DRAW_PER_MINUTE_LIMIT)
+			SM_TemplateSession.GetInstance().OnRateLimited();
+		else if (reason == SM_EPlaceDenyReason.DRAW_PER_PLAYER_LIMIT
 			|| reason == SM_EPlaceDenyReason.DRAW_TOTAL_LIMIT
 			|| reason == SM_EPlaceDenyReason.DRAW_CHANNEL_DISABLED)
 		{
 			SM_TemplateSession.GetInstance().OnDenied();
 		}
+
+		// Throttle the popup, but the template state above must update every time regardless.
+		float nowDeny = System.GetTickCount() / 1000.0;
+		if (reason == s_iSMLastDenyReason && nowDeny - s_fSMLastDenyMsgAt < SM_DENY_MSG_THROTTLE)
+			return;
+		s_iSMLastDenyReason = reason;
+		s_fSMLastDenyMsgAt  = nowDeny;
 
 		string msg;
 		switch (reason)
@@ -942,7 +957,7 @@ class SM_MarkerNet
 		ChimeraWorld world = GetGame().GetWorld();
 		if (!world)
 			return;
-		TimeAndWeatherManagerEntity tw = TimeAndWeatherManagerEntity.Cast(world.GetTimeAndWeatherManager());
+		TimeAndWeatherManagerEntity tw = world.GetTimeAndWeatherManager();
 		if (!tw)
 			return;
 		int y, mo, d;

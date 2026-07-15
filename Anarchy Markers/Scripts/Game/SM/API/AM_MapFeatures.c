@@ -27,6 +27,9 @@ enum AM_EMapFeature
 	POINTER       = 4,	// point at the map: hold LMB/A on empty ground, nearby allies see it
 	MARKER_TOOLS  = 8,	// place/move/edit/delete markers, the edit dialog, Del, gamepad actions
 	DRAWING_TOOLS = 16,	// the drawing panel and its input
+	TEMPLATES     = 32,	// the Templates tab in the drawing panel. NOT part of DRAWING_TOOLS: its
+						// placement flow needs the fullscreen map's input, so a tablet that asks for
+						// DRAWING_TOOLS does not get it. Opt in explicitly (VIEW|DRAWING_TOOLS|TEMPLATES).
 }
 
 // Render budget for always-on screens (a tablet strapped to the arm, a base terminal). Without one
@@ -42,7 +45,7 @@ class AM_MapFeatures
 {
 	static const int NONE = 0;
 	static const int VIEW = 3;	// MARKERS | DRAWINGS
-	static const int FULL = 31;
+	static const int FULL = 63;	// everything, incl. TEMPLATES — the player's map and the GM editor
 
 	protected static ref map<int, int> s_mModeOverrides = new map<int, int>();
 	protected static int s_iNextOpenMask = -1;

@@ -150,6 +150,7 @@ class SM_DrawPanel
 	protected EditBoxWidget m_wTplNameEdit;		// the input widget inside the WLib_EditBox prefab
 	protected SCR_EditBoxComponent m_TplNameComp;	// present if the field carries the SCR wrapper (as the marker dialog does)
 	protected bool m_bTplNaming;				// modal: entering the template name, all map input suspended
+	protected bool m_bTemplatesFeature = true;	// this map screen asked for the Templates tab (AM_EMapFeature.TEMPLATES)
 	protected ref SM_TemplateDeleteDialog m_TplDeleteDialog;	// modal: "really delete?" is up
 	protected ref array<Widget> m_aTplGlyphs = {};	// pad glyphs, one to the LEFT of each template button
 	protected const int TPL_NAME_MAX = 26;
@@ -223,12 +224,13 @@ class SM_DrawPanel
 	//! forcedVis >= 0: the host screen owns the audience (an ATAK-style tablet scopes everything to the
 	//! player's faction), so the channel picker comes off the panel entirely — leaving a Group/Everyone
 	//! switch there would lie to the player about who ends up seeing the drawing.
-	void Build(notnull SM_DrawCanvas canvas, notnull Widget mapFrame, bool editorMap = false, int forcedVis = -1)
+	void Build(notnull SM_DrawCanvas canvas, notnull Widget mapFrame, bool editorMap = false, int forcedVis = -1, bool templatesFeature = true)
 	{
 		m_Canvas = canvas;
 		m_bEditorMap = editorMap;
 		m_wMapFrame = mapFrame;
 		m_iForcedVis = forcedVis;
+		m_bTemplatesFeature = templatesFeature;
 		WorkspaceWidget ws = GetGame().GetWorkspace();
 
 		m_wRoot = ws.CreateWidgets(PANEL_LAYOUT, mapFrame);
@@ -1225,12 +1227,18 @@ class SM_DrawPanel
 
 		BuildTemplateGlyphs();
 
-		// The server can switch the whole feature off; TickTemplatesAllowed brings the opener back
-		// if the flag flips after a late config sync.
-		if (!SM_MarkerConfig.GetInstance().m_bAllowTemplates)
+		// Two gates: this map screen must ASK for the tab (feature), and the server must ALLOW it
+		// (config, which can arrive after a late sync — TickTemplatesAllowed re-checks).
+		if (!TemplatesAllowed())
 			m_wTemplatesOpener.SetVisible(false);
 
 		RefreshTemplates();
+	}
+
+	//! May the Templates tab exist here? Feature (this screen opted in) AND server config.
+	protected bool TemplatesAllowed()
+	{
+		return m_bTemplatesFeature && SM_MarkerConfig.GetInstance().m_bAllowTemplates;
 	}
 
 	//! One pad glyph per template button, floating just LEFT of it: the button carries no room of its
@@ -1293,7 +1301,12 @@ class SM_DrawPanel
 
 		InputManager im = GetGame().GetInputManager();
 		bool pad = im && !im.IsUsingMouseAndKeyboard();
-		bool open = IsTemplatesOpen() && pad && !m_TplDeleteDialog;
+		// The glyphs are separate widgets under the map frame, so the panel's opacity does not carry to
+		// them: on the idle pad the panel is transparent but the tab may still be technically "open",
+		// which left an Add(Y) glyph floating over the map after a save. Gate on the panel being
+		// actually shown (opacity from last frame — this runs before the opacity is set this frame).
+		bool panelShown = m_wRoot && m_wRoot.GetOpacity() > 0.1;
+		bool open = IsTemplatesOpen() && pad && !m_TplDeleteDialog && panelShown;
 
 		WorkspaceWidget ws = GetGame().GetWorkspace();
 		float fx, fy;
@@ -1322,7 +1335,7 @@ class SM_DrawPanel
 	{
 		if (!m_wTemplatesOpener)
 			return;
-		bool allowed = SM_MarkerConfig.GetInstance().m_bAllowTemplates;
+		bool allowed = TemplatesAllowed();
 		if (m_wTemplatesOpener.IsVisible() == allowed)
 			return;
 		m_wTemplatesOpener.SetVisible(allowed);
@@ -1390,6 +1403,27 @@ class SM_DrawPanel
 	//!   framing a new template      Save, Cancel      (Save is greyed out until the box holds something)
 	void RefreshTemplateButtons()
 	{
+		// These four live OUTSIDE TemplatesDropdown's own rectangle — ButtonsLayout hangs off it on a
+		// negative padding (see the note in RefreshTemplates), which is what lets them stay clickable
+		// through a click that also has to reach the map underneath. But nothing here ever gated them
+		// on the dropdown being OPEN: "Add New Template" is visible at rest by the flow-state checks
+		// below regardless. Closed, they were still sitting there, invisible and hit-testable, wherever
+		// the toolbar happened to place them — harmless on the player's narrower row, but landing right
+		// on top of Pencil/Eraser/Color for the GM, whose row is wider (it also carries SideCombo) and
+		// centered, so the whole row — and this offset with it — shifts left. Every click on those
+		// tools was being eaten by an invisible "Add" floating over them. The tab genuinely stays open
+		// for the whole armed/anchored/confirmed flow (per the comment above), so gating on it here
+		// costs nothing that flow needs.
+		if (!IsTemplatesOpen())
+		{
+			if (m_wTplAdd)    m_wTplAdd.SetVisible(false);
+			if (m_wTplRemove) m_wTplRemove.SetVisible(false);
+			if (m_wTplApply)  m_wTplApply.SetVisible(false);
+			if (m_wTplCancel) m_wTplCancel.SetVisible(false);
+			if (m_wTplNameOverlay) m_wTplNameOverlay.SetVisible(false);
+			return;
+		}
+
 		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
 
 		// "picked" is a lit SLOT, not the store's selection: the store only learns about a template
@@ -1793,6 +1827,8 @@ class SM_DrawPanel
 		int ti = m_aTopRow.Find(f);
 		if (ti != -1 && dx != 0)
 		{
+			SortTopRowByX();	// the row's build order is fixed in code; the layout order is the user's
+			ti = m_aTopRow.Find(f);
 			int n = m_aTopRow.Count();
 			int i = ti;
 			for (int guard = 0; guard < n; guard++)
@@ -1805,6 +1841,33 @@ class SM_DrawPanel
 					return;
 				}
 			}
+		}
+	}
+
+	//! Order m_aTopRow by where the buttons actually SIT on screen, left to right. The row is filled in
+	//! a fixed code order, but the layout is the user's to rearrange (Templates was moved left of Side),
+	//! and left/right navigation has to follow the eye, not the build order. Insertion sort — a handful
+	//! of widgets, and the order is nearly always already correct so it costs almost nothing.
+	protected void SortTopRowByX()
+	{
+		for (int i = 1; i < m_aTopRow.Count(); i++)
+		{
+			Widget cur = m_aTopRow[i];
+			if (!cur)
+				continue;
+			float cx, cy;
+			cur.GetScreenPos(cx, cy);
+			int j = i - 1;
+			while (j >= 0 && m_aTopRow[j])
+			{
+				float jx, jy;
+				m_aTopRow[j].GetScreenPos(jx, jy);
+				if (jx <= cx)
+					break;
+				m_aTopRow[j + 1] = m_aTopRow[j];
+				j--;
+			}
+			m_aTopRow[j + 1] = cur;
 		}
 	}
 

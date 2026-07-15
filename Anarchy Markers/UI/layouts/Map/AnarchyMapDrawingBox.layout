@@ -4268,317 +4268,6 @@ FrameWidgetClass {
         }
        }
       }
-      FrameWidgetClass "{69C29B46692677AA}" {
-       Name "VisibilityCombo"
-       Slot LayoutSlot "{69C29B439A84DAA9}" {
-        VerticalAlign 1
-        Padding 5 0 0 0
-       }
-       Color 1 1 1 0
-       {
-        FrameWidgetClass "{69C29B4669267795}" {
-         Name "VisibilityDropdown"
-         Slot FrameWidgetSlot "{69C29B7E4A8E2BD8}" {
-          Anchor 0 1 1 1
-          PositionX -7.5
-          OffsetLeft 0
-          PositionY 15
-          OffsetTop 15
-          SizeX 0
-          OffsetRight 0
-          SizeY 0
-          OffsetBottom -15
-         }
-         "Is Visible" 0
-         {
-          SmartPanelWidgetClass "{69C973ED53391BC5}" {
-           Name "Background1"
-           Slot FrameWidgetSlot "{69C29B729EF76341}" {
-            Anchor 0.5 0 0.5 0
-            PositionX 0.059
-            OffsetLeft 0.059
-            PositionY 15.935
-            OffsetTop 15.935
-            SizeX 138.842
-            OffsetRight -138.901
-            SizeY 210.501
-            OffsetBottom -226.436
-            Alignment 0.5 0.1
-           }
-           Opacity 0.95
-           Color 0.0116 0.016 0.0252 1
-           style rounded_12px
-          }
-          VerticalLayoutWidgetClass "{69C29B4669267794}" {
-           Name "VerticalLayout0"
-           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
-            OffsetLeft 0
-            OffsetTop 0
-            SizeX 125
-            OffsetRight -125
-            OffsetBottom -30
-           }
-           {
-            ButtonWidgetClass "{69C29B466925C28E}" {
-             Name "VisibilityLocal"
-             Slot LayoutSlot "{69C29B439A84DAF7}" {
-             }
-             Color 0.3216 0.3216 0.3216 1
-             {
-              FrameWidgetClass "{69C29B466925C28D}" {
-               Name "ButtonContentFrame"
-               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
-                HorizontalAlign 3
-                VerticalAlign 3
-               }
-               {
-                HorizontalLayoutWidgetClass "{69C29B466925C28C}" {
-                 Name "DrawSerttingsLayout0"
-                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
-                  Anchor 0 0 0 0
-                  PositionX 0
-                  OffsetLeft 0
-                  PositionY 0
-                  OffsetTop 0
-                  SizeX 125
-                  OffsetRight -125
-                  SizeY 50
-                  OffsetBottom -50
-                 }
-                 {
-                  TextWidgetClass "{69C29B4669251A89}" {
-                   Name "Text0"
-                   Slot LayoutSlot "{69C29B74C915ADC1}" {
-                    HorizontalAlign 1
-                    VerticalAlign 1
-                    SizeMode Fill
-                   }
-                   Text "Local"
-                   "Font Size" 22
-                   "Min Font Size" 22
-                  }
-                 }
-                }
-               }
-              }
-             }
-            }
-            ButtonWidgetClass "{69C29B46692522C7}" {
-             Name "VisibilityGroup"
-             Slot LayoutSlot "{69C29B439A84DA29}" {
-             }
-             Color 0.0706 0.5608 0.1922 1
-             {
-              FrameWidgetClass "{69C29B46692522C6}" {
-               Name "ButtonContentFrame"
-               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
-                HorizontalAlign 3
-                VerticalAlign 3
-               }
-               {
-                HorizontalLayoutWidgetClass "{69C29B4669257F30}" {
-                 Name "DrawSerttingsLayout0"
-                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
-                  Anchor 0 0 0 0
-                  PositionX 0
-                  OffsetLeft 0
-                  PositionY 0
-                  OffsetTop 0
-                  SizeX 125
-                  OffsetRight -125
-                  SizeY 50
-                  OffsetBottom -50
-                 }
-                 {
-                  TextWidgetClass "{69C29B466924C230}" {
-                   Name "Text0"
-                   Slot LayoutSlot "{69C29B74C915ADC1}" {
-                    HorizontalAlign 1
-                    VerticalAlign 1
-                    SizeMode Fill
-                   }
-                   Text "Group"
-                   "Font Size" 22
-                   "Min Font Size" 22
-                  }
-                 }
-                }
-               }
-              }
-             }
-            }
-            ButtonWidgetClass "{69C29B466924C231}" {
-             Name "VisibilitySide"
-             Slot LayoutSlot "{69C29B4200C9E7E1}" {
-             }
-             Color 0 0.1255 0.502 1
-             {
-              FrameWidgetClass "{69C29B4669240E75}" {
-               Name "ButtonContentFrame"
-               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
-                HorizontalAlign 3
-                VerticalAlign 3
-               }
-               {
-                HorizontalLayoutWidgetClass "{69C29B4669240E7A}" {
-                 Name "DrawSerttingsLayout0"
-                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
-                  Anchor 0 0 0 0
-                  PositionX 0
-                  OffsetLeft 0
-                  PositionY 0
-                  OffsetTop 0
-                  SizeX 125
-                  OffsetRight -125
-                  SizeY 50
-                  OffsetBottom -50
-                 }
-                 {
-                  TextWidgetClass "{69C29B466924383C}" {
-                   Name "Text0"
-                   Slot LayoutSlot "{69C29B74C915ADC1}" {
-                    HorizontalAlign 1
-                    VerticalAlign 1
-                    SizeMode Fill
-                   }
-                   Text "Side"
-                   "Font Size" 22
-                   "Min Font Size" 22
-                  }
-                 }
-                }
-               }
-              }
-             }
-            }
-            ButtonWidgetClass "{69C29B4669246322}" {
-             Name "VisibilityEveryone"
-             Slot LayoutSlot "{69C29B4202C925DF}" {
-             }
-             Color 0.502 0.063 0.063 1
-             {
-              FrameWidgetClass "{69C29B46692388EF}" {
-               Name "ButtonContentFrame"
-               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
-                HorizontalAlign 3
-                VerticalAlign 3
-               }
-               {
-                HorizontalLayoutWidgetClass "{69C29B46692388EC}" {
-                 Name "DrawSerttingsLayout0"
-                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
-                  Anchor 0 0 0 0
-                  PositionX 0
-                  OffsetLeft 0
-                  PositionY 0
-                  OffsetTop 0
-                  SizeX 125
-                  OffsetRight -125
-                  SizeY 50
-                  OffsetBottom -50
-                 }
-                 {
-                  TextWidgetClass "{69C29B466923F023}" {
-                   Name "Text0"
-                   Slot LayoutSlot "{69C29B74C915ADC1}" {
-                    HorizontalAlign 1
-                    VerticalAlign 1
-                    SizeMode Fill
-                   }
-                   Text "Everyone"
-                   "Font Size" 22
-                   "Min Font Size" 22
-                  }
-                 }
-                }
-               }
-              }
-             }
-            }
-           }
-          }
-         }
-        }
-        ButtonWidgetClass "{69C29B466922F56D}" {
-         Name "VisibilityButton"
-         Slot FrameWidgetSlot "{69C29B79B1CFE15C}" {
-          Anchor 0 0 0 0
-          PositionX 0
-          OffsetLeft 0
-          PositionY 0
-          OffsetTop 0
-          SizeX 125
-          OffsetRight -125
-          SizeY 30
-          OffsetBottom -30
-          SizeToContent 1
-         }
-         Color 0.0231 0.0231 0.0231 0
-         {
-          FrameWidgetClass "{69C29B466922F56E}" {
-           Name "ButtonContentFrame"
-           Slot ButtonWidgetSlot "{69C29B72D876510C}" {
-            HorizontalAlign 3
-           }
-           {
-            SmartPanelWidgetClass "{69C29B4669223B18}" {
-             Name "Background1"
-             Slot FrameWidgetSlot "{69C29B729EF76341}" {
-              PositionX 0
-              OffsetLeft 0
-              PositionY 0
-              OffsetTop 0
-              SizeX 125
-              OffsetRight -125
-              SizeY 40
-              OffsetBottom -40
-             }
-             Color 0.502 0.0627 0.0627 1
-             style rounded_12px
-            }
-            HorizontalLayoutWidgetClass "{69C29B4669223B19}" {
-             Name "Content"
-             Slot FrameWidgetSlot "{69C29B72D561AA69}" {
-              Anchor 0 0 0 0
-              PositionX 0
-              OffsetLeft 0
-              PositionY 0
-              OffsetTop 0
-              SizeX 125
-              OffsetRight -125
-              SizeY 40
-              OffsetBottom -40
-             }
-             {
-              TextWidgetClass "{69C29B46692242DF}" {
-               Name "Text0"
-               Slot LayoutSlot "{69C29B74C915ADC1}" {
-                HorizontalAlign 1
-                VerticalAlign 1
-                SizeMode Fill
-               }
-               Text "Everyone"
-               "Font Size" 22
-               "Min Font Size" 22
-              }
-              ImageWidgetClass "{69C29B466921B4F8}" {
-               Name "Arrow"
-               Slot LayoutSlot "{69C29B439A84D8BE}" {
-                VerticalAlign 1
-                SizeMode Auto
-               }
-               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
-               Image "sortArrowDown"
-               Size 22 22
-              }
-             }
-            }
-           }
-          }
-         }
-        }
-       }
-      }
       FrameWidgetClass "{69DCF4B22C28E701}" {
        Name "TemplatesCombo"
        Slot LayoutSlot "{69C29B439A84DAA9}" {
@@ -4600,6 +4289,7 @@ FrameWidgetClass {
           SizeY 0
           OffsetBottom -10
          }
+         "Is Visible" 0
          {
           OverlayWidgetClass "{69DCF4B61FE2AACA}" {
            Name "TmpDrpOverlay"
@@ -4794,7 +4484,7 @@ FrameWidgetClass {
                      Slot LayoutSlot "{69C29B70F5285B46}" {
                       HorizontalAlign 1
                       VerticalAlign 1
-                      Padding 5 0 5 0
+                      Padding 10 0 5 0
                      }
                      Texture "{CDDB411774059C6F}add.edds"
                      Size 24 24
@@ -4865,7 +4555,7 @@ FrameWidgetClass {
                      Slot LayoutSlot "{69C29B70F5285B46}" {
                       HorizontalAlign 1
                       VerticalAlign 1
-                      Padding 5 0 5 0
+                      Padding 10 0 5 0
                      }
                      Texture "{7D069354A267029D}remove.edds"
                      Size 24 24
@@ -4908,8 +4598,8 @@ FrameWidgetClass {
                     OffsetLeft 0
                     PositionY 0
                     OffsetTop 0
-                    SizeX 105
-                    OffsetRight -105
+                    SizeX 165
+                    OffsetRight -165
                     SizeY 40
                     OffsetBottom -40
                    }
@@ -4935,9 +4625,9 @@ FrameWidgetClass {
                      Slot LayoutSlot "{69C29B70F5285B46}" {
                       HorizontalAlign 1
                       VerticalAlign 1
-                      Padding 5 0 5 0
+                      Padding 10 0 5 0
                      }
-                     Texture "{2BEBE21E26545440}apply.edds"
+                     Texture "{09CAE8E87A35D69A}confirm.edds"
                      Size 24 24
                     }
                     TextWidgetClass "{69DD2982F4BA7D3B}" {
@@ -4978,8 +4668,8 @@ FrameWidgetClass {
                     OffsetLeft 0
                     PositionY 0
                     OffsetTop 0
-                    SizeX 105
-                    OffsetRight -105
+                    SizeX 165
+                    OffsetRight -165
                     SizeY 40
                     OffsetBottom -40
                    }
@@ -5005,10 +4695,10 @@ FrameWidgetClass {
                      Slot LayoutSlot "{69C29B70F5285B46}" {
                       HorizontalAlign 1
                       VerticalAlign 1
-                      Padding 5 0 5 0
+                      Padding 10 0 5 0
                      }
                      Texture "{B0C8DAAE25501B3A}cancel.edds"
-                     Size 24 24
+                     Size 22 22
                     }
                     TextWidgetClass "{69DD2982F4640FA4}" {
                      Name "Text0"
@@ -8710,6 +8400,317 @@ FrameWidgetClass {
                 SizeMode Fill
                }
                "Z Order" 1
+               Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
+               Image "sortArrowDown"
+               Size 22 22
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
+      }
+      FrameWidgetClass "{69C29B46692677AA}" {
+       Name "VisibilityCombo"
+       Slot LayoutSlot "{69C29B439A84DAA9}" {
+        VerticalAlign 1
+        Padding 5 0 0 0
+       }
+       Color 1 1 1 0
+       {
+        FrameWidgetClass "{69C29B4669267795}" {
+         Name "VisibilityDropdown"
+         Slot FrameWidgetSlot "{69C29B7E4A8E2BD8}" {
+          Anchor 0 1 1 1
+          PositionX -7.5
+          OffsetLeft 0
+          PositionY 15
+          OffsetTop 15
+          SizeX 0
+          OffsetRight 0
+          SizeY 0
+          OffsetBottom -15
+         }
+         "Is Visible" 0
+         {
+          SmartPanelWidgetClass "{69C973ED53391BC5}" {
+           Name "Background1"
+           Slot FrameWidgetSlot "{69C29B729EF76341}" {
+            Anchor 0.5 0 0.5 0
+            PositionX 0.059
+            OffsetLeft 0.059
+            PositionY 15.935
+            OffsetTop 15.935
+            SizeX 138.842
+            OffsetRight -138.901
+            SizeY 210.501
+            OffsetBottom -226.436
+            Alignment 0.5 0.1
+           }
+           Opacity 0.95
+           Color 0.0116 0.016 0.0252 1
+           style rounded_12px
+          }
+          VerticalLayoutWidgetClass "{69C29B4669267794}" {
+           Name "VerticalLayout0"
+           Slot FrameWidgetSlot "{69C29B41377F14FE}" {
+            OffsetLeft 0
+            OffsetTop 0
+            SizeX 125
+            OffsetRight -125
+            OffsetBottom -30
+           }
+           {
+            ButtonWidgetClass "{69C29B466925C28E}" {
+             Name "VisibilityLocal"
+             Slot LayoutSlot "{69C29B439A84DAF7}" {
+             }
+             Color 0.3216 0.3216 0.3216 1
+             {
+              FrameWidgetClass "{69C29B466925C28D}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B466925C28C}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C29B4669251A89}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "Local"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B46692522C7}" {
+             Name "VisibilityGroup"
+             Slot LayoutSlot "{69C29B439A84DA29}" {
+             }
+             Color 0.0706 0.5608 0.1922 1
+             {
+              FrameWidgetClass "{69C29B46692522C6}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B4669257F30}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C29B466924C230}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "Group"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B466924C231}" {
+             Name "VisibilitySide"
+             Slot LayoutSlot "{69C29B4200C9E7E1}" {
+             }
+             Color 0 0.1255 0.502 1
+             {
+              FrameWidgetClass "{69C29B4669240E75}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B4669240E7A}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C29B466924383C}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "Side"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+            ButtonWidgetClass "{69C29B4669246322}" {
+             Name "VisibilityEveryone"
+             Slot LayoutSlot "{69C29B4202C925DF}" {
+             }
+             Color 0.502 0.063 0.063 1
+             {
+              FrameWidgetClass "{69C29B46692388EF}" {
+               Name "ButtonContentFrame"
+               Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+                HorizontalAlign 3
+                VerticalAlign 3
+               }
+               {
+                HorizontalLayoutWidgetClass "{69C29B46692388EC}" {
+                 Name "DrawSerttingsLayout0"
+                 Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+                  Anchor 0 0 0 0
+                  PositionX 0
+                  OffsetLeft 0
+                  PositionY 0
+                  OffsetTop 0
+                  SizeX 125
+                  OffsetRight -125
+                  SizeY 50
+                  OffsetBottom -50
+                 }
+                 {
+                  TextWidgetClass "{69C29B466923F023}" {
+                   Name "Text0"
+                   Slot LayoutSlot "{69C29B74C915ADC1}" {
+                    HorizontalAlign 1
+                    VerticalAlign 1
+                    SizeMode Fill
+                   }
+                   Text "Everyone"
+                   "Font Size" 22
+                   "Min Font Size" 22
+                  }
+                 }
+                }
+               }
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+        ButtonWidgetClass "{69C29B466922F56D}" {
+         Name "VisibilityButton"
+         Slot FrameWidgetSlot "{69C29B79B1CFE15C}" {
+          Anchor 0 0 0 0
+          PositionX 0
+          OffsetLeft 0
+          PositionY 0
+          OffsetTop 0
+          SizeX 125
+          OffsetRight -125
+          SizeY 30
+          OffsetBottom -30
+          SizeToContent 1
+         }
+         Color 0.0231 0.0231 0.0231 0
+         {
+          FrameWidgetClass "{69C29B466922F56E}" {
+           Name "ButtonContentFrame"
+           Slot ButtonWidgetSlot "{69C29B72D876510C}" {
+            HorizontalAlign 3
+           }
+           {
+            SmartPanelWidgetClass "{69C29B4669223B18}" {
+             Name "Background1"
+             Slot FrameWidgetSlot "{69C29B729EF76341}" {
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 125
+              OffsetRight -125
+              SizeY 40
+              OffsetBottom -40
+             }
+             Color 0.502 0.0627 0.0627 1
+             style rounded_12px
+            }
+            HorizontalLayoutWidgetClass "{69C29B4669223B19}" {
+             Name "Content"
+             Slot FrameWidgetSlot "{69C29B72D561AA69}" {
+              Anchor 0 0 0 0
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 125
+              OffsetRight -125
+              SizeY 40
+              OffsetBottom -40
+             }
+             {
+              TextWidgetClass "{69C29B46692242DF}" {
+               Name "Text0"
+               Slot LayoutSlot "{69C29B74C915ADC1}" {
+                HorizontalAlign 1
+                VerticalAlign 1
+                SizeMode Fill
+               }
+               Text "Everyone"
+               "Font Size" 22
+               "Min Font Size" 22
+              }
+              ImageWidgetClass "{69C29B466921B4F8}" {
+               Name "Arrow"
+               Slot LayoutSlot "{69C29B439A84D8BE}" {
+                VerticalAlign 1
+                SizeMode Auto
+               }
                Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"
                Image "sortArrowDown"
                Size 22 22

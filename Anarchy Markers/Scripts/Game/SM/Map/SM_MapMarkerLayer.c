@@ -105,7 +105,7 @@ modded class SCR_MapMarkersUI
 	// AM_EMapFeature mask for the map screen currently open. The player's map and the GM editor get
 	// everything; tablets, terminals and anything else default to view-only, so our hotkey listeners
 	// and panels stay out of other mods' map screens. See AM_MapFeatures.
-	protected int m_iSMFeatures = 31;	// AM_MapFeatures.FULL
+	protected int m_iSMFeatures = 63;	// AM_MapFeatures.FULL
 
 	protected bool SM_HasFeature(int f)
 	{
@@ -131,6 +131,7 @@ modded class SCR_MapMarkersUI
 	protected bool m_bSMPadCancelDown;	// фронт B при активному інструменті — скасувати інструмент
 	protected bool m_bSMPadUiGuard;	// «щит» від ванільних мапних дій пада (HandleDialog), поки панель/інструмент
 	protected TextWidget m_wSMPlacePrompt;	// підказка «оберіть точку» біля курсора (режим Create Marker зевса)
+	protected TextWidget m_wSMTplPrompt;	// підказка біля курсора для темплейтів (клікни/тримай/чекай)
 	protected Widget m_wSMMapCursor;	// віджет курсора карти (ховаємо під час вказування пальцем)
 
 	// Оптимізація рендера: масово переставляти мітки треба лише коли змінився вид (пан/зум) або набір міток
@@ -424,7 +425,7 @@ modded class SCR_MapMarkersUI
 				if (SM_HasFeature(AM_EMapFeature.DRAWING_TOOLS))
 				{
 					m_DrawPanel = new SM_DrawPanel();
-					m_DrawPanel.Build(m_DrawCanvas, m_wSMMapFrame, m_bSMEditorMap, m_iSMForcedVis);
+					m_DrawPanel.Build(m_DrawCanvas, m_wSMMapFrame, m_bSMEditorMap, m_iSMForcedVis, SM_HasFeature(AM_EMapFeature.TEMPLATES));
 				}
 			}
 		}
@@ -590,6 +591,11 @@ modded class SCR_MapMarkersUI
 			m_wSMPlacePrompt.RemoveFromHierarchy();
 			m_wSMPlacePrompt = null;
 		}
+		if (m_wSMTplPrompt)
+		{
+			m_wSMTplPrompt.RemoveFromHierarchy();
+			m_wSMTplPrompt = null;
+		}
 		if (m_DrawPanel)
 		{
 			m_DrawPanel.Destroy();
@@ -658,6 +664,7 @@ modded class SCR_MapMarkersUI
 		SM_UpdateTooltip();	// «Edited by» при наведенні
 		if (SM_IsEditorMap())
 			SM_UpdatePlacePrompt();	// підказка «оберіть точку» біля курсора (режим Create Marker)
+		SM_UpdateTemplatePrompt();	// підказка біля курсора для темплейтів (клікни/тримай/чекай)
 
 		// Тягнута мітка слідує за курсором — оновлюємо ЩОКАДРУ (це одна мітка).
 		if (m_iSMCarryId != -1)
@@ -839,6 +846,15 @@ modded class SCR_MapMarkersUI
 			// Вигляд панелі + підказка R1 залежно від того, де зараз гравець (лише геймпад).
 			if (!baseAllowed)
 			{
+				m_DrawPanel.SetHintMode(0);
+			}
+			// A template modal (naming, delete confirm) forces the panel fully visible: the name field
+			// IS part of the panel, and on the pad this state is neither pad-nav nor an armed tool, so
+			// without this it fell through to the idle branch below and went to opacity 0 — the text was
+			// being typed into a panel nobody could see.
+			else if (m_DrawPanel.IsModalBusy())
+			{
+				m_DrawPanel.SetPanelOpacity(1.0);
 				m_DrawPanel.SetHintMode(0);
 			}
 			else if (!onPad)
@@ -1283,6 +1299,66 @@ modded class SCR_MapMarkersUI
 			m_wSMPlacePrompt.RemoveFromHierarchy();
 			m_wSMPlacePrompt = null;
 		}
+	}
+
+	// Підказка біля курсора для темплейтів. Дзеркалить prompt зевса: помаранчевий текст під курсором.
+	// The panel already carries buttons; this is for the eyes on the MAP, where the action happens —
+	// what to click, and above all that a confirmed template needs the draw button HELD, which nothing
+	// on screen said before.
+	protected void SM_UpdateTemplatePrompt()
+	{
+		string txt;
+		if (m_DrawPanel && m_DrawCanvas && !m_MarkerEditRoot && m_wSMMapFrame)
+		{
+			SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+			bool armed = m_DrawCanvas.IsActive() && m_DrawCanvas.GetTool() == SM_DrawCanvas.TOOL_TEMPLATE;
+
+			if (sess.IsConfirmed())
+			{
+				if (sess.IsRateWaiting())
+					txt = "Drawing limit reached — keep holding, it will continue";
+				else if (!m_DrawCanvas.IsTemplateHeld())
+					txt = "Hold to draw the template";
+				// held and drawing: no prompt, the strokes speak for themselves
+			}
+			else if (sess.IsAnchored())
+				txt = "Press Apply to draw it, or Cancel to move it";
+			else if (armed && sess.IsPlaced())
+			{
+				// placed but not confirmed can't happen without anchored above; kept for clarity
+			}
+			else if (armed && SM_TemplateStore.GetInstance().Selected())
+				txt = "Click the map to place the template";
+		}
+
+		if (txt == "")
+		{
+			if (m_wSMTplPrompt)
+			{
+				m_wSMTplPrompt.RemoveFromHierarchy();
+				m_wSMTplPrompt = null;
+			}
+			return;
+		}
+
+		if (!m_wSMTplPrompt)
+		{
+			WorkspaceWidget ws = GetGame().GetWorkspace();
+			TextWidget t = TextWidget.Cast(ws.CreateWidget(
+				WidgetType.TextWidgetTypeID,
+				WidgetFlags.VISIBLE | WidgetFlags.NOWRAP | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS,
+				Color.FromInt(0xFFF0A020), 0, m_wSMMapFrame));	// той самий помаранчевий, що й у зевса
+			if (!t)
+				return;
+			t.SetFont("{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt");
+			t.SetExactFontSize(20);
+			FrameSlot.SetAnchorMin(t, 0, 0);
+			FrameSlot.SetAnchorMax(t, 0, 0);
+			FrameSlot.SetSizeToContent(t, true);
+			m_wSMTplPrompt = t;
+		}
+		m_wSMTplPrompt.SetText(txt);
+		FrameSlot.SetPos(m_wSMTplPrompt, SCR_MapCursorInfo.x + 22, SCR_MapCursorInfo.y + 52);
 	}
 
 	// GM-фільтр: у мапі Game Master показуємо мітки лише коли увімкнено перемикач видимості,
@@ -6017,7 +6093,7 @@ modded class SCR_MapMarkersUI
 		ChimeraWorld world = GetGame().GetWorld();
 		if (!world)
 			return;
-		TimeAndWeatherManagerEntity tw = TimeAndWeatherManagerEntity.Cast(world.GetTimeAndWeatherManager());
+		TimeAndWeatherManagerEntity tw = world.GetTimeAndWeatherManager();
 		if (!tw)
 			return;
 

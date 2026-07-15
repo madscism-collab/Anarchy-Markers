@@ -16,9 +16,18 @@ class SM_TemplateSession
 	protected bool   m_bPlaced;		// the anchor is down, the ghost has stopped following the cursor
 	protected bool   m_bConfirmed;	// Apply pressed — only now may it draw
 
-	protected float  m_fNextStrokeAt;	// seconds; the rate gate
+	protected float  m_fNextStrokeAt;	// seconds; the burst pacer (min gap between two strokes)
 	protected bool   m_bDenied;			// the server turned a stroke down — stop until the player asks again
 	protected float  m_fPlacedAt;		// seconds; when the anchor went down
+
+	// The tick times of strokes emitted in the last 60 s — a client-side copy of the server's rate
+	// window (SM_DrawingNet.RegisterDrawAttempt). Mirroring it here is what lets a template draw in a
+	// BURST while it fits and then wait, instead of dribbling out at 60000/limit ms forever: we emit
+	// with no gap until this window is full, exactly as many as the server will accept, so a stroke is
+	// never sent only to be rejected and reconciled away. Lives across placements on purpose — the
+	// server remembers those strokes too, so clearing it would let the next template outrun the cap.
+	protected ref array<float> m_aSentTimes = {};
+	static const float RATE_WINDOW = 60.0;	// seconds; must match SM_DrawingNet.DRAW_RATE_WINDOW
 
 	// Which strokes are still missing, cached. Recomputing it is O(template strokes x drawings on the
 	// map) and BOTH the auto-draw tick and the ghost want it EVERY FRAME — 40 strokes against 300
@@ -71,6 +80,25 @@ class SM_TemplateSession
 	bool IsPlaced()
 	{
 		return m_bPlaced && Template() != null;
+	}
+
+	//! Confirmed and drawing, but the per-minute window is full right now — strokes are paused until it
+	//! frees. The cursor prompt turns this into "waiting for the limit" instead of "hold to draw".
+	bool IsRateWaiting()
+	{
+		if (!IsConfirmed())
+			return false;
+		int limit = SM_MarkerConfig.GetInstance().m_iDrawPerMinuteLimit;
+		if (m_iVisibility == SM_EMarkerVisibility.PERSONAL || limit <= 0)
+			return false;
+		float now = System.GetTickCount() / 1000.0;
+		int live = 0;
+		foreach (float ts : m_aSentTimes)
+		{
+			if (now - ts <= RATE_WINDOW)
+				live++;
+		}
+		return live >= limit;
 	}
 
 	void Confirm()
@@ -293,9 +321,9 @@ class SM_TemplateSession
 
 	// --- auto-drawing ---
 
-	//! One stroke at most, and only once the rate gate expires — the server counts every stroke against
-	//! a per-minute window, so going faster than the window only earns a rejection.
-	//! Returns true while there is still something to do.
+	//! One stroke at most. Emitted in a burst while the per-minute window has room, then paused until
+	//! the oldest stroke ages out of it — a client copy of the server's rate window, so a stroke is
+	//! never sent just to be rejected. Returns true while there is still something to do.
 	bool Tick(notnull SM_DrawCanvas canvas)
 	{
 		if (!IsConfirmed() || m_bDenied)
@@ -319,7 +347,23 @@ class SM_TemplateSession
 
 		float now = System.GetTickCount() / 1000.0;
 		if (now < m_fNextStrokeAt)
-			return true;	// still work to do, just not this frame
+			return true;	// still work to do, just not this frame (burst pacer)
+
+		// Rate window: emit only while fewer than the cap have gone out in the last 60 s. Local never
+		// touches the server, so no window applies to it.
+		int limit = SM_MarkerConfig.GetInstance().m_iDrawPerMinuteLimit;
+		if (m_iVisibility != SM_EMarkerVisibility.PERSONAL && limit > 0)
+		{
+			while (!m_aSentTimes.IsEmpty() && now - m_aSentTimes[0] > RATE_WINDOW)
+				m_aSentTimes.RemoveOrdered(0);
+
+			if (m_aSentTimes.Count() >= limit)
+			{
+				// Window full: wait for the oldest to age out, then the burst resumes on its own.
+				m_fNextStrokeAt = m_aSentTimes[0] + RATE_WINDOW + 0.05;
+				return true;
+			}
+		}
 
 		SM_DrawTemplateStroke s = t.m_aStrokes[todo[0]];
 		if (!s)
@@ -337,12 +381,35 @@ class SM_TemplateSession
 
 		canvas.SM_TemplateEmit(d, pts);
 
-		m_fNextStrokeAt = now + SM_TemplateStore.AutoDrawIntervalMs(m_iVisibility) / 1000.0;
+		if (m_iVisibility != SM_EMarkerVisibility.PERSONAL && limit > 0)
+			m_aSentTimes.Insert(now);
+		m_fNextStrokeAt = now + SM_TemplateStore.BurstIntervalMs(m_iVisibility) / 1000.0;
 		return true;
 	}
 
-	//! A refusal STOPS the drawing; retrying next frame would just hammer the server. The instance stays
-	//! put, so the player waits the window out and holds the button again.
+	//! The server refused a stroke for a per-minute limit. This is NOT a stop — it means our client
+	//! window and the server's drifted apart (usually because hand-drawn strokes share the server's
+	//! window but not ours). Top ours up to the cap so Tick waits the window out exactly as it does
+	//! when it fills on its own, and drawing resumes by itself while the button is held. No re-press,
+	//! no hammering: we simply stop emitting until the oldest stroke ages out.
+	void OnRateLimited()
+	{
+		if (!m_bPlaced)
+			return;
+		int limit = SM_MarkerConfig.GetInstance().m_iDrawPerMinuteLimit;
+		if (limit <= 0)
+			return;
+
+		float now = System.GetTickCount() / 1000.0;
+		while (!m_aSentTimes.IsEmpty() && now - m_aSentTimes[0] > RATE_WINDOW)
+			m_aSentTimes.RemoveOrdered(0);
+		while (m_aSentTimes.Count() < limit)
+			m_aSentTimes.Insert(now);
+	}
+
+	//! A refusal STOPS the drawing: unlike a rate limit, waiting will not clear it (a full server, the
+	//! per-player cap, a disabled channel). The instance stays put, so the player can fix it and hold
+	//! the button again.
 	void OnDenied()
 	{
 		if (m_bPlaced)

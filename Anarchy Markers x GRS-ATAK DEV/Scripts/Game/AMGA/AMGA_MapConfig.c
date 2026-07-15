@@ -36,7 +36,8 @@ modded class SCR_MapEntity
 
 		// What the tablet may do with our layer. Markers and drawings render; the player also gets our
 		// drawing panel and the pointer. Marker TOOLS stay off — ATAK has its own marker workflow and
-		// two competing marker dialogs on one screen would be a mess.
+		// two competing marker dialogs on one screen would be a mess. TEMPLATES stay off too: their
+		// place/save flow needs the fullscreen map's input and does nothing useful on the tablet.
 		//
 		// The channel is pinned to FACTION and our channel picker comes off the panel: ATAK scopes
 		// every marker and drawing it owns to the player's faction (GRS_MarkerData.m_iFactionIdx, and

@@ -197,18 +197,15 @@ class SM_TemplateStore
 		return "";
 	}
 
-	//! Milliseconds between strokes while auto-drawing. The server counts every stroke against a
-	//! per-minute window, so going faster than the window only earns a rejection.
-	static int AutoDrawIntervalMs(int visibility)
+	//! Minimum milliseconds between two auto-drawn strokes. This is a FRAME pacer, not a rate limiter:
+	//! it only keeps one template from emitting its whole self in a single tick. The actual rate cap
+	//! is the per-minute window, enforced by the session's own sliding window so a template draws in a
+	//! burst while it fits and then waits — going faster than the window only earns a rejection.
+	static int BurstIntervalMs(int visibility)
 	{
 		if (visibility == SM_EMarkerVisibility.PERSONAL)
 			return 50;	// never leaves this machine; only paced so one template cannot spike a frame
-
-		int perMinute = SM_MarkerConfig.GetInstance().m_iDrawPerMinuteLimit;
-		if (perMinute <= 0)
-			return 250;	// no limit configured — still paced, or the batch would go out as one burst
-
-		return 60000 / perMinute;
+		return 70;		// ~14/s: fast enough to feel instant, slow enough for the outbox to batch it
 	}
 
 	// --- writing ---

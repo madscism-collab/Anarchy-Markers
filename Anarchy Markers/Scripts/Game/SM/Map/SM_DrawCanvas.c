@@ -414,6 +414,13 @@ class SM_DrawCanvas
 			m_bTplHeld = false;	// finished, refused, or not confirmed
 	}
 
+	//! Is the draw button being held on a confirmed template right now? The cursor prompt uses it to
+	//! stop nagging "hold to draw" the moment the player actually is.
+	bool IsTemplateHeld()
+	{
+		return m_bTplHeld;
+	}
+
 
 	//! The ghost. Before the anchor it follows the cursor; after it, only the strokes still MISSING are
 	//! ghosted — so the ghost thins out as the template lands, and is its own progress bar.
