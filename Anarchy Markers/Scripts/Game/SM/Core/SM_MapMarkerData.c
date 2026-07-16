@@ -47,6 +47,7 @@ enum SM_EPlaceDenyReason
 	FILL_NOT_CLOSED       = 9,	// заливка: область не замкнута — фарба «витікає» за межі
 	FILL_BLOCKED          = 10,	// заливка: клік у лінію/заливку — нема вільного місця
 	FILL_NO_NARROW        = 11,	// заливка: видимість можна лише розширити — канал лишився, решта застосована
+	DRAW_GRID_LIMIT       = 12,	// ліміт вбудованих сіток на гравця (drawMaxGridsPerPlayer)
 }
 
 class SM_MapMarkerData

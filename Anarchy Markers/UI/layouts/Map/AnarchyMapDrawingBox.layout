@@ -4731,6 +4731,7 @@ FrameWidgetClass {
                Slot LayoutSlot "{69C29B439A84DAF7}" {
                }
                Color 0.0231 0.0231 0.0231 0
+               "Inherit Color" 1
                {
                 FrameWidgetClass "{69DCF4B22C290706}" {
                  Name "ButtonContentFrame"
@@ -4760,6 +4761,7 @@ FrameWidgetClass {
                       Padding 5 0 5 0
                       SizeMode Fill
                      }
+                     Color 0.6863 0.5804 0.2588 1
                      Text "Template Name"
                      "Font Size" 22
                      "Min Font Size" 10
@@ -4804,6 +4806,7 @@ FrameWidgetClass {
                       Padding 5 0 5 0
                       SizeMode Fill
                      }
+                     Color 0.6863 0.5804 0.2588 1
                      Text "Template Name"
                      "Font Size" 22
                      "Min Font Size" 10
@@ -4848,6 +4851,7 @@ FrameWidgetClass {
                       Padding 5 0 5 0
                       SizeMode Fill
                      }
+                     Color 0.6863 0.5804 0.2588 1
                      Text "Template Name"
                      "Font Size" 22
                      "Min Font Size" 10

@@ -347,6 +347,8 @@ class SM_DrawCanvas
 	{
 		if (t != m_iTool)
 			FinishLineChain();
+		if (t != TOOL_TEMPLATE)
+			CancelShapePlacement();	// leaving the tool drops a half-placed shape, like everything else
 		m_iTool = t;
 		// The 100 m preset (idx 5) is eraser-only — clamp back to 40 m when switching to pencil/fill.
 		if (t != 1 && s_iWidthIdx > WIDTH_IDX_MAX_PENCIL)
@@ -361,8 +363,21 @@ class SM_DrawCanvas
 
 	//! A template's strokes leave through the same door a hand-drawn one does. No new RPC, no
 	//! server-side knowledge of templates, and every limit applies for free.
+	//!
+	//! GM extras go on HERE, not in the session: the session builds the stroke from the template's own
+	//! geometry and has no idea it is being placed on the editor map. A committed stroke and a built-in
+	//! shape both get them (CommitStroke / ShapePressDown) — a user template placed by the GM must too,
+	//! or his saved drawings come out unlocked and on the wrong side while everything else is locked.
 	void SM_TemplateEmit(notnull SM_MapDrawingData d, notnull array<int> points)
 	{
+		if (m_bEditorMap)
+		{
+			d.m_iChannel = SM_GmState.s_iDrawSideChannel;
+			if (SM_GmState.s_bDrawGmLock)
+				d.m_iGmLocked = 1;
+			if (SM_GmState.s_bDrawHideInfo)
+				d.m_iHideInfo = 1;
+		}
 		SM_DrawAddOrLocal(d, points);
 	}
 
@@ -371,6 +386,13 @@ class SM_DrawCanvas
 	//! starts drawing it (that is what "hold on your template" means).
 	protected void TemplatePressDown(int wx, int wz)
 	{
+		// A built-in shape shares the tool slot but not the flow: two clicks, no session.
+		if (m_iShapeMode != SM_ShapeGeometry.SHAPE_NONE)
+		{
+			ShapePressDown(wx, wz);
+			return;
+		}
+
 		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
 
 		// Confirmed: the button is what draws it, and holding it is what keeps it going.
@@ -419,6 +441,270 @@ class SM_DrawCanvas
 	bool IsTemplateHeld()
 	{
 		return m_bTplHeld;
+	}
+
+	// ---------------------------------------------------------------- built-in shapes
+	// Rectangle / circle / grid: two clicks, a live ghost in between, ONE drawing out — carrying only
+	// its two parameter points. No session, no auto-draw: a shape is a single stroke.
+
+	protected int  m_iShapeMode;	// SM_ShapeGeometry.SHAPE_* being placed; NONE = not placing
+	protected bool m_bShapeFirstSet;
+	protected bool m_bShapePlacedSignal;	// one shape just landed -> the panel closes the menu
+	protected float m_fShapeArmedAt;		// seconds; when the tool was armed (see ShapePressDown)
+	protected int  m_iShapeX0, m_iShapeZ0;
+	protected ref array<ref SM_ShapeLine> m_aShapeLines = {};			// scratch: geometry builder output
+	protected ref array<ref CanvasWidgetCommand> m_aShapeTmp = {};	// scratch: BuildStrokeCommands clears its output
+	protected ref array<float> m_aShapeScr = {};						// scratch: projected points, reused per line
+	// Ghost cache: the grid ghost is ~260 lines plus every label glyph, and it was rebuilt EVERY frame
+	// while placing — even with the cursor sitting in one cell. Rebuild only when the shape it draws
+	// actually changes (parameters snapped to the grid, or zoom, or brush).
+	protected ref array<int> m_aGhostKeyPts = {};
+	protected int   m_iGhostKeyColor = -1;
+	protected int   m_iGhostKeyWidth = -1;
+	protected float m_fGhostKeyZoom  = -1;
+
+	//! The panel armed a built-in shape template.
+	void StartShapePlacement(int shape)
+	{
+		m_iShapeMode = shape;
+		m_bShapeFirstSet = false;
+		m_fShapeArmedAt = System.GetTickCount() / 1000.0;
+		m_aGhostKeyPts.Clear();	// force the ghost to build fresh for the new shape
+		SetTool(TOOL_TEMPLATE);
+		SetActive(true);
+	}
+
+	void CancelShapePlacement()
+	{
+		m_iShapeMode = SM_ShapeGeometry.SHAPE_NONE;
+		m_bShapeFirstSet = false;
+	}
+
+	int GetShapeMode()   { return m_iShapeMode; }
+	bool ShapeFirstSet() { return m_bShapeFirstSet; }
+
+	//! True once, on the frame a shape was placed — the panel reads it to close the templates menu and
+	//! reset to "nothing selected". One-shot: reading it clears it.
+	bool ConsumeShapePlaced()
+	{
+		bool v = m_bShapePlacedSignal;
+		m_bShapePlacedSignal = false;
+		return v;
+	}
+
+	//! The brush colour exactly as a committed stroke would get it. The panel's shape preview uses
+	//! this so what it shows is what lands.
+	int BrushColorWithOpacity()
+	{
+		return ApplyOpacity(s_iColor);
+	}
+
+	protected void ShapePressDown(int wx, int wz)
+	{
+		// The press that ARMED this placement is not its first click. On the pad one A does both (it is
+		// the panel's Place and the map action), and it armed the tool a fraction of a second ago —
+		// letting it through dropped the first point wherever the cursor sat, before the player could
+		// aim. The layer eats that press too; this is the backstop that does not depend on input state.
+		if (System.GetTickCount() / 1000.0 - m_fShapeArmedAt < 0.2)
+			return;
+
+		if (!m_bShapeFirstSet)
+		{
+			if (m_iShapeMode == SM_ShapeGeometry.SHAPE_GRID)
+			{
+				// The clicked CELL becomes A1: anchor on its top-left corner, on the map's own lattice.
+				m_iShapeX0 = Math.Floor(wx / 100.0) * SM_ShapeGeometry.GRID_CELL;
+				m_iShapeZ0 = Math.Floor(wz / 100.0) * SM_ShapeGeometry.GRID_CELL + SM_ShapeGeometry.GRID_CELL;
+			}
+			else
+			{
+				m_iShapeX0 = wx;
+				m_iShapeZ0 = wz;
+			}
+			m_bShapeFirstSet = true;
+			return;
+		}
+
+		array<int> pts = {};
+		if (!ShapeParams(wx, wz, pts))
+			return;	// degenerate (zero-size rect, zero radius) — the click just doesn't land
+
+		SM_MapDrawingData d = new SM_MapDrawingData();
+		d.m_iColor      = ApplyOpacity(s_iColor);
+		d.m_iWidthIdx   = s_iWidthIdx;
+		if (d.m_iWidthIdx > WIDTH_IDX_MAX_PENCIL)
+			d.m_iWidthIdx = WIDTH_IDX_MAX_PENCIL;
+		d.m_iShape      = m_iShapeMode;
+		d.m_iVisibility = s_iVisibility;
+		d.m_iChannel    = -1;
+		if (m_bEditorMap)	// same GM extras a committed stroke gets
+		{
+			d.m_iChannel = SM_GmState.s_iDrawSideChannel;
+			if (SM_GmState.s_bDrawGmLock)
+				d.m_iGmLocked = 1;
+			if (SM_GmState.s_bDrawHideInfo)
+				d.m_iHideInfo = 1;
+		}
+		SM_DrawAddOrLocal(d, pts);
+
+		// One shape per placement: the flow ends here. The panel sees the signal, closes its menu and
+		// clears the selection, so the player is back to a clean slate rather than armed for another.
+		CancelShapePlacement();
+		SetActive(false);
+		m_bShapePlacedSignal = true;
+	}
+
+	//! The two parameter points for the shape being placed, first point + current cursor. False when
+	//! the shape would be degenerate.
+	protected bool ShapeParams(int wx, int wz, notnull array<int> pts)
+	{
+		pts.Clear();
+
+		if (m_iShapeMode == SM_ShapeGeometry.SHAPE_RECT)
+		{
+			if (Math.AbsInt(wx - m_iShapeX0) < 4 && Math.AbsInt(wz - m_iShapeZ0) < 4)
+				return false;
+			pts.Insert(m_iShapeX0); pts.Insert(m_iShapeZ0);
+			pts.Insert(wx);         pts.Insert(wz);
+			return true;
+		}
+
+		if (m_iShapeMode == SM_ShapeGeometry.SHAPE_CIRCLE)
+		{
+			float dx = wx - m_iShapeX0;
+			float dz = wz - m_iShapeZ0;
+			if (dx * dx + dz * dz < 16)
+				return false;
+			pts.Insert(m_iShapeX0); pts.Insert(m_iShapeZ0);
+			pts.Insert(wx);         pts.Insert(wz);
+			return true;
+		}
+
+		if (m_iShapeMode == SM_ShapeGeometry.SHAPE_GRID)
+		{
+			// Any cell the cursor is IN counts, so a partially covered column/row is included whole.
+			int cols = Math.Ceil((wx - m_iShapeX0) / 100.0);
+			int rows = Math.Ceil((m_iShapeZ0 - wz) / 100.0);
+			cols = SM_ShapeGeometry.ClampI(cols, SM_ShapeGeometry.GRID_MIN_CELLS, SM_ShapeGeometry.GRID_MAX_CELLS);
+			rows = SM_ShapeGeometry.ClampI(rows, SM_ShapeGeometry.GRID_MIN_CELLS, SM_ShapeGeometry.GRID_MAX_CELLS);
+			pts.Insert(m_iShapeX0);
+			pts.Insert(m_iShapeZ0);
+			pts.Insert(m_iShapeX0 + cols * SM_ShapeGeometry.GRID_CELL);
+			pts.Insert(m_iShapeZ0 - rows * SM_ShapeGeometry.GRID_CELL);
+			return true;
+		}
+
+		return false;
+	}
+
+	protected bool ShapeGhostWanted()
+	{
+		return m_bActive && m_iTool == TOOL_TEMPLATE && m_iShapeMode != SM_ShapeGeometry.SHAPE_NONE;
+	}
+
+	//! The live rubber-band. Before the first click the grid highlights the hovered cell (it snaps, and
+	//! the player should see WHERE it will snap); rect and circle show nothing until anchored.
+	protected void BuildShapeGhost()
+	{
+		int wx, wz;
+		if (!CursorWorld(wx, wz))
+		{
+			m_aPreviewCmds.Clear();
+			m_aGhostKeyPts.Clear();
+			return;
+		}
+
+		int shape = m_iShapeMode;
+		array<int> pts = {};
+
+		if (!m_bShapeFirstSet)
+		{
+			if (m_iShapeMode != SM_ShapeGeometry.SHAPE_GRID)
+			{
+				m_aPreviewCmds.Clear();
+				m_aGhostKeyPts.Clear();
+				return;	// rect/circle show nothing until the first click
+			}
+			int cx = Math.Floor(wx / 100.0) * SM_ShapeGeometry.GRID_CELL;
+			int cz = Math.Floor(wz / 100.0) * SM_ShapeGeometry.GRID_CELL + SM_ShapeGeometry.GRID_CELL;
+			shape = SM_ShapeGeometry.SHAPE_RECT;	// one snapped cell, drawn as a plain box
+			pts.Insert(cx);       pts.Insert(cz);
+			pts.Insert(cx + 100); pts.Insert(cz - 100);
+		}
+		else if (!ShapeParams(wx, wz, pts))
+		{
+			m_aPreviewCmds.Clear();
+			m_aGhostKeyPts.Clear();
+			return;
+		}
+
+		int widthIdx = s_iWidthIdx;
+		if (widthIdx > WIDTH_IDX_MAX_PENCIL)
+			widthIdx = WIDTH_IDX_MAX_PENCIL;
+		int gc = GhostColor(ApplyOpacity(s_iColor), false);
+		float zoom = 0;
+		if (m_Map)
+			zoom = m_Map.GetCurrentZoom();
+
+		// Cache hit: identical geometry, brush and zoom as last frame — last frame's commands stand.
+		if (gc == m_iGhostKeyColor && widthIdx == m_iGhostKeyWidth && zoom == m_fGhostKeyZoom
+			&& SamePts(pts, m_aGhostKeyPts) && !m_aPreviewCmds.IsEmpty())
+			return;
+
+		m_aGhostKeyPts.Copy(pts);
+		m_iGhostKeyColor = gc;
+		m_iGhostKeyWidth = widthIdx;
+		m_fGhostKeyZoom  = zoom;
+
+		m_aPreviewCmds.Clear();
+		SM_ShapeGeometry.Build(shape, pts, WidthMeters(widthIdx), m_aShapeLines);
+
+		float ppm = PxPerMeter();
+		foreach (SM_ShapeLine l : m_aShapeLines)
+		{
+			if (!l || l.m_aPts.Count() < 2)
+				continue;
+			ProjectPointsToScreen(l.m_aPts, m_aShapeScr);
+			float wpx = l.m_fWidthMeters * ppm;
+			if (wpx < 1)
+				wpx = 1;
+			BuildStrokeCommands(m_aShapeScr, gc, wpx, m_aShapeTmp);
+			foreach (CanvasWidgetCommand c : m_aShapeTmp)
+				m_aPreviewCmds.Insert(c);
+		}
+	}
+
+	protected bool SamePts(notnull array<int> a, notnull array<int> b)
+	{
+		if (a.Count() != b.Count())
+			return false;
+		for (int i = 0; i < a.Count(); i++)
+		{
+			if (a[i] != b[i])
+				return false;
+		}
+		return true;
+	}
+
+	//! Committed shape drawing -> projected commands. Same slot BuildFillProjected fills for fills.
+	protected void BuildShapeProjected(notnull SM_MapDrawingData d, notnull SM_RenderStroke rs, float ppm)
+	{
+		rs.m_aCmds.Clear();
+
+		SM_ShapeGeometry.Build(d.m_iShape, d.m_aPoints, WidthMeters(d.m_iWidthIdx), m_aShapeLines);
+
+		foreach (SM_ShapeLine l : m_aShapeLines)
+		{
+			if (!l || l.m_aPts.Count() < 2)
+				continue;
+			ProjectPointsToScreen(l.m_aPts, m_aShapeScr);
+			float wpx = l.m_fWidthMeters * ppm;
+			if (wpx < 1)
+				wpx = 1;
+			BuildStrokeCommands(m_aShapeScr, d.m_iColor, wpx, m_aShapeTmp);
+			foreach (CanvasWidgetCommand c : m_aShapeTmp)
+				rs.m_aCmds.Insert(c);
+		}
 	}
 
 
@@ -471,27 +757,38 @@ class SM_DrawCanvas
 					continue;
 
 				int n = st.GetPointCount();
-				array<float> scr = {};
-				scr.Resize(n * 2);
-				for (int k = 0; k < n; k++)
-				{
-					int sx, sy;
-					WorldToCanvas(st.m_aPoints[k * 2] + ax, st.m_aPoints[k * 2 + 1] + az, sx, sy);
-					scr[k * 2]     = sx;
-					scr[k * 2 + 1] = sy;
-				}
-
 				if (wantFill)
 				{
+					// A fill's mesh keeps its vertex array, so it needs its OWN — the scratch would be
+					// overwritten by the next line and every fill would end up sharing the last one's
+					// points. Strokes below are fine on the scratch: BuildStrokeCommands copies out.
+					array<float> fscr = {};
+					fscr.Resize(n * 2);
+					for (int fk = 0; fk < n; fk++)
+					{
+						int fsx, fsy;
+						WorldToCanvas(st.m_aPoints[fk * 2] + ax, st.m_aPoints[fk * 2 + 1] + az, fsx, fsy);
+						fscr[fk * 2]     = fsx;
+						fscr[fk * 2 + 1] = fsy;
+					}
 					array<int> tri = st.FillIndices();
 					if (!tri)
 						continue;
 					TriMeshDrawCommand mesh = new TriMeshDrawCommand();
 					mesh.m_iColor   = GhostColor(st.m_iColor, true);
-					mesh.m_Vertices = scr;
+					mesh.m_Vertices = fscr;
 					mesh.m_Indices  = tri;
 					m_aPreviewCmds.Insert(mesh);
 					continue;
+				}
+
+				m_aShapeScr.Resize(n * 2);
+				for (int k = 0; k < n; k++)
+				{
+					int sx, sy;
+					WorldToCanvas(st.m_aPoints[k * 2] + ax, st.m_aPoints[k * 2 + 1] + az, sx, sy);
+					m_aShapeScr[k * 2]     = sx;
+					m_aShapeScr[k * 2 + 1] = sy;
 				}
 
 				// BuildStrokeCommands CLEARS the array it is handed — it was written for the one stroke
@@ -499,7 +796,7 @@ class SM_DrawCanvas
 				// list, every stroke wiped the ones before it and the fills under them, and only the
 				// last one ever survived. Build into a scratch list and append.
 				m_aGhostTmp.Clear();
-				BuildStrokeCommands(scr, GhostColor(st.m_iColor, false), WidthPxForZoom(st.m_iWidthIdx, ppm), m_aGhostTmp);
+				BuildStrokeCommands(m_aShapeScr, GhostColor(st.m_iColor, false), WidthPxForZoom(st.m_iWidthIdx, ppm), m_aGhostTmp);
 				foreach (CanvasWidgetCommand gc : m_aGhostTmp)
 					m_aPreviewCmds.Insert(gc);
 			}
@@ -590,6 +887,8 @@ class SM_DrawCanvas
 		{
 			if (!d || d.GetPointCount() < 2)
 				continue;
+			if (d.m_iShape != 0)
+				continue;	// shapes carry parameters, not strokes — a template can't absorb one
 
 			// A Local drawing's owner is set on this machine, but leaning on that alone has bitten us
 			// before — the id says it is ours by construction, so ask that too.
@@ -736,6 +1035,11 @@ class SM_DrawCanvas
 		else if (m_bCapturing || m_bLineChain)
 		{
 			ProjectPreview();	// a stroke being drawn owns the preview canvas for as long as it lasts
+			PushPreview(cw, ch);
+		}
+		else if (ShapeGhostWanted())
+		{
+			BuildShapeGhost();	// per-frame rubber-band; snaps live for the grid
 			PushPreview(cw, ch);
 		}
 		else if (TemplateGhostWanted())
@@ -1113,6 +1417,34 @@ class SM_DrawCanvas
 			return;
 		}
 
+		// 1.5) Click inside a parametric shape (circle / rectangle / grid cell)? Fill its EXACT outline.
+		// Flood fill would only stairstep the circle into the 256-grid it rasterises against; we know
+		// the real geometry, so there is no reason to approximate it. The SMALLEST shape wins, so a cell
+		// inside a big circle fills the cell.
+		int fillMaxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
+		if (fillMaxPts <= 0)
+			fillMaxPts = 200;
+		array<int> shapeContour = {};
+		if (TryShapeFill(wx, wz, all, fillMaxPts, shapeContour))
+		{
+			SM_MapDrawingData sd = new SM_MapDrawingData();
+			sd.m_iColor      = ApplyOpacity(s_iColor);
+			sd.m_iWidthIdx   = s_iWidthIdx;
+			sd.m_iVisibility = s_iVisibility;
+			sd.m_iChannel    = -1;
+			sd.m_iFill       = 1;
+			if (m_bEditorMap)
+			{
+				sd.m_iChannel = SM_GmState.s_iDrawSideChannel;
+				if (SM_GmState.s_bDrawGmLock)
+					sd.m_iGmLocked = 1;
+				if (SM_GmState.s_bDrawHideInfo)
+					sd.m_iHideInfo = 1;
+			}
+			SM_DrawAddOrLocal(sd, shapeContour);
+			return;
+		}
+
 		// 2) Розлив.
 		int maxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
 		if (maxPts <= 0)
@@ -1147,6 +1479,35 @@ class SM_DrawCanvas
 				tmp.m_iHideInfo = 1;
 		}
 		SM_DrawAddOrLocal(tmp, res.m_aContour);	// Local (PERSONAL) -> client file; everything else -> server
+	}
+
+	//! Click inside a parametric shape -> the exact fill polygon for it (circle rim, rectangle, or the
+	//! grid cell under the cursor). Picks the SMALLEST shape the click falls in. False = not on a shape,
+	//! fall through to the flood fill.
+	protected bool TryShapeFill(int wx, int wz, notnull array<SM_MapDrawingData> all, int maxPts, notnull array<int> outContour)
+	{
+		SM_MapDrawingData best = null;
+		float bestArea = 0;
+		foreach (SM_MapDrawingData d : all)
+		{
+			if (!d || d.m_iShape == 0)
+				continue;
+			if (!d.AABBOverlapsRect(wx, wx, wz, wz, 0))
+				continue;
+			if (!SM_ShapeGeometry.PointInShape(d.m_iShape, d.m_aPoints, wx, wz))
+				continue;
+			float area = SM_ShapeGeometry.ShapeArea(d.m_iShape, d.m_aPoints);
+			if (!best || area < bestArea)
+			{
+				best = d;
+				bestArea = area;
+			}
+		}
+		if (!best)
+			return false;
+
+		SM_ShapeGeometry.FillContour(best.m_iShape, best.m_aPoints, wx, wz, maxPts, outContour);
+		return outContour.Count() >= 6;	// need at least a triangle
 	}
 
 	// Add a stroke/fill: Local (PERSONAL visibility) goes to the client file, never the server;
@@ -1289,6 +1650,25 @@ class SM_DrawCanvas
 
 			float thr = eraserRad + WidthMeters(d.m_iWidthIdx) * 0.5;
 			float thrSq = thr * thr;
+
+			// A shape is parameters, not geometry — there is nothing meaningful to CUT. Touching its
+			// outline erases it whole (rights checked by the server / the Local file is the player's own).
+			// The grid is exempt: it's a big deliberate object with lines all over the map, so a stray
+			// brush stroke must not wipe it — only Delete (a click on it) removes a grid.
+			if (d.m_iShape != 0)
+			{
+				if (d.m_iShape == SM_ShapeGeometry.SHAPE_GRID)
+					continue;
+				if (WorldDistSqToStroke(d, wx, wz) <= thrSq)
+				{
+					m_ErasedThisDrag.Insert(d.m_iId);
+					if (SM_MapDrawingStore.IsLocalId(d.m_iId) && !SM_DrawOutbox.IsServerTemp(d.m_iId))
+						SM_LocalDrawingPersistence.GetInstance().RemoveLocal(d.m_iId);
+					else
+						SM_DrawOutbox.SubmitRemove(d.m_iId);
+				}
+				continue;
+			}
 
 			// Local-CHANNEL stroke (id <= -2, but NOT an optimistic server temp): cut/erase it in
 			// the client file. Server temps (also negative) fall to the branches below.
@@ -1641,9 +2021,13 @@ class SM_DrawCanvas
 	// Мін. відстань² від точки до полілінії у СВІТОВИХ метрах (для гумки по чужому штриху).
 	protected float WorldDistSqToStroke(notnull SM_MapDrawingData d, int ex, int ez)
 	{
-		int count = d.GetPointCount();
-		int ax, az;
-		d.GetPoint(0, ax, az);
+		// A shape's stored points are parameters; aim at its OUTLINE, which is what's on screen.
+		array<int> pts = d.SM_HitPoints();
+		int count = pts.Count() / 2;
+		if (count < 1)
+			return 1e12;
+		int ax = pts[0];
+		int az = pts[1];
 		if (count < 2)	// крапка — відстань² до єдиної точки
 		{
 			float ddx = ex - ax;
@@ -1653,8 +2037,8 @@ class SM_DrawCanvas
 		float best = -1;
 		for (int i = 1; i < count; i++)
 		{
-			int bx, bz;
-			d.GetPoint(i, bx, bz);
+			int bx = pts[i * 2];
+			int bz = pts[i * 2 + 1];
 			float dsq = PointToSegDistSq(ex, ez, ax, az, bx, bz);
 			if (best < 0 || dsq < best)
 				best = dsq;
@@ -1773,7 +2157,9 @@ class SM_DrawCanvas
 			if (!inside)
 				m_bProjClipped = true;
 
-			if (rs.m_bFill)
+			if (d.m_iShape != 0)
+				BuildShapeProjected(d, rs, ppm);	// parameters -> the same geometry on every client
+			else if (rs.m_bFill)
 				BuildFillProjected(d, rs, inside, wMinX, wMaxX, wMinZ, wMaxZ, scr);
 			else
 			{
@@ -2511,11 +2897,12 @@ class SM_DrawCanvas
 	//! px/py are CANVAS-local physical pixels (FindStrokeAtScreen converts the cursor for us).
 	protected float ScreenDistSqToStroke(notnull SM_MapDrawingData d, int px, int py)
 	{
-		int count = d.GetPointCount();
-		int x0, z0;
-		d.GetPoint(0, x0, z0);
+		array<int> pts = d.SM_HitPoints();	// shapes hand back their outline here
+		int count = pts.Count() / 2;
+		if (count < 1)
+			return 1e12;
 		int prevSx, prevSy;
-		WorldToCanvas(x0, z0, prevSx, prevSy);
+		WorldToCanvas(pts[0], pts[1], prevSx, prevSy);
 		if (count < 2)	// крапка — відстань² до єдиної екранної точки
 		{
 			float ddx = px - prevSx;
@@ -2526,10 +2913,8 @@ class SM_DrawCanvas
 		float best = -1;
 		for (int i = 1; i < count; i++)
 		{
-			int wx, wz;
-			d.GetPoint(i, wx, wz);
 			int sx, sy;
-			WorldToCanvas(wx, wz, sx, sy);
+			WorldToCanvas(pts[i * 2], pts[i * 2 + 1], sx, sy);
 			float dsq = PointToSegDistSq(px, py, prevSx, prevSy, sx, sy);
 			if (best < 0 || dsq < best)
 				best = dsq;

@@ -788,6 +788,11 @@ class SM_DrawPanel
 		SM_TemplateStore.GetInstance().Select("");
 		m_iTplHighlight = -1;
 		m_bTplNaming = false;
+		if (m_Canvas.GetShapeMode() != SM_ShapeGeometry.SHAPE_NONE)
+		{
+			m_Canvas.CancelShapePlacement();
+			m_Canvas.SetActive(false);
+		}
 		if (m_TplDeleteDialog)
 		{
 			m_TplDeleteDialog.Close();	// the map is going away under it; an orphaned question helps nobody
@@ -836,6 +841,47 @@ class SM_DrawPanel
 		if (!t)
 		{
 			TemplateNotice("Pick a template first.");
+			return;
+		}
+
+		// A built-in shape: two clicks on the map, one drawing out. No session — a shape is a single
+		// record and rides the ordinary limits like any other. Local (PERSONAL) never leaves this
+		// machine, so no server cap applies to it.
+		if (t.m_iShape != SM_ShapeGeometry.SHAPE_NONE)
+		{
+			// Grid cap up front: no point arming a placement the server will refuse. Checked against
+			// this client's own replica (it sees all of its own grids); the server enforces it for real.
+			if (t.m_iShape == SM_ShapeGeometry.SHAPE_GRID
+				&& m_Canvas.GetVisibility() != SM_EMarkerVisibility.PERSONAL)
+			{
+				int gridCap = SM_MarkerConfig.GetInstance().m_iDrawMaxGridsPerPlayer;
+				if (gridCap > 0)
+				{
+					SCR_PlayerController pc = SCR_PlayerController.Cast(GetGame().GetPlayerController());
+					int myId = -1;
+					if (pc)
+						myId = pc.GetPlayerId();
+					if (SM_MapDrawingStore.GetInstance().CountGridsByOwner(myId) >= gridCap)
+					{
+						if (gridCap == 1)
+							TemplateNotice("You already have a grid. Erase it to place a new one.");
+						else
+							TemplateNotice(string.Format("You've reached this server's grid limit (%1). Erase one first.", gridCap));
+						return;
+					}
+				}
+			}
+
+			SM_TemplateStore.GetInstance().Select(t.m_sId);
+			SM_TemplateSession.GetInstance().Clear();
+			m_Canvas.StartShapePlacement(t.m_iShape);
+			RefreshTemplates();
+			if (t.m_iShape == SM_ShapeGeometry.SHAPE_GRID)
+				TemplateNotice("Click a grid square — it becomes A-1. A second click sets the size.");
+			else if (t.m_iShape == SM_ShapeGeometry.SHAPE_CIRCLE)
+				TemplateNotice("Click the centre, then click again to set the radius.");
+			else
+				TemplateNotice("Click the first corner, then the opposite one.");
 			return;
 		}
 
@@ -954,6 +1000,17 @@ class SM_DrawPanel
 	protected void OnTemplateCancel()
 	{
 		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
+
+		// A shape being placed: drop it and put the tool away. Nothing reached the map yet (a shape
+		// only exists after its second click), so there is nothing to undo.
+		if (m_Canvas.GetShapeMode() != SM_ShapeGeometry.SHAPE_NONE)
+		{
+			m_Canvas.CancelShapePlacement();
+			m_Canvas.SetActive(false);
+			SM_TemplateStore.GetInstance().Select("");
+			RefreshTemplates();
+			return;
+		}
 
 		// Naming: one step back to the framed box. The selection is still standing, so Save simply
 		// opens the name step again. Without this branch the modal flag survived the reset below and
@@ -1080,6 +1137,12 @@ class SM_DrawPanel
 			return;
 		}
 
+		if (t.m_iShape != SM_ShapeGeometry.SHAPE_NONE)
+		{
+			BuildShapePreview(t.m_iShape);
+			return;
+		}
+
 		float spanX = t.m_iSpanX;
 		float spanZ = t.m_iSpanZ;
 		if (spanX < 1) spanX = 1;	// a straight line has no width in one axis
@@ -1156,6 +1219,106 @@ class SM_DrawPanel
 		}
 
 		m_wTplPreview.SetDrawCommands(m_aTplPreviewCmds);
+	}
+
+	//! Sample of a built-in shape, drawn with the CURRENT brush colour and opacity — the preview is
+	//! how the player checks what he is about to stamp, so it must not lie about the ink.
+	protected void BuildShapePreview(int shape)
+	{
+		m_aTplPreviewCmds.Clear();
+
+		// Sample parameters in their own metre space; the block below fits whatever comes out.
+		array<int> p = {};
+		float border = 12;
+		if (shape == SM_ShapeGeometry.SHAPE_RECT)
+		{
+			p = {0, 0, 320, 210};
+		}
+		else if (shape == SM_ShapeGeometry.SHAPE_CIRCLE)
+		{
+			p = {160, 105, 290, 105};
+		}
+		else	// grid: 5 columns x 4 rows is enough to read the idea, labels included
+		{
+			p = {100, 400, 600, 0};
+			border = 8;
+		}
+
+		array<ref SM_ShapeLine> lines = {};
+		SM_ShapeGeometry.Build(shape, p, border, lines);
+		if (lines.IsEmpty())
+		{
+			m_wTplPreview.SetDrawCommands(m_aTplPreviewCmds);
+			return;
+		}
+
+		// Fit: bounding box of everything built, mapped into the preview canvas.
+		bool first = true;
+		int loX, hiX, loZ, hiZ;
+		foreach (SM_ShapeLine bl : lines)
+		{
+			for (int i = 0; i + 1 < bl.m_aPts.Count(); i += 2)
+			{
+				int x = bl.m_aPts[i];
+				int z = bl.m_aPts[i + 1];
+				if (first) { loX = x; hiX = x; loZ = z; hiZ = z; first = false; continue; }
+				if (x < loX) loX = x;
+				if (x > hiX) hiX = x;
+				if (z < loZ) loZ = z;
+				if (z > hiZ) hiZ = z;
+			}
+		}
+		float spanX = Math.Max(hiX - loX, 1);
+		float spanZ = Math.Max(hiZ - loZ, 1);
+
+		float k = Math.Min(TPL_PREVIEW_MAX_W / spanX, TPL_PREVIEW_MAX_H / spanZ);
+		float cw = Math.Max(spanX * k, TPL_PREVIEW_MIN);
+		float ch = Math.Max(spanZ * k, TPL_PREVIEW_MIN);
+		FrameSlot.SetSize(m_wTplPreview, cw, ch);
+		m_wTplPreview.SetSizeInUnits(Vector(cw, ch, 0));
+		m_wTplPreview.SetZoom(1.0);
+		m_wTplPreview.SetOffsetPx(Vector(0, 0, 0));
+
+		float availW = cw - TPL_PREVIEW_PAD * 2;
+		float availH = ch - TPL_PREVIEW_PAD * 2;
+		if (availW <= 0 || availH <= 0)
+			return;
+		float scale = Math.Min(availW / spanX, availH / spanZ);
+		float ox = cw * 0.5 - (loX + hiX) * 0.5 * scale;
+		float oy = ch * 0.5 + (loZ + hiZ) * 0.5 * scale;	// Z north-up -> screen y down
+
+		int argb = m_Canvas.BrushColorWithOpacity();
+		foreach (SM_ShapeLine l : lines)
+		{
+			int n = l.m_aPts.Count() / 2;
+			if (n < 2)
+				continue;
+			array<float> pts = {};
+			pts.Resize(n * 2);
+			for (int j = 0; j < n; j++)
+			{
+				pts[j * 2]     = ox + l.m_aPts[j * 2] * scale;
+				pts[j * 2 + 1] = oy - l.m_aPts[j * 2 + 1] * scale;
+			}
+			LineDrawCommand line = new LineDrawCommand();
+			line.m_iColor   = argb;
+			line.m_fWidth   = Math.Max(l.m_fWidthMeters * scale, 1.2);	// keeps the thick/thin contrast
+			line.m_Vertices = pts;
+			m_aTplPreviewCmds.Insert(line);
+		}
+
+		m_wTplPreview.SetDrawCommands(m_aTplPreviewCmds);
+	}
+
+	//! The brush changed (colour, width, opacity). A shape preview is painted WITH the brush, so it
+	//! has to follow; stroke-template previews carry their own baked colours and don't care.
+	protected void RefreshShapePreviewIfAny()
+	{
+		if (!IsTemplatesOpen())
+			return;
+		SM_DrawTemplate t = TemplateForSlot(m_iTplHighlight);
+		if (t && t.m_iShape != SM_ShapeGeometry.SHAPE_NONE)
+			BuildTemplatePreview(t);
 	}
 
 	// ---------------------------------------------------------------- templates
@@ -1500,6 +1663,14 @@ class SM_DrawPanel
 		TickTemplatesAllowed();
 		TickTemplateGlyphs();	// before the early-out: they must also HIDE when the dropdown closes
 
+		// A shape just landed: the placement flow is over, so close the menu and clear the pick — the
+		// player asked for one shape, and here is the clean slate to choose the next thing from.
+		if (m_Canvas && m_Canvas.ConsumeShapePlaced())
+		{
+			AbortTemplateFlow();
+			return;
+		}
+
 		if (!m_wTemplatesDropdown || !m_wTemplatesDropdown.IsVisible())
 			return;
 
@@ -1538,6 +1709,10 @@ class SM_DrawPanel
 			state |= 8;
 		if (m_bTplNaming)
 			state |= 128;
+		if (m_Canvas && m_Canvas.GetShapeMode() != SM_ShapeGeometry.SHAPE_NONE)
+			state |= 256;
+		if (m_Canvas && m_Canvas.ShapeFirstSet())
+			state |= 512;
 
 		if (state == m_iTplState)
 			return;
@@ -2116,12 +2291,14 @@ class SM_DrawPanel
 			case ACT_WIDTH:
 				m_Canvas.SetWidthIdx(param);
 				CloseDropdowns();
+				RefreshShapePreviewIfAny();
 				break;
 
 			case ACT_COLOR:
 				if (param >= 0 && param < COLORS.Count())
 					m_Canvas.SetColor(COLORS[param]);
 				CloseDropdowns();
+				RefreshShapePreviewIfAny();
 				break;
 
 			case ACT_CHANNEL:
@@ -2483,6 +2660,7 @@ class SM_DrawPanel
 			if (ot)
 				ot.SetText(m_Canvas.GetOpacityPct().ToString() + "%");
 		}
+		RefreshShapePreviewIfAny();	// a shape preview is painted with the brush — follow it live
 	}
 }
 

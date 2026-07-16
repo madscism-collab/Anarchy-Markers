@@ -24,6 +24,7 @@ class SM_TemplateStore
 	protected static ref SM_TemplateStore s_Instance;
 
 	protected ref array<ref SM_DrawTemplate> m_aTemplates = {};
+	protected ref array<ref SM_DrawTemplate> m_aBuiltIns = {};	// rect/circle/grid — always first, never files
 	protected string m_sSelectedId;		// the template "in hand", "" = none
 	protected bool   m_bLoaded;
 
@@ -61,6 +62,11 @@ class SM_TemplateStore
 		if (!outList)
 			outList = {};
 		outList.Clear();
+		foreach (SM_DrawTemplate b : m_aBuiltIns)
+		{
+			if (b)
+				outList.Insert(b);	// pinned to the top, in their own fixed order
+		}
 		foreach (SM_DrawTemplate t : m_aTemplates)
 		{
 			if (t)
@@ -71,6 +77,11 @@ class SM_TemplateStore
 	SM_DrawTemplate Find(string id)
 	{
 		EnsureLoaded();
+		foreach (SM_DrawTemplate b : m_aBuiltIns)
+		{
+			if (b && b.m_sId == id)
+				return b;
+		}
 		foreach (SM_DrawTemplate t : m_aTemplates)
 		{
 			if (t && t.m_sId == id)
@@ -82,7 +93,7 @@ class SM_TemplateStore
 	int Count()
 	{
 		EnsureLoaded();
-		return m_aTemplates.Count();
+		return m_aBuiltIns.Count() + m_aTemplates.Count();
 	}
 
 	// --- the one in hand ---
@@ -328,6 +339,13 @@ class SM_TemplateStore
 			return;
 		m_bLoaded = true;
 
+		if (m_aBuiltIns.IsEmpty())
+		{
+			m_aBuiltIns.Insert(MakeBuiltIn("__rect",   "Rectangle", SM_ShapeGeometry.SHAPE_RECT));
+			m_aBuiltIns.Insert(MakeBuiltIn("__circle", "Circle",    SM_ShapeGeometry.SHAPE_CIRCLE));
+			m_aBuiltIns.Insert(MakeBuiltIn("__grid",   "Grid",      SM_ShapeGeometry.SHAPE_GRID));
+		}
+
 		FileIO.MakeDirectory("$profile:SavingMarkers");
 		FileIO.MakeDirectory(DIR);
 
@@ -343,12 +361,35 @@ class SM_TemplateStore
 				path = DIR + "/" + path;
 
 			SM_DrawTemplate t = ReadFile(path);
-			if (t)
-				m_aTemplates.Insert(t);
+			if (!t)
+				continue;
+			if (IsBuiltInId(t.m_sId))
+				continue;	// a file named like a built-in would shadow it — the built-in wins
+			m_aTemplates.Insert(t);
 		}
 
 		SortByName();
-		Print(string.Format("[SM] Templates loaded: %1", m_aTemplates.Count()), LogLevel.NORMAL);
+		Print(string.Format("[SM] Templates loaded: %1 (+%2 built-in)", m_aTemplates.Count(), m_aBuiltIns.Count()), LogLevel.NORMAL);
+	}
+
+	protected SM_DrawTemplate MakeBuiltIn(string id, string name, int shape)
+	{
+		SM_DrawTemplate t = new SM_DrawTemplate();
+		t.m_sId = id;
+		t.m_sName = name;
+		t.m_bBuiltIn = true;
+		t.m_iShape = shape;
+		return t;
+	}
+
+	protected bool IsBuiltInId(string id)
+	{
+		foreach (SM_DrawTemplate b : m_aBuiltIns)
+		{
+			if (b && b.m_sId == id)
+				return true;
+		}
+		return false;
 	}
 
 	//! Alphabetical by the name the player gave it — so "1. Push" sorts before "2. Hold" with no

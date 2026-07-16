@@ -159,6 +159,28 @@ class SM_MapFloodFill
 			if (!d.AABBOverlapsRect(originX, winMaxX, originZ, winMaxZ, 64))
 				continue;
 
+			// A parametric shape stamps its REAL lines, not its two parameter points — that is what lets
+			// a click seal inside a circle, a rectangle, or one cell of a grid. Every line of the shape
+			// is a boundary, so a grid's inner lines split it into fillable cells for free.
+			if (d.m_iShape != 0)
+			{
+				float shalf = SM_DrawCanvas.WidthMeters(d.m_iWidthIdx) * 0.5;
+				array<ref SM_ShapeLine> lines = {};
+				SM_ShapeGeometry.Build(d.m_iShape, d.m_aPoints, SM_DrawCanvas.WidthMeters(d.m_iWidthIdx), lines);
+				foreach (SM_ShapeLine sl : lines)
+				{
+					if (!sl || sl.m_aPts.Count() < 4)
+						continue;
+					float slh = sl.m_fWidthMeters * 0.5;
+					if (slh > maxHalfW)
+						maxHalfW = slh;
+					float sr = slh + cell * 0.7072;
+					for (int si = 2; si < sl.m_aPts.Count(); si += 2)
+						StampSegment(grid, originX, originZ, cell, sl.m_aPts[si - 2], sl.m_aPts[si - 1], sl.m_aPts[si], sl.m_aPts[si + 1], sr);
+				}
+				continue;
+			}
+
 			if (d.m_iFill != 0)
 			{
 				StampPolygon(grid, originX, originZ, cell, d);	// заливка → код 4

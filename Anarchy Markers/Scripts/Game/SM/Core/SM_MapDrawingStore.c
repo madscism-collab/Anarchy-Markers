@@ -74,6 +74,49 @@ class SM_MapDrawingStore
 		return n;
 	}
 
+	//! Drawing budget SPENT: a freehand stroke is 1, a shape is its line cost (SM_ShapeGeometry).
+	//! This is what the per-player / total limits weigh against, so a circle can't cost one slot and
+	//! cover the map.
+	int CostByOwner(int ownerId)
+	{
+		int c = 0;
+		foreach (SM_MapDrawingData d : m_aDrawings)
+		{
+			if (d && d.m_iOwnerId == ownerId)
+				c += RecordCost(d);
+		}
+		return c;
+	}
+
+	int TotalCost()
+	{
+		int c = 0;
+		foreach (SM_MapDrawingData d : m_aDrawings)
+		{
+			if (d)
+				c += RecordCost(d);
+		}
+		return c;
+	}
+
+	int CountGridsByOwner(int ownerId)
+	{
+		int n = 0;
+		foreach (SM_MapDrawingData d : m_aDrawings)
+		{
+			if (d && d.m_iOwnerId == ownerId && d.m_iShape == SM_ShapeGeometry.SHAPE_GRID)
+				n++;
+		}
+		return n;
+	}
+
+	static int RecordCost(notnull SM_MapDrawingData d)
+	{
+		if (d.m_iShape == 0)
+			return 1;
+		return SM_ShapeGeometry.StrokeCost(d.m_iShape, d.m_aPoints);
+	}
+
 	// --- Серверні (авторитетні) операції ---
 
 	//! Створити штрих: призначити id, додати, повідомити локальний рендер.
@@ -82,8 +125,9 @@ class SM_MapDrawingStore
 		SM_MapDrawingData d = new SM_MapDrawingData();
 		if (!d.UnpackMeta(meta))
 			return null;
-		d.ServerSanitise();	// meta came off the wire — no field in it is trustworthy
 		d.SetPoints(points);
+		d.ServerSanitise();	// meta came off the wire — no field in it is trustworthy.
+							// AFTER SetPoints: the shape checks need the points (count, grid snapping).
 		d.m_iOwnerId   = ownerId;
 		d.m_iChannel   = channel;	// канал ставить сервер (фракція/група), не клієнт
 		d.m_iCreatedMs = createdMs;

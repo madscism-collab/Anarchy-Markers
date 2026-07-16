@@ -195,13 +195,30 @@ class SM_DrawingNet
 		}
 
 		SM_MapDrawingStore drawStore = SM_MapDrawingStore.GetInstance();
-		if (drawCfg.m_iDrawMaxTotal > 0 && drawStore.Count() >= drawCfg.m_iDrawMaxTotal)
+
+		// A shape is one record but weighs its line cost against the drawing limits — a rectangle is 4,
+		// a circle its segments — so it can't be a cheap way to blanket the map. The grid is capped by a
+		// separate per-player count instead (one is usually all anyone needs). Cost is read from the
+		// raw meta/points; StrokeCost is self-guarding and the grid snap doesn't change it.
+		int shape = SM_MapDrawingData.ShapeFromMeta(meta);
+		int cost = 1;
+		if (shape != 0 && points.Count() == 4)
+			cost = SM_ShapeGeometry.StrokeCost(shape, points);
+
+		if (shape == SM_ShapeGeometry.SHAPE_GRID && drawCfg.m_iDrawMaxGridsPerPlayer > 0
+			&& drawStore.CountGridsByOwner(requesterId) >= drawCfg.m_iDrawMaxGridsPerPlayer)
+		{
+			if (denyPc)
+				denyPc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_GRID_LIMIT, drawCfg.m_iDrawMaxGridsPerPlayer);
+			return 0;
+		}
+		if (drawCfg.m_iDrawMaxTotal > 0 && drawStore.TotalCost() + cost > drawCfg.m_iDrawMaxTotal)
 		{
 			if (denyPc)
 				denyPc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_TOTAL_LIMIT, drawCfg.m_iDrawMaxTotal);
 			return 0;
 		}
-		if (drawCfg.m_iDrawMaxPerPlayer > 0 && drawStore.CountByOwner(requesterId) >= drawCfg.m_iDrawMaxPerPlayer)
+		if (drawCfg.m_iDrawMaxPerPlayer > 0 && drawStore.CostByOwner(requesterId) + cost > drawCfg.m_iDrawMaxPerPlayer)
 		{
 			if (denyPc)
 				denyPc.SM_SendPlaceDenied(SM_EPlaceDenyReason.DRAW_PER_PLAYER_LIMIT, drawCfg.m_iDrawMaxPerPlayer);
@@ -278,6 +295,8 @@ class SM_DrawingNet
 			return;
 		if (old.m_iOwnerId != requesterId)	// partial erase is strictly owner-only
 			return;
+		if (old.m_iShape != 0)
+			return;	// a shape is parameters, not geometry — it can only ever be removed whole
 		if (old.m_iGmLocked != 0 && !SM_MarkerNet.IsPlayerGameMaster(requesterId))
 		{
 			if (denyPc)

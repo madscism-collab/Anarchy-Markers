@@ -85,6 +85,8 @@ class SM_DrawTemplate
 	string m_sFile;		// the file it came from; not serialised — rename it and this follows
 	string m_sName;		// what the player sees
 	bool   m_bBuiltIn;	// shipped with the mod: cannot be overwritten or deleted
+	int    m_iShape;	// SM_ShapeGeometry.SHAPE_*: a built-in parametric shape, no strokes at all.
+						// Never serialised — built-ins are code, not files.
 	int    m_iSpanX, m_iSpanZ;	// bounding box in metres — the panel draws a thumbnail from it
 
 	ref array<ref SM_DrawTemplateStroke> m_aStrokes = {};

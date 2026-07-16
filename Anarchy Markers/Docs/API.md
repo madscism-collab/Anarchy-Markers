@@ -294,8 +294,9 @@ SM_MapDrawingData AM_MarkerAPI.NewDrawing(int argb, int widthIdx, bool fill,
 | `m_iWidthIdx` | Brush preset 0..4 (2/5/10/20/40 m). |
 | `m_iVisibility`, `m_iChannel` | Channel, same rules as markers. |
 | `m_iFill` | 1 = filled area (points form a closed polygon), 0 = polyline. |
+| `m_iShape` | 0 = freehand. Non-zero = a parametric shape (`SM_ShapeGeometry.SHAPE_RECT/CIRCLE/GRID`): `m_aPoints` then holds exactly 2 **parameter** points, not geometry (rect corners; circle centre + rim point; grid A1 top-left + field bottom-right). If you render drawings yourself, build the real polylines with `SM_ShapeGeometry.Build(shape, points, borderMeters, outLines)` — never draw the 2 raw points. |
 | `m_iGmLocked`, `m_iHideInfo` | GM flags. |
-| `m_aPoints` | World coordinates, flat `x,z` pairs in meters. |
+| `m_aPoints` | World coordinates, flat `x,z` pairs in meters (but see `m_iShape`). |
 
 ### Drawing templates (API v8)
 

@@ -82,6 +82,9 @@ class SM_MarkerConfig
 	//     штрихи йдуть звичайним шляхом під усі ліміти вище — тож вимикач лише прибирає UI у
 	//     гравців цього сервера. Реплікується клієнтам.
 	bool m_bAllowTemplates = true;
+	// 28. Макс. вбудованих СІТОК на гравця (0 = без обмеження). Сітка важка й одна зазвичай і потрібна —
+	//     дефолт 1. Прямокутник/коло рахуються за вартістю (к-сть ліній) проти drawMaxPerPlayer/Total.
+	int  m_iDrawMaxGridsPerPlayer = 1;
 
 	protected const string DIR      = "$profile:SavingMarkers";
 	protected const string FILE     = "$profile:SavingMarkers/SM_Config.cfg";
@@ -133,6 +136,7 @@ class SM_MarkerConfig
 		if (m_iDrawRdpEpsilon < 0)    m_iDrawRdpEpsilon = 0;
 		if (m_iDrawBatchIntervalMs < 0) m_iDrawBatchIntervalMs = 0;
 		if (m_iDrawBatchIntervalMs > 0 && m_iDrawBatchIntervalMs < 250) m_iDrawBatchIntervalMs = 250;	// sub-250ms is effectively instant, just extra overhead
+		if (m_iDrawMaxGridsPerPlayer < 0) m_iDrawMaxGridsPerPlayer = 0;
 	}
 
 	// --- Читання текстового .cfg (key=value, # — коментар) ---
@@ -196,6 +200,7 @@ class SM_MarkerConfig
 		else if (key == "drawEraseOthersAllowed") m_bDrawEraseOthers      = ParseBool(val);
 		else if (key == "drawBatchIntervalMs")    m_iDrawBatchIntervalMs  = val.ToInt();
 		else if (key == "allowTemplates")         m_bAllowTemplates       = ParseBool(val);
+		else if (key == "drawMaxGridsPerPlayer")  m_iDrawMaxGridsPerPlayer = val.ToInt();
 	}
 
 	protected bool ParseBool(string v)
@@ -326,6 +331,9 @@ class SM_MarkerConfig
 		h.WriteLine("# Allow drawing templates (saving/stamping reusable drawings). The strokes a template");
 		h.WriteLine("# draws are ordinary strokes under all the limits above; false just removes the feature's UI.");
 		h.WriteLine("allowTemplates=" + B2S(m_bAllowTemplates));
+		h.WriteLine("# Max built-in GRIDS a single player may have (0 = unlimited). Rectangle/circle are not");
+		h.WriteLine("# limited here — they count by their line cost against drawMaxPerPlayer/drawMaxTotal.");
+		h.WriteLine("drawMaxGridsPerPlayer=" + m_iDrawMaxGridsPerPlayer.ToString());
 
 		h.Close();
 	}
@@ -361,12 +369,13 @@ class SM_MarkerConfig
 	// Темплейтам вони потрібні ЗАЗДАЛЕГІДЬ: авто-малювання тримає темп під ліміт за хвилину, а
 	// нездійсненний темплейт (штрихів більше, ніж сервер узагалі дозволить) треба показати гравцю
 	// ДО того, як він півгодини протримає ЛКМ.
-	void SetClientDrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates)
+	void SetClientDrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates, int maxGrids)
 	{
 		m_iDrawPerMinuteLimit     = perMinute;
 		m_iDrawMaxPerPlayer       = maxPerPlayer;
 		m_iDrawMaxTotal           = maxTotal;
 		m_iDrawMaxPointsPerStroke = maxPointsPerStroke;
 		m_bAllowTemplates         = allowTemplates;
+		m_iDrawMaxGridsPerPlayer  = maxGrids;
 	}
 }

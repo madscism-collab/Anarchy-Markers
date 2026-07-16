@@ -6,7 +6,7 @@
 
 class SM_MapDrawingData
 {
-	static const int META_COUNT = 7;	// color, widthIdx, visibility, channel, gmLocked, hideInfo, fill
+	static const int META_COUNT = 8;	// color, widthIdx, visibility, channel, gmLocked, hideInfo, fill, shape
 
 	int m_iId;			// унікальний id, сервер; -1 = ще не призначено
 	int m_iOwnerId;		// playerId автора; -1 = серверний
@@ -17,7 +17,12 @@ class SM_MapDrawingData
 	int m_iCreatedMs;	// час створення (серверний тік), для впорядкування/діагностики
 	int m_iGmLocked;	// 1 = штрих зевса: гравці не можуть стирати (гумкою/Del), лише GM
 	int m_iHideInfo;	// 1 = ховати тултіп "Drawn by" від гравців (зевс у редакторі бачить)
-	int m_iFill;		// 1 = залита область: точки — замкнутий контур полігона, не полілінія
+	int m_iFill;		// 1 = залита область: точки — замкнутий контур полігона, не замкнута полілінія
+	// Параметрична фігура (SM_ShapeGeometry.SHAPE_*). 0 = звичайний штрих (точки = геометрія).
+	// Для фігур точки — лише ПАРАМЕТРИ (завжди рівно 2): прямокутник — протилежні кути; коло —
+	// центр і точка на колі; сітка — верхній-лівий кут клітинки A1 і нижній-правий кут поля.
+	// По мережі і в сейв ідуть лише ці параметри, геометрію кожен клієнт будує сам — однаково.
+	int m_iShape;
 	string m_sOwnerName;	// ІМ'Я автора — зберігається в JSON (playerId між сесіями не стабільний), як m_sLastEditor у міток
 
 	ref array<int> m_aPoints = {};	// x,z у метрах, парами
@@ -72,6 +77,7 @@ class SM_MapDrawingData
 		m_iGmLocked   = s.m_iGmLocked;
 		m_iHideInfo   = s.m_iHideInfo;
 		m_iFill       = s.m_iFill;
+		m_iShape      = s.m_iShape;
 		m_sOwnerName  = s.m_sOwnerName;
 		m_aPoints.Clear();
 		m_aPoints.Copy(s.m_aPoints);
@@ -89,6 +95,7 @@ class SM_MapDrawingData
 		a.Insert(m_iGmLocked);
 		a.Insert(m_iHideInfo);
 		a.Insert(m_iFill);
+		a.Insert(m_iShape);
 		return a;
 	}
 
@@ -103,6 +110,7 @@ class SM_MapDrawingData
 		m_iGmLocked   = a[4];
 		m_iHideInfo   = a[5];
 		m_iFill       = a[6];
+		m_iShape      = a[7];
 		return true;
 	}
 
@@ -124,6 +132,24 @@ class SM_MapDrawingData
 		if (m_iFill != 0)
 			m_iFill = 1;	// any non-zero was treated as "filled"; make it mean exactly one thing
 
+		// Shapes: two parameter points, nothing else. Anything malformed degrades to a freehand stroke
+		// of the same points — visible garbage the author sees too, never a crash or a lying render.
+		if (m_iShape < 0 || m_iShape > SM_ShapeGeometry.SHAPE_GRID)
+			m_iShape = 0;
+		if (m_iShape != 0)
+		{
+			m_iFill = 0;
+			if (GetPointCount() != 2)
+				m_iShape = 0;
+			else if (m_iShape == SM_ShapeGeometry.SHAPE_GRID)
+			{
+				// The whole promise of the grid is that it sits ON the map's own 100 m grid, for
+				// everyone. Snap the anchor and re-derive the extent, whatever the client sent.
+				SM_ShapeGeometry.SnapGridParams(m_aPoints);
+				RecomputeAABB();
+			}
+		}
+
 		switch (m_iVisibility)
 		{
 			case SM_EMarkerVisibility.PERSONAL:
@@ -134,6 +160,19 @@ class SM_MapDrawingData
 			default:
 				m_iVisibility = SM_EMarkerVisibility.FACTION;
 		}
+	}
+
+	//! Points to hit-test against (eraser, Del-under-cursor, hover). A shape's two stored points are
+	//! parameters, not geometry — its outline is what the player sees and aims at.
+	array<int> SM_HitPoints()
+	{
+		if (m_iShape == 0)
+			return m_aPoints;
+		array<int> outline = {};
+		SM_ShapeGeometry.BuildHitOutline(m_iShape, m_aPoints, outline);
+		if (outline.IsEmpty())
+			return m_aPoints;
+		return outline;
 	}
 
 	// Канал із meta (для GM Side: сервер бере обрану зевсом сторону звідси). -1 якщо некоректно.
@@ -150,6 +189,17 @@ class SM_MapDrawingData
 		if (!a || a.Count() < META_COUNT)
 			return -1;
 		return a[2];
+	}
+
+	// Тип фігури з meta (для лімітів вартості/сіток ДО створення запису). 0 = звичайний штрих.
+	static int ShapeFromMeta(array<int> a)
+	{
+		if (!a || a.Count() < META_COUNT)
+			return 0;
+		int s = a[7];
+		if (s < 0 || s > SM_ShapeGeometry.SHAPE_GRID)
+			return 0;
+		return s;
 	}
 
 	// --- AABB ---
@@ -172,6 +222,24 @@ class SM_MapDrawingData
 			if (z < m_iMinZ) m_iMinZ = z;
 			else if (z > m_iMaxZ) m_iMaxZ = z;
 		}
+
+		// Parameter points understate a shape's real extent: a circle's rim point sits to one side of
+		// the centre, and a grid carries a header row/column outside its anchor box. Culling reads
+		// this box, so it has to cover what actually gets DRAWN.
+		if (m_iShape == SM_ShapeGeometry.SHAPE_CIRCLE && n == 2)
+		{
+			float dx = m_aPoints[2] - m_aPoints[0];
+			float dz = m_aPoints[3] - m_aPoints[1];
+			int r = Math.Ceil(Math.Sqrt(dx * dx + dz * dz));
+			m_iMinX = m_aPoints[0] - r; m_iMaxX = m_aPoints[0] + r;
+			m_iMinZ = m_aPoints[1] - r; m_iMaxZ = m_aPoints[1] + r;
+		}
+		else if (m_iShape == SM_ShapeGeometry.SHAPE_GRID && n == 2)
+		{
+			m_iMinX -= SM_ShapeGeometry.GRID_CELL;	// header column, left of A
+			m_iMaxZ += SM_ShapeGeometry.GRID_CELL;	// header row, above 1
+		}
+
 		m_bAABBValid = true;
 	}
 
@@ -210,6 +278,7 @@ class SM_MapDrawingData
 		context.WriteValue("gmlock", m_iGmLocked);
 		context.WriteValue("hideinfo", m_iHideInfo);
 		context.WriteValue("fill", m_iFill);
+		context.WriteValue("shape", m_iShape);
 		context.WriteValue("author", m_sOwnerName);
 		context.WriteValue("pts", m_aPoints);
 		return true;
@@ -228,6 +297,7 @@ class SM_MapDrawingData
 		context.ReadValue("gmlock", m_iGmLocked);
 		context.ReadValue("hideinfo", m_iHideInfo);
 		context.ReadValue("fill", m_iFill);	// старі сейви без поля → лишається 0 (звичайний штрих)
+		context.ReadValue("shape", m_iShape);	// так само: старі сейви = 0
 		context.ReadValue("author", m_sOwnerName);
 		context.ReadValue("pts", m_aPoints);
 		RecomputeAABB();
