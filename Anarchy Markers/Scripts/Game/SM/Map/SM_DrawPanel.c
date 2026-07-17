@@ -239,7 +239,7 @@ class SM_DrawPanel
 			Print("[SM] Draw panel layout failed to load", LogLevel.WARNING);
 			return;
 		}
-		m_wRoot.SetZOrder(100);	
+		m_wRoot.SetZOrder(100);	// clears the vanilla fullscreen map
 
 		m_wToolbar = m_wRoot.FindAnyWidget("ToolbarWrapper");
 
@@ -2159,11 +2159,48 @@ class SM_DrawPanel
 	protected void ToggleDropdown(Widget dd)
 	{
 		if (!dd)
+		{
+			Print("[SM-DD] toggle: dropdown widget is NULL (layout name not found at Build time)", LogLevel.NORMAL);
 			return;
+		}
 		bool wasOpen = dd.IsVisible();
 		CloseDropdowns();	// відкритий лише один
 		if (!wasOpen)
 			dd.SetVisible(true);
+
+		// TEMP DIAG (host-screen dropdowns): says whether the widget opened at all, where it landed and
+		// how big it is. Remove once the ATAK tablet case is understood.
+		float sx, sy, sw, sh;
+		dd.GetScreenPos(sx, sy);
+		dd.GetScreenSize(sw, sh);
+		Print(string.Format("[SM-DD] '%1' vis=%2 visHier=%3 pos=(%4,%5) size=(%6,%7)",
+			dd.GetName(), dd.IsVisible(), dd.IsVisibleInHierarchy(), sx, sy, sw, sh), LogLevel.NORMAL);
+
+		Widget bg = dd.FindAnyWidget("Background1");
+		if (!bg)
+			bg = dd.FindAnyWidget("Background");
+		if (bg)
+		{
+			float bx, by, bw, bh;
+			bg.GetScreenPos(bx, by);
+			bg.GetScreenSize(bw, bh);
+			Print(string.Format("[SM-DD]   bg vis=%1 pos=(%2,%3) size=(%4,%5)",
+				bg.IsVisibleInHierarchy(), bx, by, bw, bh), LogLevel.NORMAL);
+		}
+
+		// Walk the whole parent chain: the dropdown reports a real size and vis=1 yet nothing shows, so
+		// the culprit is an ancestor — one of them is clipping us, or hiding, or sitting at a Z that
+		// buries us. Printing every link says which, instead of guessing one at a time.
+		int depth = 0;
+		for (Widget p = dd; p && depth < 12; p = p.GetParent())
+		{
+			float px, py, pw, ph;
+			p.GetScreenPos(px, py);
+			p.GetScreenSize(pw, ph);
+			Print(string.Format("[SM-DD]   ^%1 '%2' vis=%3 z=%4 pos=(%5,%6) size=(%7,%8)",
+				depth, p.GetName(), p.IsVisible(), p.GetZOrder(), px, py, pw, ph), LogLevel.NORMAL);
+			depth++;
+		}
 	}
 
 	//------------------------------------------------------------------------------

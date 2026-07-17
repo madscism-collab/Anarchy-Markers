@@ -56,6 +56,13 @@ modded class SCR_MapEntity
 		// clear of it. Tune here if ATAK's chrome moves.
 		AM_MapFeatures.SetHintNudgeForMode(mapMode, 90, 0);
 
+		// NOTE: our panel's Size/Color/Opacity dropdowns are known not to show on this tablet. Diagnosed
+		// so far: they DO open (vis=1) with a real size, inside the map frame's bounds — so it is not
+		// geometry, not direction, and not our own clipping (our layout root is Clipping False).
+		// Raising the panel's Z inside MapFrame does nothing either: Z only orders siblings, and the
+		// whole MapFrame (Z=0) sits under DeviceShell (Z=200, whose BezelImage is 1100). Under
+		// investigation — do not re-try those two.
+
 		return cfg;
 	}
 
