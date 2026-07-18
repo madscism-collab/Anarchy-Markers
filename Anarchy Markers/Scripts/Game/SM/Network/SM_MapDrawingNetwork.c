@@ -285,7 +285,11 @@ class SM_DrawingNet
 	// Partial erase: replace the requester's OWN stroke with the leftover pieces.
 	// Piece meta (color/width/visibility/channel) comes from the trusted server record —
 	// the client only sends geometry, so attributes can't be forged.
-	static void ServerHandleErasePart(int requesterId, int id, array<int> framed, SCR_PlayerController denyPc)
+	// madeIds (optional): the id of every piece created, in the order the pieces arrived. The batched
+	// client pairs them with the optimistic temps it is showing, so a piece erased again while the batch
+	// was still in flight can be removed for real instead of resurrecting on the next broadcast.
+	// A piece that fails to create still takes a slot (0) — the pairing is by index.
+	static void ServerHandleErasePart(int requesterId, int id, array<int> framed, SCR_PlayerController denyPc, array<int> madeIds = null)
 	{
 		if (!SM_MarkerConfig.GetInstance().m_bAllowDrawing)
 			return;
@@ -346,6 +350,13 @@ class SM_DrawingNet
 			{
 				BroadcastAdd(piece);
 				made++;
+			}
+			if (madeIds)
+			{
+				if (piece)
+					madeIds.Insert(piece.m_iId);
+				else
+					madeIds.Insert(0);	// keep the slot so the client's temps still pair up by index
 			}
 		}
 		SM_MarkerNet.Log(string.Format("DRAW-ERASE-PART #%1 by %2 -> %3 pieces", id, SM_MarkerNet.Who(requesterId), made));
@@ -430,9 +441,14 @@ class SM_DrawingNet
 
 	// Process one client batch (RpcAsk_DrawBatch). Fills addRealIds with the real id of every
 	// ADD in order (0 = rejected) — the client uses it to drop its optimistic temp strokes.
-	static void ProcessBatch(SCR_PlayerController pc, array<int> blob, out array<int> addRealIds)
+	// addRealIds: one id per ADD, in order (0 = rejected).
+	// erasePieceIds: one GROUP per ERASE_PART, in order, each [count, id, id, ...]. Grouped rather than
+	// flat because an erase-part can be rejected outright (count 0) and a flat list would then silently
+	// shift every following op's ids onto the wrong temps.
+	static void ProcessBatch(SCR_PlayerController pc, array<int> blob, out array<int> addRealIds, out array<int> erasePieceIds)
 	{
 		addRealIds = {};
+		erasePieceIds = {};
 		if (!pc || !blob)
 			return;
 		int requesterId = pc.GetPlayerId();
@@ -496,7 +512,11 @@ class SM_DrawingNet
 					framed.Insert(blob[pos]);
 					pos++;
 				}
-				ServerHandleErasePart(requesterId, eid, framed, null);
+				array<int> made = {};
+				ServerHandleErasePart(requesterId, eid, framed, null, made);
+				erasePieceIds.Insert(made.Count());
+				foreach (int mid : made)
+					erasePieceIds.Insert(mid);
 			}
 			else
 			{

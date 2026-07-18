@@ -6,12 +6,16 @@
 // players see them once the packet goes out. The Local channel never comes through here
 // (it's client-only and instant anyway). interval=0 -> batching off, send immediately.
 //
-// Reconcile: the server returns the real id of every ADD in order; the client then drops
-// its optimistic temp (the real stroke already arrived via broadcast). A whole remove hides
-// the stroke at once. A partial erase is driven by the eraser drag (SM_DrawCanvas): it cuts
-// the stroke client-side and shows the leftover pieces as temps, then hands them here via
-// AdoptErasePart with one erase-part for the whole drag; those temps drop on reconcile once the
-// server's authoritative pieces have arrived via broadcast.
+// Reconcile: the server reports the real id of every ADD, and the real pieces of every erase-part
+// grouped per op; the client pairs each optimistic temp with its real counterpart by index, then
+// drops the temp (the real stroke already arrived via broadcast). A whole remove hides the stroke at
+// once. A partial erase is driven by the eraser drag (SM_DrawCanvas): it cuts the stroke client-side
+// and shows the leftover pieces as temps, then hands them here via AdoptErasePart with one erase-part
+// for the whole drag.
+//
+// The pairing is what lets a temp be erased AGAIN before its batch is answered: the kill is remembered
+// against the temp and re-issued against the real id once reconcile names it. Without that the erase
+// would be lost and the server's copy — already broadcast — would look like the stroke coming back.
 
 // One queued operation. Encoded into the flat int blob only at send time — that way an
 // unsent add can simply be dropped from the queue when the player erases it again.
@@ -39,7 +43,9 @@ class SM_DrawOutbox
 	protected static float s_fNextFlush = 0;						// next flush time (System.GetTickCount ms)
 	protected static int s_iSeq = 1;								// batch counter
 	protected static ref map<int, ref array<int>> s_mSentTemps = new map<int, ref array<int>>();	// seq -> ADD temp ids, in order
-	protected static ref map<int, ref array<int>> s_mSentErasePieces = new map<int, ref array<int>>();	// seq -> optimistic erase-piece temps to drop on reconcile
+	// seq -> one group of erase-piece temps per ERASE_PART op, in send order. Grouped to match the
+	// server's per-op reply, so temp[i] of an op pairs with that op's real piece[i].
+	protected static ref map<int, ref array<ref array<int>>> s_mSentErasePieces = new map<int, ref array<ref array<int>>>();
 	protected static ref set<int> s_ServerTemps = new set<int>();	// live optimistic temps (to tell them apart from Local-channel ids)
 	protected static ref set<int> s_KillOnReconcile = new set<int>();	// temps erased AFTER sending -> also remove the real stroke on reconcile
 
@@ -177,7 +183,10 @@ class SM_DrawOutbox
 	// Partial erase whose leftover pieces the CALLER already shows as temps (the eraser drag builds
 	// them client-side against the original geometry and sends one erase-part when the drag ends).
 	// We adopt those temps instead of making our own: mark them as server temps (so a later eraser
-	// treats them as own) and drop them on reconcile once the server's real pieces arrive.
+	// treats them as own) and pair them with the server's real pieces on reconcile.
+	//
+	// CONTRACT: temps must hold exactly one id per piece in `framed`, in the same order. The pairing is
+	// by index — a temps list that doesn't mirror the pieces sent would map kills onto the wrong strokes.
 	static void AdoptErasePart(int id, notnull array<int> framed, notnull array<int> temps)
 	{
 		if (!Enabled())
@@ -219,12 +228,75 @@ class SM_DrawOutbox
 		{
 			if (s_aOps[i] && s_aOps[i].m_iType == OP_ADD && s_aOps[i].m_iTempId == tempId)
 			{
-				s_aOps.Remove(i);	// not sent yet — just drop the add, nothing reaches the server
+				// Not sent yet — just drop the add, nothing reaches the server. Ordered removal (ops
+				// replay in queue order server-side) and the size counter follows the op out.
+				s_iPendingInts -= 2 + s_aOps[i].m_aMeta.Count() + s_aOps[i].m_aPoints.Count();
+				if (s_iPendingInts < 0)
+					s_iPendingInts = 0;
+				s_aOps.RemoveOrdered(i);
 				return;
 			}
 		}
+
+		if (PruneUnsentErasePiece(tempId))
+			return;
+
 		// already sent (awaiting reconcile) — remember to remove the real stroke too
 		s_KillOnReconcile.Insert(tempId);
+	}
+
+	// An erase-piece temp whose ERASE_PART op is still sitting in the queue can be cut out of the op
+	// itself: the server then never creates the doomed piece, other clients never see it flash in, and
+	// no follow-up remove has to chase it a batch later. With the default 3s interval this is the
+	// COMMON mass-erase case, not a corner. Returns true when the temp was handled this way.
+	protected static bool PruneUnsentErasePiece(int tempId)
+	{
+		foreach (SM_DrawOpRec op : s_aOps)
+		{
+			if (!op || op.m_iType != OP_ERASE_PART || !op.m_aPieceTemps)
+				continue;
+			int k = op.m_aPieceTemps.Find(tempId);
+			if (k == -1)
+				continue;
+
+			// Rebuild framed without piece k. The blocks are variable-length ([count, len, pts...]),
+			// the arrays are tiny — a copy is simpler than in-place surgery and immune to walk mistakes.
+			array<int> old = op.m_aFramed;
+			array<int> next = {};
+			next.Insert(old[0] - 1);
+			int pos = 1;
+			for (int p = 0; p < old[0]; p++)
+			{
+				if (pos >= old.Count())
+					break;
+				int block = 1 + old[pos] * 2;
+				if (p != k)
+				{
+					for (int r = 0; r < block && pos + r < old.Count(); r++)
+						next.Insert(old[pos + r]);
+				}
+				pos += block;
+			}
+			op.m_aPieceTemps.RemoveOrdered(k);
+
+			if (next[0] <= 0)
+			{
+				// that was the last piece — every leftover is erased, so the whole stroke goes
+				op.m_iType = OP_REMOVE;
+				op.m_aFramed = null;
+				op.m_aPieceTemps = null;
+				s_iPendingInts -= 1 + old.Count();	// (3 + framed) became a 2-int remove
+			}
+			else
+			{
+				op.m_aFramed = next;
+				s_iPendingInts -= old.Count() - next.Count();
+			}
+			if (s_iPendingInts < 0)
+				s_iPendingInts = 0;
+			return true;
+		}
+		return false;
 	}
 
 	// Split an optimistic temp into pieces (new optimistic adds) — used when the eraser cuts
@@ -297,7 +369,7 @@ class SM_DrawOutbox
 
 		array<int> blob = {};
 		array<int> temps = {};
-		array<int> erasePieces = {};
+		array<ref array<int>> erasePieceGroups = {};
 		foreach (SM_DrawOpRec op : s_aOps)
 		{
 			if (!op)
@@ -322,37 +394,54 @@ class SM_DrawOutbox
 				blob.Insert(op.m_aFramed.Count());
 				for (int i = 0; i < op.m_aFramed.Count(); i++)
 					blob.Insert(op.m_aFramed[i]);
+				// One group per erase-part, ALWAYS — the server replies per op, so an op that carries no
+				// temps (the defensive real-id path in SubmitErasePart) still has to take its slot.
+				array<int> group = {};
 				if (op.m_aPieceTemps)
-					for (int i = 0; i < op.m_aPieceTemps.Count(); i++)
-						erasePieces.Insert(op.m_aPieceTemps[i]);
+					group.Copy(op.m_aPieceTemps);
+				erasePieceGroups.Insert(group);
 			}
 		}
 
 		s_aOps.Clear();
 		s_iPendingInts = 0;
 		s_mSentTemps.Set(seq, temps);
-		if (!erasePieces.IsEmpty())
-			s_mSentErasePieces.Set(seq, erasePieces);
+		if (!erasePieceGroups.IsEmpty())
+			s_mSentErasePieces.Set(seq, erasePieceGroups);
 		pc.SM_DrawSendBatch(seq, blob);
 	}
 
-	// The server returned the real id of every ADD in batch seq (0 = rejected). Drop the
-	// optimistic temps — the real strokes already arrived via broadcast. If a temp was erased
-	// while in flight, remove its real counterpart too.
-	static void OnReconcile(int seq, array<int> realIds)
+	// The server reports what batch seq produced: the real id of every ADD (0 = rejected), and the real
+	// pieces of every ERASE_PART grouped per op. Both kinds of optimistic temp resolve the same way, so
+	// both go through ResolveTemps.
+	//
+	// Erase-piece temps used to be dropped blind here, with no real id behind them. That lost every erase
+	// aimed at a leftover piece while its batch was in flight (up to the whole batch interval): the temp
+	// vanished, the kill request had nothing to name, and the server's authoritative piece — already
+	// broadcast — simply stayed. That was strokes "coming back" after being erased.
+	static void OnReconcile(int seq, array<int> realIds, array<int> erasePieceIds)
 	{
 		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
 
-		// Erase-part leftovers we showed optimistically: the server's real pieces have arrived
-		// via broadcast, so drop our temps now.
-		array<int> erasePieces = s_mSentErasePieces.Get(seq);
-		if (erasePieces)
+		array<ref array<int>> groups = s_mSentErasePieces.Get(seq);
+		if (groups)
 		{
 			s_mSentErasePieces.Remove(seq);
-			foreach (int ep : erasePieces)
+			int pos = 0;
+			foreach (array<int> groupTemps : groups)
 			{
-				store.ApplyRemove(ep);
-				s_ServerTemps.RemoveItem(ep);
+				array<int> made = {};
+				if (erasePieceIds && pos < erasePieceIds.Count())
+				{
+					int n = erasePieceIds[pos];
+					pos++;
+					for (int k = 0; k < n && pos < erasePieceIds.Count(); k++)
+					{
+						made.Insert(erasePieceIds[pos]);
+						pos++;
+					}
+				}
+				ResolveTemps(store, groupTemps, made);
 			}
 		}
 
@@ -360,6 +449,17 @@ class SM_DrawOutbox
 		if (!temps)
 			return;
 		s_mSentTemps.Remove(seq);
+		ResolveTemps(store, temps, realIds);
+	}
+
+	// Drop optimistic temps now that their authoritative counterparts have arrived by broadcast. A temp
+	// the player erased while the batch was in flight takes its real counterpart with it — that removal
+	// rides out with the next batch. realIds pairs with temps by index; a short list (the server rejected
+	// the op, so nothing was created and nothing can have come back) just leaves nothing to remove.
+	protected static void ResolveTemps(SM_MapDrawingStore store, array<int> temps, array<int> realIds)
+	{
+		if (!temps)
+			return;
 
 		for (int i = 0; i < temps.Count(); i++)
 		{
@@ -367,15 +467,15 @@ class SM_DrawOutbox
 			store.ApplyRemove(tempId);
 			s_ServerTemps.RemoveItem(tempId);
 
-			if (s_KillOnReconcile.Contains(tempId))
-			{
-				s_KillOnReconcile.RemoveItem(tempId);
-				int realId = 0;
-				if (i < realIds.Count())
-					realId = realIds[i];
-				if (realId > 0)
-					SubmitRemove(realId);	// erased after sending — remove the real one (goes out with the next batch)
-			}
+			if (!s_KillOnReconcile.Contains(tempId))
+				continue;
+			s_KillOnReconcile.RemoveItem(tempId);
+
+			int realId = 0;
+			if (realIds && i < realIds.Count())
+				realId = realIds[i];
+			if (realId > 0)
+				SubmitRemove(realId);
 		}
 	}
 }

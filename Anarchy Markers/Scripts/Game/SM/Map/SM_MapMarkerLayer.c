@@ -987,6 +987,11 @@ modded class SCR_MapMarkersUI
 			if (!m_DrawPanel.IsTypingName())
 				m_DrawPanel.AbortTemplateFlow();
 		}
+		// A step that LANDS on the open tab raises the panel's landed flag; the Update consumes it and
+		// walks the pad back into the panel. Deliberately not done right here: the same physical press
+		// is still on its way to the other B listeners (SM_NavBack among them), and turning pad-nav on
+		// mid-dispatch made it take a second step through SM_TryPanelBack. Update runs after the whole
+		// input phase, so by then the press is spent.
 		m_fSMLastTplBack = now;
 		SM_EatBackPress(im, kbm);
 		return true;
@@ -1021,6 +1026,27 @@ modded class SCR_MapMarkersUI
 		im.ResetAction("MenuBack");
 		im.ResetAction("AM_Cancel");
 		return true;
+	}
+
+	// Дзеркало SM_PanelExit: завести пад У панель — пад-режим, кнопки фокусні, фокус на target.
+	// Used when a template flow ends on the open tab (a cancel, a save, the delete dialog closing):
+	// the panel the player stepped back into has to actually HOLD the pad, or it sits on screen
+	// unfocusable with the map's idle "open the panel" hint floating over it.
+	protected void SM_PanelEnterPad(Widget target)
+	{
+		if (!m_DrawPanel)
+			return;
+		WorkspaceWidget ws = GetGame().GetWorkspace();
+		if (!ws)
+			return;
+		if (!target)
+			target = m_DrawPanel.GetFirstFocusTarget();
+		if (!target)
+			return;
+		m_bSMPanelPadNav = true;
+		m_DrawPanel.SetPadFocusMode(true);	// before the focus: the slots are focusable only in pad mode
+		ws.SetFocusedWidget(target);
+		m_DrawPanel.NotifyPadEntered();		// swallow the press that walked us in
 	}
 
 	// Вихід із пад-режиму панелі: фокус мапі, кнопки знову НЕфокусні.
@@ -3757,12 +3783,18 @@ modded class SCR_MapMarkersUI
 // MapContext) AND closes the map. Stepping back WITHOUT closing has been tried twice and both ways are
 // dead ends — do not go around this loop again:
 //
-//  * Activating our own action context while the tab is open: that context REPLACES the map's, and the
-//    map's is what carries the stick panning. The camera froze exactly while a ghost was being aimed.
+//  * Activating MapMarkerEditContext while the tab is open: that context is BLOCKING — it replaces the
+//    map's own, and the map's is what carries the stick panning. The camera froze exactly while a ghost
+//    was being aimed. (Do not confuse this with AMMapContext, which the Update activates every frame:
+//    that one is ours and non-blocking — it ADDS our actions everywhere without displacing anything.
+//    The distinction is the blocking flag, not the activation itself.)
 //  * Blocking SCR_MapEntity.CloseMap: CloseMap is the LAST step of the teardown — SCR_MapMenuUI closes
 //    the menu first and only then asks the entity to close. Refusing it leaves the menu gone and the
 //    entity alive, and the next stick pan walks that half-dead map into a null (FitPanBounds <- SetPan
 //    <- Pan <- OnInputPanHGamepad).
 //
-// So the map closes with the cancel. Nothing is lost — OnMapClose runs AbortTemplateFlow anyway — and
-// inside the panel B still steps back properly (SM_TryPanelBack, which is where the context IS live).
+// The way OUT of the loop (implemented): the blocking context, but only for the frames B is physically
+// held over a cancelable state, plus the same shield fired from the AM_Cancel listener at input-dispatch
+// time (with a MenuBack reset). Panning starves only for the duration of the cancel press itself, which
+// is imperceptible — the dead end above was keeping the context up while a ghost was being AIMED.
+// See the activation block in SM_MapMarkerLayerInput.c Update and SM_OnContext.

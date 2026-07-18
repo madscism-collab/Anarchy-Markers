@@ -54,6 +54,11 @@ class SM_EraseWork
 	int m_iOwnerId;
 	ref array<ref array<int>> m_aPieces = {};	// leftover pieces so far (each: x,z,... world ints)
 	ref array<int> m_aTemps = {};				// store temps currently showing those pieces
+
+	// Original stroke's world AABB — pieces only ever shrink inside it, so a stamp outside it can be
+	// rejected without touching a single piece. m_bHasAABB false = never reject.
+	bool m_bHasAABB;
+	int m_iMinX, m_iMaxX, m_iMinZ, m_iMaxZ;
 }
 
 class SM_DrawCanvas
@@ -189,6 +194,7 @@ class SM_DrawCanvas
 	// a single pass isn't repeated. Own REAL server strokes are tracked as works instead (below).
 	protected ref set<int> m_ErasedThisDrag = new set<int>();
 	protected bool m_bErasing;
+	protected int m_iLastStampX, m_iLastStampZ;	// where the last eraser stamp landed (world m)
 	// Own server strokes cut by the CURRENT drag: cut client-side against the original geometry,
 	// one erase-part sent per stroke at drag end (see SM_EraseWork). m_EraseWorkTemps holds the ids
 	// of the temps these works show, so the eraser loop skips its own optimistic pieces.
@@ -349,6 +355,8 @@ class SM_DrawCanvas
 			FinishLineChain();
 		if (t != TOOL_TEMPLATE)
 			CancelShapePlacement();	// leaving the tool drops a half-placed shape, like everything else
+		else
+			m_fShapeArmedAt = System.GetTickCount() / 1000.0;	// arming backstop — shapes AND session templates
 		m_iTool = t;
 		// The 100 m preset (idx 5) is eraser-only — clamp back to 40 m when switching to pencil/fill.
 		if (t != 1 && s_iWidthIdx > WIDTH_IDX_MAX_PENCIL)
@@ -392,6 +400,13 @@ class SM_DrawCanvas
 			ShapePressDown(wx, wz);
 			return;
 		}
+
+		// Same backstop ShapePressDown has, for the same reason: on the pad the A that pressed Place
+		// leaks back in as a fresh edge one frame later (the eat reads a stale action value), and here
+		// it ANCHORED the ghost under the panel before the player ever aimed — a session ghost stops
+		// following the cursor the moment it is placed, so it looked simply frozen.
+		if (System.GetTickCount() / 1000.0 - m_fShapeArmedAt < 0.2)
+			return;
 
 		SM_TemplateSession sess = SM_TemplateSession.GetInstance();
 
@@ -450,7 +465,7 @@ class SM_DrawCanvas
 	protected int  m_iShapeMode;	// SM_ShapeGeometry.SHAPE_* being placed; NONE = not placing
 	protected bool m_bShapeFirstSet;
 	protected bool m_bShapePlacedSignal;	// one shape just landed -> the panel closes the menu
-	protected float m_fShapeArmedAt;		// seconds; when the tool was armed (see ShapePressDown)
+	protected float m_fShapeArmedAt;		// seconds; when the template tool was armed (backstop in ShapePressDown AND TemplatePressDown)
 	protected int  m_iShapeX0, m_iShapeZ0;
 	protected ref array<ref SM_ShapeLine> m_aShapeLines = {};			// scratch: geometry builder output
 	protected ref array<ref CanvasWidgetCommand> m_aShapeTmp = {};	// scratch: BuildStrokeCommands clears its output
@@ -1115,6 +1130,8 @@ class SM_DrawCanvas
 			m_ErasedThisDrag.Clear();
 			m_bErasing = true;
 			EraseHit(wx, wz);
+			m_iLastStampX = wx;
+			m_iLastStampZ = wz;
 			return;
 		}
 		if (m_iTool == 2)
@@ -1202,7 +1219,22 @@ class SM_DrawCanvas
 		if (m_iTool == 1)
 		{
 			if (m_bErasing)
-				EraseHit(wx, wz);	// тягнеш гумку — стирає по дорозі
+			{
+				// Drag events land every frame; a stamp that barely moved re-scans the whole store to
+				// cut nothing new. Skip it while the spacing stays under a quarter radius — the previous
+				// circle already covers everything such a stamp could reach. (World coords are metre
+				// ints, so the floor of 1 makes "didn't move a cell" the minimum skip.)
+				int ddx = wx - m_iLastStampX;
+				int ddz = wz - m_iLastStampZ;
+				float minStep = WidthMeters(s_iWidthIdx) * 0.125;	// quarter of the eraser radius
+				float minStepSq = Math.Max(1.0, minStep * minStep);
+				if (ddx * ddx + ddz * ddz >= minStepSq)
+				{
+					EraseHit(wx, wz);
+					m_iLastStampX = wx;
+					m_iLastStampZ = wz;
+				}
+			}
 			return;
 		}
 		if (m_iTool == 2)
@@ -1651,6 +1683,12 @@ class SM_DrawCanvas
 			float thr = eraserRad + WidthMeters(d.m_iWidthIdx) * 0.5;
 			float thrSq = thr * thr;
 
+			// O(1) reject before any per-point loop: the stamp can't touch what its circle can't reach.
+			// The cached AABB covers shape outlines too (SetPoints builds it shape-aware); an invalid
+			// AABB reports "maybe" and falls through, so nothing can be wrongly skipped.
+			if (!d.AABBOverlapsRect(wx, wx, wz, wz, Math.Ceil(thr)))
+				continue;
+
 			// A shape is parameters, not geometry — there is nothing meaningful to CUT. Touching its
 			// outline erases it whole (rights checked by the server / the Local file is the player's own).
 			// The grid is exempt: it's a big deliberate object with lines all over the map, so a stray
@@ -1694,8 +1732,10 @@ class SM_DrawCanvas
 				continue;
 			}
 
-			// Own optimistic ADD temp (not confirmed yet): keep the local split — it re-adds the
-			// pieces as fresh adds, so they still reach the server. No real id to accumulate against.
+			// Own optimistic temp the server hasn't answered for yet — either an ADD still in flight or
+			// a leftover piece from an earlier erase-part. Keep the local split: it re-adds the pieces
+			// as fresh adds so they still reach the server, and cancelling the temp is remembered until
+			// reconcile names the real stroke standing behind it.
 			if (SM_DrawOutbox.IsServerTemp(d.m_iId))
 			{
 				array<int> tframed = {};
@@ -1749,6 +1789,7 @@ class SM_DrawCanvas
 		work.m_iChannel  = d.m_iChannel;
 		work.m_iOwnerId  = d.m_iOwnerId;
 		work.m_aPieces   = firstPieces;
+		work.m_bHasAABB  = d.GetAABB(work.m_iMinX, work.m_iMaxX, work.m_iMinZ, work.m_iMaxZ);
 		SM_MapDrawingStore.GetInstance().ApplyRemove(d.m_iId);	// hide it; the server copy stays until drag end
 		m_aEraseWork.Insert(work);
 		RefreshWorkTemps(work);
@@ -1758,6 +1799,16 @@ class SM_DrawCanvas
 	protected void ApplyStampToWork(notnull SM_EraseWork work, int ex, int ez, float eraserRad)
 	{
 		float thr = eraserRad + WidthMeters(work.m_iWidthIdx) * 0.5;
+
+		// Stamp can't reach the original stroke's box -> can't reach any leftover piece either.
+		if (work.m_bHasAABB)
+		{
+			int slack = Math.Ceil(thr);
+			if (ex + slack < work.m_iMinX || ex - slack > work.m_iMaxX
+			 || ez + slack < work.m_iMinZ || ez - slack > work.m_iMaxZ)
+				return;
+		}
+
 		float thrSq = thr * thr;
 		array<ref array<int>> next = {};
 		bool changed = false;
@@ -1788,7 +1839,7 @@ class SM_DrawCanvas
 		foreach (int t : work.m_aTemps)
 		{
 			store.ApplyRemove(t);
-			m_EraseWorkTemps.Remove(t);
+			m_EraseWorkTemps.RemoveItem(t);	// set.Remove(x) is BY INDEX — with a negative temp id that's garbage
 		}
 		work.m_aTemps.Clear();
 
@@ -1819,16 +1870,15 @@ class SM_DrawCanvas
 		if (m_aEraseWork.IsEmpty())
 			return;
 
+		SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
 		int maxPieces = SM_DrawingNet.MAX_ERASE_PIECES;
 		foreach (SM_EraseWork work : m_aEraseWork)
 		{
-			array<int> temps = {};
-			temps.Copy(work.m_aTemps);
+			bool changed = PruneSlivers(work.m_aPieces);
 
 			if (work.m_aPieces.IsEmpty())
 			{
-				SM_MapDrawingStore store = SM_MapDrawingStore.GetInstance();
-				foreach (int t : temps)
+				foreach (int t : work.m_aTemps)
 					store.ApplyRemove(t);
 				SM_DrawOutbox.SubmitRemove(work.m_iOrigId);
 				continue;
@@ -1836,7 +1886,15 @@ class SM_DrawCanvas
 
 			// The server caps pieces per erase; if a very wiggly drag made more, keep the longest so
 			// the request isn't rejected (dropping tiny slivers is what the eraser was doing anyway).
-			ClampPieces(work.m_aPieces, maxPieces);
+			// Any change to the piece set has to land BEFORE the temps are snapshotted: reconcile pairs
+			// temp[i] with the server's piece[i], so the temps must mirror exactly what goes out, in order.
+			if (ClampPieces(work.m_aPieces, maxPieces))
+				changed = true;
+			if (changed)
+				RefreshWorkTemps(work);
+
+			array<int> temps = {};
+			temps.Copy(work.m_aTemps);
 			array<int> framed = FramePieces(work.m_aPieces);
 			SM_DrawOutbox.AdoptErasePart(work.m_iOrigId, framed, temps);
 		}
@@ -1860,10 +1918,14 @@ class SM_DrawCanvas
 	}
 
 	// Keep only the `cap` longest pieces (in place). No-op when already within the cap.
-	protected void ClampPieces(notnull array<ref array<int>> pieces, int cap)
+	// Returns true if anything was dropped — the caller has to re-show the temps when that happens,
+	// so what the player sees still matches what goes on the wire.
+	// RemoveOrdered, not Remove: plain Remove is a swap-remove and would shuffle the surviving pieces,
+	// and reconcile pairs the server's real piece ids with our temps strictly by position.
+	protected bool ClampPieces(notnull array<ref array<int>> pieces, int cap)
 	{
 		if (cap < 1 || pieces.Count() <= cap)
-			return;
+			return false;
 		// simple selection: repeatedly drop the shortest until we fit
 		while (pieces.Count() > cap)
 		{
@@ -1873,8 +1935,27 @@ class SM_DrawCanvas
 				if (pieces[i].Count() < pieces[shortest].Count())
 					shortest = i;
 			}
-			pieces.Remove(shortest);
+			pieces.RemoveOrdered(shortest);
 		}
+		return true;
+	}
+
+	// A piece under 2 points has no length to draw, RefreshWorkTemps skips it, and the server drops the
+	// WHOLE erase-part when it meets one. CutPtsByCircle shouldn't make them; this keeps the "one temp
+	// per piece, in order" invariant that reconcile pairs against true even if one ever slips out.
+	// Ordered removal for the same reason as ClampPieces.
+	protected bool PruneSlivers(notnull array<ref array<int>> pieces)
+	{
+		bool changed = false;
+		for (int i = pieces.Count() - 1; i >= 0; i--)
+		{
+			if (pieces[i].Count() < 4)
+			{
+				pieces.RemoveOrdered(i);
+				changed = true;
+			}
+		}
+		return changed;
 	}
 
 	// Cut a polyline (x,z world ints) by one eraser circle (centre ex,ez; threshold² thrSq, metres).

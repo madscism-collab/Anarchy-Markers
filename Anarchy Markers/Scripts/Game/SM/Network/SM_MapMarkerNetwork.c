@@ -659,21 +659,22 @@ modded class SCR_PlayerController
 		if (!Replication.IsServer())
 			return;
 		array<int> realIds = {};
-		SM_DrawingNet.ProcessBatch(this, blob, realIds);
-		SM_SendDrawReconcile(seq, realIds);
+		array<int> erasePieceIds = {};
+		SM_DrawingNet.ProcessBatch(this, blob, realIds, erasePieceIds);
+		SM_SendDrawReconcile(seq, realIds, erasePieceIds);
 	}
 
-	void SM_SendDrawReconcile(int seq, array<int> realIds)
+	void SM_SendDrawReconcile(int seq, array<int> realIds, array<int> erasePieceIds)
 	{
-		Rpc(RpcDo_DrawReconcile, seq, realIds);
+		Rpc(RpcDo_DrawReconcile, seq, realIds, erasePieceIds);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
-	protected void RpcDo_DrawReconcile(int seq, array<int> realIds)
+	protected void RpcDo_DrawReconcile(int seq, array<int> realIds, array<int> erasePieceIds)
 	{
 		if (Replication.IsServer())
 			return;
-		SM_DrawOutbox.OnReconcile(seq, realIds);
+		SM_DrawOutbox.OnReconcile(seq, realIds, erasePieceIds);
 	}
 
 	// Partial erase: replace a stroke with the pieces left outside the eraser. Owner-only;

@@ -152,6 +152,7 @@ class SM_DrawPanel
 	protected bool m_bTplNaming;				// modal: entering the template name, all map input suspended
 	protected bool m_bTemplatesFeature = true;	// this map screen asked for the Templates tab (AM_EMapFeature.TEMPLATES)
 	protected ref SM_TemplateDeleteDialog m_TplDeleteDialog;	// modal: "really delete?" is up
+	protected bool m_bTplPadLanded;		// one-shot: a template flow just ENDED on the open tab (see ConsumeTplPadLanded)
 	protected ref array<Widget> m_aTplGlyphs = {};	// pad glyphs, one to the LEFT of each template button
 	protected const int TPL_NAME_MAX = 26;
 	protected ref array<ref CanvasWidgetCommand> m_aTplPreviewCmds = {};	// member: the canvas keeps a reference
@@ -681,6 +682,17 @@ class SM_DrawPanel
 		return m_TplDeleteDialog != null;
 	}
 
+	//! One-shot, read by the map layer every frame: a template flow just LANDED on the open tab —
+	//! a ghost was cancelled, a save committed, the delete dialog answered. On the pad that moment
+	//! strands the player: the tab is open on screen but nothing holds the pad, so the layer walks
+	//! it back into the panel. Set at every landing regardless of device; the consumer decides.
+	bool ConsumeTplPadLanded()
+	{
+		bool v = m_bTplPadLanded;
+		m_bTplPadLanded = false;
+		return v;
+	}
+
 	//! A slot is lit. What the pad's hints need to know to advertise Place/Remove. Called every frame
 	//! by the hint bar, so no allocation here.
 	bool HasTemplatePicked()
@@ -832,8 +844,17 @@ class SM_DrawPanel
 		if (sess.IsAnchored())
 		{
 			sess.Confirm();
+			// The tab closes with the confirm, same as a completed shape does. It HAD to: confirmed,
+			// the Apply button turns into Resume, and on the pad every A went into that button's
+			// listener — which eats the press — so the "hold to draw" the prompt was asking for could
+			// never reach the map. With the tab shut the template buttons stand down and A belongs to
+			// the map again. Reopening Templates brings Resume/Discard back, eating A again — but that
+			// is the player deliberately walking back into the menu.
+			CloseDropdowns();
 			RefreshTemplates();
-			TemplateNotice("Hold on the template to draw it. Hold Delete on it to throw it away.");
+			// No "hold Delete" here: Discard is deliberately a button (it erases strokes already on
+			// the map), and the buttons now live behind the reopened Templates tab.
+			TemplateNotice("Hold on the template to draw it. Resume/Discard are in Templates.");
 			return;
 		}
 
@@ -992,6 +1013,7 @@ class SM_DrawPanel
 			m_wTplNameEdit.SetText("");
 		RefreshTemplates();
 		TemplateNotice(string.Format("Saved as '%1'.", name));
+		m_bTplPadLanded = true;
 	}
 
 	//! Cancel walks the flow BACK one step, it does not blow it away. Anchored -> the ghost is loose
@@ -1009,6 +1031,7 @@ class SM_DrawPanel
 			m_Canvas.SetActive(false);
 			SM_TemplateStore.GetInstance().Select("");
 			RefreshTemplates();
+			m_bTplPadLanded = true;
 			return;
 		}
 
@@ -1034,6 +1057,7 @@ class SM_DrawPanel
 			BuildTemplatePreview(null);
 			RefreshTemplates();
 			TemplateNotice("Template discarded.");
+			m_bTplPadLanded = true;
 			return;
 		}
 
@@ -1053,6 +1077,7 @@ class SM_DrawPanel
 		m_Canvas.SetActive(false);
 		sess.Clear();
 		RefreshTemplates();
+		m_bTplPadLanded = true;
 	}
 
 	protected void OnTemplateRemove()
@@ -1093,6 +1118,7 @@ class SM_DrawPanel
 	void ConfirmTemplateDelete(string id)
 	{
 		m_TplDeleteDialog = null;
+		m_bTplPadLanded = true;	// whatever the answer was, the dialog is gone and the tab has the floor
 
 		SM_DrawTemplate t = SM_TemplateStore.GetInstance().Find(id);
 		string name;
@@ -1114,6 +1140,7 @@ class SM_DrawPanel
 	void OnTemplateDeleteDialogClosed()
 	{
 		m_TplDeleteDialog = null;
+		m_bTplPadLanded = true;
 	}
 
 	//! Draw the picked template into the preview canvas.
@@ -1814,6 +1841,21 @@ class SM_DrawPanel
 	Widget GetFirstFocusTarget()
 	{
 		return m_wPencil;
+	}
+
+	//! Where the pad should land when a cancelled flow drops it back on the open templates tab: the
+	//! slot it had picked (still lit — Place is one press away), else the first slot, else the opener.
+	Widget TemplateFocusTarget()
+	{
+		if (m_iTplHighlight >= 0 && m_iTplHighlight < m_aTplSlots.Count())
+		{
+			Widget lit = m_aTplSlots[m_iTplHighlight];
+			if (lit && lit.IsVisible())
+				return lit;
+		}
+		if (!m_aTplSlots.IsEmpty() && m_aTplSlots[0] && m_aTplSlots[0].IsVisible())
+			return m_aTplSlots[0];
+		return m_wTemplatesOpener;
 	}
 
 	//! Чи віджет належить панелі (коли фокус усередині, пад-дії мапи мовчать).

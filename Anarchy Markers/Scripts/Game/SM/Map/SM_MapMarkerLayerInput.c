@@ -292,6 +292,20 @@ modded class SCR_MapMarkersUI
 		if (!m_bSMMapOpen)
 			return;
 
+		// THE INPUT MODEL, in one place. Actions can only be DECLARED in config
+		// (chimeraInputCommon.conf): that is where bindings, filters and rebindability live — script can
+		// only listen. A listener fires only while some ACTIVE context contains its action, and until
+		// now we only rode contexts that vanilla flows happen to activate per frame: MapContext (GM map,
+		// deploy screen), GadgetMapContext (soldier's map gadget), MapMarkerEditContext (while a marker
+		// dialog exists; also ours during panel pad-nav). Open the map through any flow that activates
+		// NONE of those — a host-screen tablet, another mod's map opener — and every listener-driven
+		// feature (Delete, double-click edit, P/E/F, template A/B/Y/X) goes silently dead, while the
+		// polled half keeps working: exactly the "half the controls work, toggling the draw menu revives
+		// some" field reports. So: our own context, all our actions, refreshed every frame the map is
+		// open. It is NOT a blocking context — map panning and vanilla menus live on under it (the
+		// blocking variant is the documented dead end at the bottom of this file).
+		GetGame().GetInputManager().ActivateContext("AMMapContext");
+
 		// Консольний контролер навігації діалогу: на рівні секцій «пришпилюємо» фокус до поточної
 		// секції щокадру, щоб вбудована геометрична навігація рушія не блукала між секціями.
 		SM_NavTick();
@@ -470,21 +484,41 @@ modded class SCR_MapMarkersUI
 			InputManager gim = GetGame().GetInputManager();
 			bool onPad = gim && !gim.IsUsingMouseAndKeyboard();
 
+			// A template flow just ended on the open tab — a ghost cancelled, a save committed, the
+			// delete dialog answered. On the pad that moment leaves the player stranded: the tab is on
+			// screen but nothing holds the pad, with the map's idle hint floating over a perfectly
+			// visible panel. Walk them back in, onto the slot they last touched. Consumed every frame,
+			// so a mouse landing can't leave a stale flag behind for a pad picked up later. Flows that
+			// keep their tool armed (un-anchor, name step back to framing) don't raise the flag at all.
+			bool tplLanded = m_DrawPanel.ConsumeTplPadLanded();
+			if (tplLanded && onPad && !m_bSMPanelPadNav
+				&& baseAllowed && m_DrawPanel.IsTemplatesOpen() && !m_DrawPanel.IsModalBusy()
+				&& (!m_DrawCanvas || !m_DrawCanvas.IsActive()))
+				SM_PanelEnterPad(m_DrawPanel.TemplateFocusTarget());
+
 			// Той самий контекст, що й діалог мітки: тримає мапу відкритою на B
 			// (B тоді фаєрить MenuBack, його ловить SM_NavBack). Поновлюється щокадру.
 			//
-			// ONLY while the pad is inside our UI (panel or the name field). This context replaces the
-			// map's own, which carries the stick panning — activate it out on the map and the camera
-			// stops moving, exactly when placing a template needs it most. Out there our AM_* actions
-			// are reachable anyway (the conf adds them to MapContext), so B still cancels a placement;
-			// it just closes the map along with it, which is the lesser evil (see the note at the
-			// bottom of this file for what was tried).
+			// While the pad is inside our UI (panel or the name field) it is up permanently. This
+			// context replaces the map's own, which carries the stick panning — keep it up while a
+			// ghost is being AIMED and the camera freezes, the documented dead end. But out on the map
+			// it is also needed for exactly ONE button: B with something cancelable under it (an armed
+			// tool, a ghost, the open templates tab, a carried marker) must not fall through to the
+			// engine's menu-back and take the whole map down with the cancel. So out there the context
+			// goes up only for the frames B is PHYSICALLY HELD: panning starves for the duration of a
+			// button press by a player who is cancelling, not panning — imperceptible. SM_OnContext
+			// adds the input-phase half of this shield (the down edge fires before Update runs).
 			//
 			// NOT for the delete dialog: that one is a menu in its own right with its own input and
 			// focus. Re-activating our context over it every frame is what left its buttons dead and
 			// the pad stuck inside it with no way out.
+			bool padBackBusy = gim && gim.GetActionValue("AM_Cancel") > 0
+				&& ((m_DrawCanvas && m_DrawCanvas.IsActive())
+					|| m_DrawPanel.IsTemplatesOpen()
+					|| m_iSMCarryId != -1);
+
 			if (onPad && !m_DrawPanel.IsDeleteDialogOpen()
-				&& (m_bSMPanelPadNav || m_DrawPanel.IsTypingName()))
+				&& (m_bSMPanelPadNav || m_DrawPanel.IsTypingName() || padBackBusy))
 				gim.ActivateContext("MapMarkerEditContext");
 
 			if (focusInPanel && onPad)
@@ -531,6 +565,17 @@ modded class SCR_MapMarkersUI
 			{
 				m_DrawPanel.SetPanelOpacity(0.35);
 				m_DrawPanel.SetHintMode(2);
+			}
+			// The templates tab is open with nothing armed: mid-flow (a ghost was just cancelled back
+			// to the tab, or the player left the panel with the tab up). The idle fade below would put
+			// the whole panel at zero right on that B press — which read as "B closed the drawing menu"
+			// while the tab silently stayed open underneath, so the next visit found a dropdown already
+			// open with the old pick still lit. Mid-flow the panel stays on screen: the tab, its
+			// buttons and their pad glyphs are exactly what the player just stepped back INTO.
+			else if (m_DrawPanel.IsTemplatesOpen())
+			{
+				m_DrawPanel.SetPanelOpacity(1.0);
+				m_DrawPanel.SetHintMode(1);
 			}
 			else
 			{
@@ -1821,6 +1866,17 @@ modded class SCR_MapMarkersUI
 		Widget focused = null;
 		if (gws)
 			focused = gws.GetFocusedWidget();
+
+		// Focus on a widget nobody can SEE is not "the pad is talking to UI" — it is a leftover
+		// (typically another mod's closed menu that never cleared itself). The guard below trusts
+		// focus, so a stale one would swallow A/Y/X for the rest of the session. Clearing it is safe:
+		// no player is interacting with an invisible widget.
+		if (focused && !focused.IsVisibleInHierarchy())
+		{
+			gws.SetFocusedWidget(null);
+			focused = null;
+		}
+
 		bool focusInPanel = (focused && m_DrawPanel && m_DrawPanel.ContainsWidget(focused));
 
 		// Пад-малювання: інструмент (олівець/гумка) активний → A затиснутим малює/стирає по курсору
@@ -2079,6 +2135,27 @@ modded class SCR_MapMarkersUI
 	// ПКМ: скасувати переміщення (мітка повертається на місце; на сервер нічого не шлемо).
 	protected void SM_OnContext(float value, EActionTrigger reason)
 	{
+		// B just went down, at input-dispatch time — BEFORE this frame's Update. If there is anything
+		// to cancel, shield the map right now: put the blocking context up for this frame and reset the
+		// engine's pending menu-back, so this very press cannot close the map whichever half of the
+		// frame the engine evaluates it in. The Update hook keeps the context up while B stays held,
+		// which covers a menu-back that triggers on release; this covers one that triggers on the down
+		// edge. Pad only — on KB/M this action is RMB and Esc keeps its normal meaning.
+		InputManager cim = GetGame().GetInputManager();
+		if (cim && !cim.IsUsingMouseAndKeyboard()
+			&& (!m_DrawPanel || !m_DrawPanel.IsDeleteDialogOpen()))
+		{
+			bool armed = (m_DrawCanvas && m_DrawCanvas.IsActive())
+				|| (m_DrawPanel && m_DrawPanel.IsTemplatesOpen())
+				|| m_iSMCarryId != -1
+				|| m_bSMPanelPadNav;
+			if (armed)
+			{
+				cim.ActivateContext("MapMarkerEditContext");
+				cim.ResetAction("MenuBack");
+			}
+		}
+
 		if (SM_TryPanelBack())	// пад-B у панелі часто приходить як AM_Cancel (фокус на нашій STOP-кнопці)
 			return;
 		if (SM_TryTemplateBack())
@@ -2213,6 +2290,8 @@ modded class SCR_MapMarkersUI
 			return;
 		if (!m_bSMDrawPanelShown)
 			return;	// панель прихована — інструментів нема чим показати, отже й вмикати нічого
+		if (m_DrawPanel.IsTypingName())
+			return;	// actions keep firing while an edit box is typed into — the letters E/P/F ARE tools
 
 		InputManager tim = GetGame().GetInputManager();
 		if (!tim || !tim.IsUsingMouseAndKeyboard())
