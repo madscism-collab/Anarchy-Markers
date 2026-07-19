@@ -32,7 +32,8 @@ modded class GRS_MinimapDisplay
 
 	protected ref map<int, ref SM_MarkerVisual> m_mAMGA_Vis = new map<int, ref SM_MarkerVisual>();
 	protected ref array<ref CanvasWidgetCommand> m_aAMGA_Cmds = {};
-	protected ref map<int, ref AMGA_DrawCache> m_mAMGA_Draw = new map<int, ref AMGA_DrawCache>();
+	// Drawing geometry (shape expansion, fill triangulation, bounds) comes ready-made and cached from
+	// AM_MarkerAPI.GetDrawingRenderData — no per-surface cache to keep in sync any more.
 
 	// --- lifecycle -----------------------------------------------------------------------------
 
@@ -78,7 +79,6 @@ modded class GRS_MinimapDisplay
 				vis.Destroy();
 		}
 		m_mAMGA_Vis.Clear();
-		m_mAMGA_Draw.Clear();
 		m_aAMGA_Cmds.Clear();
 
 		if (m_wAMGA_Canvas)
@@ -96,7 +96,6 @@ modded class GRS_MinimapDisplay
 		AM_MarkerAPI.GetOnMarkerAdded().Insert(AMGA_OnMarkerAdded);
 		AM_MarkerAPI.GetOnMarkerChanged().Insert(AMGA_OnMarkerChanged);
 		AM_MarkerAPI.GetOnMarkerRemoved().Insert(AMGA_OnMarkerRemoved);
-		AM_MarkerAPI.GetOnDrawingRemoved().Insert(AMGA_OnDrawingRemoved);
 		m_bAMGA_Subscribed = true;
 
 		array<SM_MapMarkerData> all = {};
@@ -115,7 +114,6 @@ modded class GRS_MinimapDisplay
 		AM_MarkerAPI.GetOnMarkerAdded().Remove(AMGA_OnMarkerAdded);
 		AM_MarkerAPI.GetOnMarkerChanged().Remove(AMGA_OnMarkerChanged);
 		AM_MarkerAPI.GetOnMarkerRemoved().Remove(AMGA_OnMarkerRemoved);
-		AM_MarkerAPI.GetOnDrawingRemoved().Remove(AMGA_OnDrawingRemoved);
 		m_bAMGA_Subscribed = false;
 	}
 
@@ -149,10 +147,6 @@ modded class GRS_MinimapDisplay
 		m_mAMGA_Vis.Remove(markerId);
 	}
 
-	protected void AMGA_OnDrawingRemoved(int drawingId)
-	{
-		m_mAMGA_Draw.Remove(drawingId);	// bounds + triangulation die with the drawing
-	}
 
 	protected void AMGA_SetVisualVisible(notnull SM_MarkerVisual vis, bool visible)
 	{
@@ -283,110 +277,84 @@ modded class GRS_MinimapDisplay
 
 		foreach (SM_MapDrawingData d : all)
 		{
-			if (!d || d.GetPointCount() < 2)
+			if (!d)
 				continue;
 
-			AMGA_DrawCache cache = AMGA_GetDrawCache(d);
-			if (!cache)
+			// Ready-made geometry: shapes expanded, fills triangulated, bounds shape-aware. Before
+			// this a rectangle/circle/grid rendered as a diagonal line here — the raw wire data is
+			// just their two parameter points.
+			AM_DrawingRenderData rd = AM_MarkerAPI.GetDrawingRenderData(d);
+			if (!rd)
 				continue;
 
-			if (cache.m_iHiX < minX || cache.m_iLoX > maxX || cache.m_iHiZ < minZ || cache.m_iLoZ > maxZ)
+			if (rd.m_iMaxX < minX || rd.m_iMinX > maxX || rd.m_iMaxZ < minZ || rd.m_iMinZ > maxZ)
 				continue;	// nowhere near the screen — never even projected
 
-			array<float> scr = {};
-			int n = d.GetPointCount();
-			scr.Resize(n * 2);
-			for (int i = 0; i < n; i++)
+			if (rd.m_bFill)
 			{
-				int wx, wz;
-				d.GetPoint(i, wx, wz);
-				float px, py;
-				AMGA_Project(wx, wz, playerPos, scale, px, py);
-				scr[i * 2]     = m_fAMGA_OffX + px * m_fAMGA_Scale;
-				scr[i * 2 + 1] = m_fAMGA_OffY + py * m_fAMGA_Scale;
+				AMGA_AddFill(rd, playerPos, scale);
 			}
-
-			if (d.m_iFill != 0)
-				AMGA_AddFill(d, cache, scr);
 			else
-				AMGA_AddStroke(d, scr, scale);
+			{
+				foreach (SM_ShapeLine l : rd.m_aLines)
+				{
+					if (l && l.m_aPts.Count() >= 4)
+						AMGA_AddStroke(rd.m_iColor, l, playerPos, scale);
+				}
+			}
 		}
 
 		m_wAMGA_Canvas.SetDrawCommands(m_aAMGA_Cmds);
 	}
 
-	//! Bounds (and, for a fill, the triangulation) computed on first sight and kept until the drawing
-	//! goes away. Our drawings never change in place — an edit arrives as a remove plus an add with a
-	//! fresh id — so an entry can never go stale.
-	protected AMGA_DrawCache AMGA_GetDrawCache(notnull SM_MapDrawingData d)
+	//! World metres -> canvas units. Projects straight into the array the draw command will own —
+	//! LineDrawCommand keeps the reference, so a shared scratch would leave every command showing
+	//! the last stroke's points.
+	protected void AMGA_ProjectPts(notnull array<int> pts, vector playerPos, float scale, notnull array<float> outScr)
 	{
-		AMGA_DrawCache cache = m_mAMGA_Draw.Get(d.m_iId);
-		if (cache)
-			return cache;
-
-		int n = d.GetPointCount();
-		if (n < 2)
-			return null;
-
-		cache = new AMGA_DrawCache();
-		d.GetPoint(0, cache.m_iLoX, cache.m_iLoZ);
-		cache.m_iHiX = cache.m_iLoX;
-		cache.m_iHiZ = cache.m_iLoZ;
-		for (int i = 1; i < n; i++)
+		int n = pts.Count() / 2;
+		outScr.Resize(n * 2);
+		for (int i = 0; i < n; i++)
 		{
-			int x, z;
-			d.GetPoint(i, x, z);
-			if (x < cache.m_iLoX) cache.m_iLoX = x;
-			if (x > cache.m_iHiX) cache.m_iHiX = x;
-			if (z < cache.m_iLoZ) cache.m_iLoZ = z;
-			if (z > cache.m_iHiZ) cache.m_iHiZ = z;
+			float px, py;
+			AMGA_Project(pts[i * 2], pts[i * 2 + 1], playerPos, scale, px, py);
+			outScr[i * 2]     = m_fAMGA_OffX + px * m_fAMGA_Scale;
+			outScr[i * 2 + 1] = m_fAMGA_OffY + py * m_fAMGA_Scale;
 		}
-
-		m_mAMGA_Draw.Set(d.m_iId, cache);
-		return cache;
 	}
 
-	protected void AMGA_AddStroke(notnull SM_MapDrawingData d, array<float> scr, float scale)
+	protected void AMGA_AddStroke(int color, notnull SM_ShapeLine l, vector playerPos, float scale)
 	{
-		// Brush widths are METRES — a stroke is drawn on the world, not on the screen — so on the
-		// minimap they scale with its zoom, like the terrain under them.
-		float widthPx = SM_DrawCanvas.WidthMeters(d.m_iWidthIdx) * scale;
+		// Widths are METRES — a stroke is drawn on the world, not on the screen — so on the minimap
+		// they scale with its zoom, like the terrain under them. Each line carries its own width —
+		// a grid's inner lines are thinner than its border.
+		float widthPx = l.m_fWidthMeters * scale;
 		if (widthPx < AMGA_MM_MIN_STROKE_PX)
 			widthPx = AMGA_MM_MIN_STROKE_PX;
 		widthPx *= m_fAMGA_Scale;	// the vertices are in canvas units, so the width has to be too
 
 		LineDrawCommand line = new LineDrawCommand();
-		line.m_iColor = d.m_iColor;
+		line.m_iColor = color;
 		line.m_fWidth = widthPx;
 		array<float> v = {};
-		v.Copy(scr);
+		AMGA_ProjectPts(l.m_aPts, playerPos, scale, v);
 		line.m_Vertices = v;
 		m_aAMGA_Cmds.Insert(line);
 	}
 
-	//! An outline the triangulator cannot handle (self-intersecting, degenerate) is skipped rather
+	//! An outline the triangulator couldn't handle arrives with null indices and is skipped rather
 	//! than shoved into PolygonDrawCommand — that chokes on concave shapes and spams the log.
-	protected void AMGA_AddFill(notnull SM_MapDrawingData d, notnull AMGA_DrawCache cache, array<float> scr)
+	protected void AMGA_AddFill(notnull AM_DrawingRenderData rd, vector playerPos, float scale)
 	{
-		if (scr.Count() < 6)
-			return;
-
-		if (!cache.m_bTriTried)
-		{
-			cache.m_bTriTried = true;
-			array<int> tri = {};
-			if (SM_MapFloodFill.Triangulate(d.m_aPoints, tri) && tri.Count() >= 3)
-				cache.m_aTri = tri;
-		}
-		if (!cache.m_aTri)
+		if (!rd.m_aFillIndices || !rd.m_aFillPts || rd.m_aFillPts.Count() < 6)
 			return;
 
 		TriMeshDrawCommand mesh = new TriMeshDrawCommand();
-		mesh.m_iColor = d.m_iColor;
+		mesh.m_iColor = rd.m_iColor;
 		array<float> v = {};
-		v.Copy(scr);
+		AMGA_ProjectPts(rd.m_aFillPts, playerPos, scale, v);
 		mesh.m_Vertices = v;
-		mesh.m_Indices = cache.m_aTri;	// shared cache; the renderer does not mutate it
+		mesh.m_Indices = rd.m_aFillIndices;	// shared cache; the renderer does not mutate it
 		m_aAMGA_Cmds.Insert(mesh);
 	}
 }

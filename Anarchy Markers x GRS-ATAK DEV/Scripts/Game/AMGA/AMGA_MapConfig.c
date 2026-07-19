@@ -24,15 +24,9 @@ modded class SCR_MapEntity
 		if (!AMGA_IsAtakConfig(cfg))
 			return cfg;
 
-		// SetupMapConfig caches the built config, so a re-open hands back the same instance —
-		// bail if we already spliced ourselves in.
-		foreach (SCR_MapUIBaseComponent c : cfg.Components)
-		{
-			if (SCR_MapMarkersUI.Cast(c))
-				return cfg;
-		}
-
-		cfg.Components.Insert(new SCR_MapMarkersUI());	// our modded class (SM_MapMarkerLayer)
+		// Splice + dedup in one call (the config is cached by the engine and re-issued on re-open).
+		if (!AM_MarkerAPI.AttachToMapConfig(cfg))
+			return cfg;
 
 		// What the tablet may do with our layer. Markers and drawings render; the player also gets our
 		// drawing panel and the pointer. Marker TOOLS stay off — ATAK has its own marker workflow and

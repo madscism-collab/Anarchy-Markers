@@ -16,6 +16,26 @@
 //
 // See Docs/API.md for the full reference, including AM_MapFeatures and AM_VanillaBridge.
 
+//! Everything needed to RENDER one drawing on a custom surface (a tablet screen, a minimap, any
+//! canvas that is not our map layer), with the mod's internals fully resolved:
+//!  - m_aLines: the polylines to stroke, world-metre x,z pairs, each with its own width in metres.
+//!    A plain drawing is one line; a parametric shape (rectangle/circle/grid) is already expanded
+//!    into its real geometry — grid labels included — so a consumer never needs to know shapes exist.
+//!  - m_aFillPts/m_aFillIndices: for a filled area, the outline and its triangulation (ready for a
+//!    TriMeshDrawCommand). m_aFillIndices is null when the outline could not be triangulated — skip
+//!    the fill then, do not feed it to PolygonDrawCommand (it chokes on concave shapes).
+//!  - the AABB is shape-aware (a circle's box is centre±radius, not the box of its two parameters).
+//! Get one from AM_MarkerAPI.GetDrawingRenderData(); it is cached, so call it every tick freely.
+class AM_DrawingRenderData
+{
+	ref array<ref SM_ShapeLine> m_aLines = {};	// stroke polylines: world pts + width metres each
+	ref array<int> m_aFillPts;					// fill outline (x,z pairs); null for a plain stroke
+	ref array<int> m_aFillIndices;				// fill triangulation; null = не triangulable, skip
+	int m_iMinX, m_iMaxX, m_iMinZ, m_iMaxZ;		// world AABB for culling (shape-aware)
+	int m_iColor;								// ARGB, opacity already applied
+	bool m_bFill;
+}
+
 class AM_MarkerAPI
 {
 	//! Contract version. Signatures only ever get extended, never broken.
@@ -31,7 +51,35 @@ class AM_MarkerAPI
 	//!     eligibility check regardless of the flag, so no consumer could ever see one.
 	//! 8 = drawing templates: read/save/delete the player's template files, AreTemplatesAllowed
 	//!     (the server's allowTemplates switch, replicated).
-	static const int API_VERSION = 8;
+	//! 9 = GetDrawingRenderData (render-ready, cached geometry for custom surfaces — expands
+	//!     parametric shapes, triangulates fills, shape-aware AABB, widths in metres) and
+	//!     AttachToMapConfig (splice our layer into a host map config in one call).
+	static const int API_VERSION = 9;
+
+	//! Splice our marker/drawing layer into a host map's configuration — THE call for a tablet or
+	//! terminal mod whose screen is a real SCR_MapEntity. Use it from your SetupMapConfig override,
+	//! after super built the config and after you verified the config is YOURS (check for your own
+	//! components in cfg.Components — the map mode alone is not enough, other mods open PLAIN maps
+	//! too). Idempotent: SetupMapConfig results are cached by the engine and re-issued on re-open,
+	//! so the dedup lives here and not in every host.
+	//!
+	//! What the layer may DO on your screen is a separate, per-mode decision — set it right after:
+	//!     AM_MarkerAPI.AttachToMapConfig(cfg);
+	//!     AM_MapFeatures.SetForMode(mapMode, AM_MapFeatures.VIEW | AM_EMapFeature.DRAWING_TOOLS);
+	//! (see AM_MapFeatures for channel pinning, hiding our panel behind your own button, hint nudges).
+	//! Returns false only when the config has no component list to join.
+	static bool AttachToMapConfig(notnull MapConfiguration cfg)
+	{
+		if (!cfg.Components)
+			return false;
+		foreach (SCR_MapUIBaseComponent c : cfg.Components)
+		{
+			if (SCR_MapMarkersUI.Cast(c))
+				return true;	// already spliced (cached config re-issued)
+		}
+		cfg.Components.Insert(new SCR_MapMarkersUI());
+		return true;
+	}
 
 	//! true on the authoritative side: dedicated server, listen-host or the SP editor.
 	static bool IsServer()
@@ -341,6 +389,89 @@ class AM_MarkerAPI
 	static ScriptInvokerBase<SM_DrawingRemoveInvoker> GetOnDrawingRemoved()
 	{
 		return SM_MapDrawingStore.GetInstance().GetOnRemoved();
+	}
+
+	// --- Drawings: rendering on a custom surface ---
+
+	protected static ref map<int, ref AM_DrawingRenderData> s_mRenderCache = new map<int, ref AM_DrawingRenderData>();
+	protected static bool s_bRenderCacheHooked;
+
+	//! Render-ready geometry for one drawing — call this instead of reading m_aPoints when you draw
+	//! on your own surface. What it saves you from knowing:
+	//!  - parametric shapes (m_iShape != 0) carry only two parameter points; drawing those raw gives
+	//!    you a diagonal line. Here they arrive expanded into the real rectangle/circle/grid.
+	//!  - fills need triangulation; it is done (and its failure remembered) here.
+	//!  - brush widths are preset indices; here every line carries its width in metres.
+	//!  - the AABB accounts for shape extents, so culling against it is correct.
+	//!
+	//! Cached per drawing id and evicted on the removal event, which our store also fires for every
+	//! entry on bulk clears (faction change, new mission) — so a recycled id can never serve stale
+	//! geometry. Drawings never mutate in place (an edit arrives as remove + add), which is what
+	//! makes the cache safe. Call it every tick; after the first sight of a drawing it is a lookup.
+	static AM_DrawingRenderData GetDrawingRenderData(notnull SM_MapDrawingData d)
+	{
+		if (!s_bRenderCacheHooked)
+		{
+			s_bRenderCacheHooked = true;
+			GetOnDrawingRemoved().Insert(OnRenderCacheEvict);
+		}
+
+		AM_DrawingRenderData rd = s_mRenderCache.Get(d.m_iId);
+		if (rd)
+			return rd;
+
+		if (d.GetPointCount() < 2)
+			return null;
+
+		rd = new AM_DrawingRenderData();
+		rd.m_iColor = d.m_iColor;
+		rd.m_bFill  = d.m_iFill != 0;
+
+		if (d.m_iShape != SM_ShapeGeometry.SHAPE_NONE)
+		{
+			SM_ShapeGeometry.Build(d.m_iShape, d.m_aPoints, SM_DrawCanvas.WidthMeters(d.m_iWidthIdx), rd.m_aLines);
+		}
+		else if (rd.m_bFill)
+		{
+			rd.m_aFillPts = d.m_aPoints;	// live object, read-only by contract — no copy needed
+			array<int> tri = {};
+			if (SM_MapFloodFill.Triangulate(d.m_aPoints, tri) && tri.Count() >= 3)
+				rd.m_aFillIndices = tri;
+		}
+		else
+		{
+			SM_ShapeLine line = new SM_ShapeLine();
+			line.m_aPts = d.m_aPoints;
+			line.m_fWidthMeters = SM_DrawCanvas.WidthMeters(d.m_iWidthIdx);
+			rd.m_aLines.Insert(line);
+		}
+
+		// The data's own AABB is shape-aware; the fallback (invalid AABB) recomputes from raw points,
+		// which for non-shapes is the same thing.
+		if (!d.GetAABB(rd.m_iMinX, rd.m_iMaxX, rd.m_iMinZ, rd.m_iMaxZ))
+		{
+			int n = d.GetPointCount();
+			d.GetPoint(0, rd.m_iMinX, rd.m_iMinZ);
+			rd.m_iMaxX = rd.m_iMinX;
+			rd.m_iMaxZ = rd.m_iMinZ;
+			for (int i = 1; i < n; i++)
+			{
+				int x, z;
+				d.GetPoint(i, x, z);
+				if (x < rd.m_iMinX) rd.m_iMinX = x;
+				if (x > rd.m_iMaxX) rd.m_iMaxX = x;
+				if (z < rd.m_iMinZ) rd.m_iMinZ = z;
+				if (z > rd.m_iMaxZ) rd.m_iMaxZ = z;
+			}
+		}
+
+		s_mRenderCache.Set(d.m_iId, rd);
+		return rd;
+	}
+
+	protected static void OnRenderCacheEvict(int drawingId)
+	{
+		s_mRenderCache.Remove(drawingId);
 	}
 
 	// --- Drawings: writing ---

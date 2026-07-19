@@ -10,7 +10,81 @@ Public integration surface for other mods. Two entry points:
 
 **Setup:** add `Anarchy Markers` to `Dependencies` in your `addon.gproj` and call the static methods directly. Do not touch internal classes (`SM_MapMarkerStore`, `SM_MarkerNet`, ...) — only what is documented here is kept stable.
 
-`AM_MarkerAPI.API_VERSION` (currently `8`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
+`AM_MarkerAPI.API_VERSION` (currently `9`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
+
+---
+
+## Quick start — the three common integrations
+
+**1. Place a marker from script** (a mission event, an admin tool):
+
+```c
+// Server side — you get the created object back:
+SM_MapMarkerData m = AM_MarkerAPI.NewCivilianMarker(pos, 14, 0xFFFF4040, "Crash site");
+AM_MarkerAPI.ServerPlaceMarker(m);
+
+// Client side — fire and forget; the marker comes back via GetOnMarkerAdded:
+AM_MarkerAPI.RequestPlaceMarker(m);
+```
+
+**2. Your tablet/terminal screen IS a map** (a real `SCR_MapEntity` with your own config) — splice our layer in and say what it may do:
+
+```c
+modded class SCR_MapEntity
+{
+    override MapConfiguration SetupMapConfig(EMapEntityMode mode, ResourceName path, Widget root)
+    {
+        MapConfiguration cfg = super.SetupMapConfig(mode, path, root);
+        if (cfg && IsMyTabletConfig(cfg))   // check for YOUR components — mode alone is not enough
+        {
+            AM_MarkerAPI.AttachToMapConfig(cfg);                                  // idempotent splice
+            AM_MapFeatures.SetForMode(mode, AM_MapFeatures.VIEW | AM_EMapFeature.DRAWING_TOOLS);
+        }
+        return cfg;
+    }
+}
+```
+
+**3. Your screen is NOT a map** (a hand-painted render target, a minimap) — draw our data yourself; the API hands you render-ready geometry. The whole drawing layer is this loop:
+
+```c
+array<SM_MapDrawingData> all = {};
+AM_MarkerAPI.GetAllDrawings(all);
+foreach (SM_MapDrawingData d : all)
+{
+    AM_DrawingRenderData rd = AM_MarkerAPI.GetDrawingRenderData(d);   // cached — call every tick
+    if (!rd) continue;
+    if (rd.m_iMaxX < viewMinX || rd.m_iMinX > viewMaxX
+     || rd.m_iMaxZ < viewMinZ || rd.m_iMinZ > viewMaxZ) continue;     // shape-aware AABB culling
+
+    if (rd.m_bFill)
+    {
+        if (!rd.m_aFillIndices) continue;            // untriangulable outline — skip, never Polygon
+        TriMeshDrawCommand mesh = new TriMeshDrawCommand();
+        mesh.m_iColor   = rd.m_iColor;
+        mesh.m_Vertices = ProjectToMyScreen(rd.m_aFillPts);   // your projection, your units
+        mesh.m_Indices  = rd.m_aFillIndices;                  // shared cache — do not mutate
+        cmds.Insert(mesh);
+    }
+    else
+    {
+        foreach (SM_ShapeLine l : rd.m_aLines)       // 1 line for freehand, N for shapes/grids
+        {
+            LineDrawCommand line = new LineDrawCommand();
+            line.m_iColor   = rd.m_iColor;
+            line.m_fWidth   = l.m_fWidthMeters * myMetresToPixels;
+            line.m_Vertices = ProjectToMyScreen(l.m_aPts);
+            cmds.Insert(line);
+        }
+    }
+}
+myCanvas.SetDrawCommands(cmds);
+```
+
+Markers on a custom surface go through `AM_MarkerWidgets` the same way — see section 1. For a complete, shipping reference of both patterns read the *Anarchy Markers x GRS-ATAK* compat mod (`AMGA_MapConfig.c` for pattern 2, `AMGA_DeviceDisplay.c` / `AMGA_Minimap.c` for pattern 3).
+
+> [!IMPORTANT]
+> Everything you read from the API (`GetAll*`, events) is **live objects — read-only by contract**. Mutating them desyncs you from the server; change things through `Request*`/`Server*`, copy with `SM_Clone()`.
 
 ---
 
@@ -68,6 +142,20 @@ Notes:
 - The one-shot mask (`SetNextOpen`) wins over per-mode overrides; per-mode overrides win over the defaults.
 - Server config is still enforced on top: `allowDrawing=false` removes the canvas/panel everywhere, `pointerAllowed=false` disables the pointer, disabled visibility channels stay disabled, and all marker/drawing writes go through the same server-side permission and rate-limit checks.
 - `MARKER_TOOLS` implies the full marker edit dialog. It is designed for the fullscreen map; on very small custom screens prefer `VIEW` (+`POINTER`) and add your own compact UI on top of `AM_MarkerAPI` write calls if needed.
+
+### Your screen ships its own map config (`AttachToMapConfig`, API v9)
+
+A device whose map uses its **own** `MapConfiguration` (not the vanilla gadget config) never lists our UI component, so our layer doesn't exist there at all — no markers, no drawings, nothing to feature-flag. The fix is one call from your `SetupMapConfig` override:
+
+```c
+AM_MarkerAPI.AttachToMapConfig(cfg);   // splices our layer into cfg.Components; idempotent
+AM_MapFeatures.SetForMode(mode, ...);  // then say what it may DO on your screen
+```
+
+See the Quick start (pattern 2) for the full override.
+
+> [!IMPORTANT]
+> Identify your config by **your own components** being in `cfg.Components`, never by map mode — other mods open `PLAIN` maps too, and attaching to theirs is not yours to do. The call is idempotent because the engine caches built configs and re-issues them on every re-open.
 
 ### Render policy for always-on screens (API v3)
 
@@ -154,7 +242,28 @@ vis.Destroy();
 
 Because the map layer uses this exact factory, a marker looks identical on your device and on the map, and it keeps looking identical when we change the look.
 
-For drawings there is no widget factory — geometry is just points. Read `data.m_aPoints` (x,z pairs, metres), project them, and feed a `CanvasWidget`: `LineDrawCommand` for strokes (width in metres from `SM_DrawCanvas.WidthMeters(m_iWidthIdx)`) and, for `m_iFill != 0`, a `TriMeshDrawCommand` whose indices come from `SM_MapFloodFill.Triangulate(data.m_aPoints, outIndices)`. The triangulation is topology only — compute it once per drawing and reuse it every frame.
+### Drawing the drawings on your own surface (`GetDrawingRenderData`, API v9)
+
+For drawings the equivalent of the widget factory is one call:
+
+```c
+AM_DrawingRenderData rd = AM_MarkerAPI.GetDrawingRenderData(d);
+```
+
+| Field | Meaning |
+|---|---|
+| `m_aLines` | Polylines to stroke (`SM_ShapeLine`: world-metre `x,z` pairs + width in **metres** each). One line for a freehand stroke; a parametric shape arrives already expanded — a grid with all its cell lines and labels. |
+| `m_aFillPts` / `m_aFillIndices` | For a fill: the outline and its triangulation, ready for `TriMeshDrawCommand`. `m_aFillIndices == null` means the outline couldn't be triangulated — skip it. |
+| `m_iMinX/MaxX/MinZ/MaxZ` | World AABB for culling, **shape-aware** (a circle's box is centre±radius, not the box of its 2 parameter points). |
+| `m_iColor`, `m_bFill` | ARGB (opacity baked in) and the fill flag. |
+
+Project the points however your screen works and emit canvas commands — the full loop is in the Quick start above.
+
+> [!TIP]
+> Call it every tick, freely: results are cached per drawing id and evicted on the removal event (which also fires for every entry on bulk clears), so it is a map lookup after the first sight of each drawing. This works because drawings are **immutable** — an edit arrives as remove + add.
+
+> [!WARNING]
+> Do not render `m_aPoints` raw. For parametric shapes (`m_iShape != 0`) those are two *parameter* points — you would draw a diagonal line where the player sees a circle. `GetDrawingRenderData` is precisely the guard against that class of bug (we hit it ourselves).
 
 ---
 
@@ -261,6 +370,9 @@ void AM_MarkerAPI.GetAllDrawings(out array<SM_MapDrawingData> outDrawings);
 SM_MapDrawingData AM_MarkerAPI.GetDrawingById(int id);
 void AM_MarkerAPI.GetDrawingsByOwner(int playerId, out array<SM_MapDrawingData> outDrawings);
 void AM_MarkerAPI.GetAllFills(out array<SM_MapDrawingData> outFills); // closed polygons = "drawn zones"
+
+// Rendering a drawing yourself? Take the render-ready form instead of the raw fields (API v9):
+AM_DrawingRenderData AM_MarkerAPI.GetDrawingRenderData(SM_MapDrawingData d);  // cached; see section 1
 ```
 
 ### Events
@@ -294,7 +406,7 @@ SM_MapDrawingData AM_MarkerAPI.NewDrawing(int argb, int widthIdx, bool fill,
 | `m_iWidthIdx` | Brush preset 0..4 (2/5/10/20/40 m). |
 | `m_iVisibility`, `m_iChannel` | Channel, same rules as markers. |
 | `m_iFill` | 1 = filled area (points form a closed polygon), 0 = polyline. |
-| `m_iShape` | 0 = freehand. Non-zero = a parametric shape (`SM_ShapeGeometry.SHAPE_RECT/CIRCLE/GRID`): `m_aPoints` then holds exactly 2 **parameter** points, not geometry (rect corners; circle centre + rim point; grid A1 top-left + field bottom-right). If you render drawings yourself, build the real polylines with `SM_ShapeGeometry.Build(shape, points, borderMeters, outLines)` — never draw the 2 raw points. |
+| `m_iShape` | 0 = freehand. Non-zero = a parametric shape (`SM_ShapeGeometry.SHAPE_RECT/CIRCLE/GRID`): `m_aPoints` then holds exactly 2 **parameter** points, not geometry (rect corners; circle centre + rim point; grid A1 top-left + field bottom-right). Never draw the 2 raw points — take `GetDrawingRenderData` (API v9), which hands you the expanded polylines. |
 | `m_iGmLocked`, `m_iHideInfo` | GM flags. |
 | `m_aPoints` | World coordinates, flat `x,z` pairs in meters (but see `m_iShape`). |
 
