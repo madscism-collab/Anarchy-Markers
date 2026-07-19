@@ -156,7 +156,10 @@ class SM_MarkerConfig
 				break;
 
 			line.Replace("\r", "");	// прибрати можливий CR (Windows-перенос)
-			line.Trim();
+			// TrimInPlace, НЕ Trim(): Trim повертає копію і не міняє рядок. З no-op тримами
+			// "allowDrawing = false" (пробіли навколо =) тихо ігнорувався, а "key= true" читався
+			// як FALSE — ParseBool бачив " true" з пробілом. Класична пастка для адміна.
+			line.TrimInPlace();
 			if (line.IsEmpty() || line.IndexOf("#") == 0)
 				continue;
 			int eq = line.IndexOf("=");
@@ -164,8 +167,13 @@ class SM_MarkerConfig
 				continue;
 			string key = line.Substring(0, eq);
 			string val = line.Substring(eq + 1, line.Length() - eq - 1);
-			key.Trim();
-			val.Trim();
+			key.TrimInPlace();
+			// "key = 5   # why" — inline comments are fine to strip: every value here is a bool or an
+			// int, a legitimate # can never be part of one.
+			int hash = val.IndexOf("#");
+			if (hash != -1)
+				val = val.Substring(0, hash);
+			val.TrimInPlace();
 			ApplyKeyValue(key, val);
 		}
 		h.Close();
@@ -205,6 +213,7 @@ class SM_MarkerConfig
 
 	protected bool ParseBool(string v)
 	{
+		v.ToLower();	// admins write True/TRUE/Yes; the param is our copy, mutate away
 		return v == "true" || v == "1" || v == "yes" || v == "on";
 	}
 
