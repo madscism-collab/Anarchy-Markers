@@ -1,0 +1,32 @@
+HorizontalLayoutWidgetClass {
+ {
+  ScrollLayoutWidgetClass "{000000009881A4C7}" {
+   Prefab "{000000009881A4C7}"
+   {
+    VerticalLayoutWidgetClass "{00000000C099DEEF}" {
+     Prefab "{00000000C099DEEF}"
+     {
+      ButtonWidgetClass "{69F0EF1100000001}" : "{C9DF0E6590F6C388}UI/layouts/WidgetLibrary/SpinBox/WLib_SpinBox.layout" {
+       Name "SM_EnhancedFill"
+       Slot LayoutSlot "{69F0EF1100000002}" {
+        HorizontalAlign 3
+        Padding 4 4 4 4
+       }
+       components {
+        SCR_SpinBoxComponent "{69F0EF1100000003}" {
+         m_sLabel "Anarchy Markers: enhanced map fill"
+         m_sLabelLayout "{F003823FF141983C}UI/layouts/Menus/SettingsMenu/CustomWidgets/SettingsLabel.layout"
+         m_aElementNames {
+          "#AR-UI_No" "#AR-UI_Yes"
+         }
+         m_bUseLightArrows 1
+         m_bCycleMode 1
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

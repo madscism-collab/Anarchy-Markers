@@ -225,9 +225,12 @@ class SM_DrawingNet
 			return 0;
 		}
 
-		// Trim points to the server limit (protects against an oversized stroke).
+		// Trim points to the server limit (protects against an oversized stroke). Fills get their
+		// own, higher cap — a big fill's outline legitimately carries more points than any stroke.
 		array<int> pts = points;
 		int maxVals = drawCfg.m_iDrawMaxPointsPerStroke * 2;
+		if (SM_MapDrawingData.FillFromMeta(meta) != 0)
+			maxVals = drawCfg.m_iDrawMaxPointsPerFill * 2;
 		if (maxVals >= 4 && pts.Count() > maxVals)
 		{
 			array<int> trimmed = {};

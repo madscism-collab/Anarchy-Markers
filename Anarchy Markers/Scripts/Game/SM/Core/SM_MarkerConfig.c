@@ -55,6 +55,10 @@ class SM_MarkerConfig
 	// 20. Макс. точок в одному штриху — ТЕХНІЧНИЙ захист передачі (штрих їде одним RPC);
 	//     це не анти-спам. Мін. 2; надто велике значення ризикує не влізти в мережевий пакет.
 	int  m_iDrawMaxPointsPerStroke = 200;
+	// 20б. Окремий ліміт точок для КОНТУРА ЗАЛИВКИ. Рука фізично не малює штрих на 15 км, а
+	//     периметр великої заливки — легко: у спільних 200 точках хорди по 50-100 м різали
+	//     кути. 1000 точок ≈ 8 КБ разового RPC на заливку — терпимо; це і є причина не задирати вище.
+	int  m_iDrawMaxPointsPerFill = 1000;
 	// 21. Ліміт штрихів на гравця (0 = без обмеження)
 	int  m_iDrawMaxPerPlayer = 0;
 	// 22. Загальний ліміт штрихів на сервері (0 = без обмеження)
@@ -130,6 +134,7 @@ class SM_MarkerConfig
 		if (m_iPerMinuteLimit < 0)    m_iPerMinuteLimit = 0;
 		if (m_iSpamWarnPerMinute < 0) m_iSpamWarnPerMinute = 0;
 		if (m_iDrawMaxPointsPerStroke < 2) m_iDrawMaxPointsPerStroke = 2;
+		if (m_iDrawMaxPointsPerFill < m_iDrawMaxPointsPerStroke) m_iDrawMaxPointsPerFill = m_iDrawMaxPointsPerStroke;	// fill contour never tighter than a stroke
 		if (m_iDrawMaxPerPlayer < 0)  m_iDrawMaxPerPlayer = 0;
 		if (m_iDrawMaxTotal < 0)      m_iDrawMaxTotal = 0;
 		if (m_iDrawPerMinuteLimit < 0) m_iDrawPerMinuteLimit = 0;
@@ -201,6 +206,7 @@ class SM_MarkerConfig
 		else if (key == "allowDrawing")           m_bAllowDrawing         = ParseBool(val);
 		else if (key == "drawPersist")            m_bDrawPersist          = ParseBool(val);
 		else if (key == "drawMaxPointsPerStroke") m_iDrawMaxPointsPerStroke = val.ToInt();
+		else if (key == "drawMaxPointsPerFill")   m_iDrawMaxPointsPerFill = val.ToInt();
 		else if (key == "drawMaxPerPlayer")       m_iDrawMaxPerPlayer     = val.ToInt();
 		else if (key == "drawMaxTotal")           m_iDrawMaxTotal         = val.ToInt();
 		else if (key == "drawPerPlayerPerMinute") m_iDrawPerMinuteLimit   = val.ToInt();
@@ -318,6 +324,9 @@ class SM_MarkerConfig
 		h.WriteLine("drawPersist=" + B2S(m_bDrawPersist));
 		h.WriteLine("# Max points in one stroke (server trims after RDP simplification).");
 		h.WriteLine("drawMaxPointsPerStroke=" + m_iDrawMaxPointsPerStroke.ToString());
+		h.WriteLine("# Max points in a FILL outline. A big fill's perimeter needs detail a hand stroke never has;");
+		h.WriteLine("# too low and complex fills come out with corners cut. Costs one-off traffic per fill.");
+		h.WriteLine("drawMaxPointsPerFill=" + m_iDrawMaxPointsPerFill.ToString());
 		h.WriteLine("# Max strokes a single player may own (0 = unlimited; default off — enable if you need it).");
 		h.WriteLine("drawMaxPerPlayer=" + m_iDrawMaxPerPlayer.ToString());
 		h.WriteLine("# Max strokes total on the server (0 = unlimited; default off).");
@@ -378,7 +387,7 @@ class SM_MarkerConfig
 	// Темплейтам вони потрібні ЗАЗДАЛЕГІДЬ: авто-малювання тримає темп під ліміт за хвилину, а
 	// нездійсненний темплейт (штрихів більше, ніж сервер узагалі дозволить) треба показати гравцю
 	// ДО того, як він півгодини протримає ЛКМ.
-	void SetClientDrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates, int maxGrids)
+	void SetClientDrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates, int maxGrids, int maxPointsPerFill)
 	{
 		m_iDrawPerMinuteLimit     = perMinute;
 		m_iDrawMaxPerPlayer       = maxPerPlayer;
@@ -386,5 +395,6 @@ class SM_MarkerConfig
 		m_iDrawMaxPointsPerStroke = maxPointsPerStroke;
 		m_bAllowTemplates         = allowTemplates;
 		m_iDrawMaxGridsPerPlayer  = maxGrids;
+		m_iDrawMaxPointsPerFill   = maxPointsPerFill;
 	}
 }

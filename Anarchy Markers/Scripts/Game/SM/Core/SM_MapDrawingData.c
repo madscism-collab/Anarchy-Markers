@@ -191,6 +191,14 @@ class SM_MapDrawingData
 		return a[2];
 	}
 
+	// Заливка з meta (серверний трим точок: у заливки свій, вищий ліміт). 0 = штрих.
+	static int FillFromMeta(array<int> a)
+	{
+		if (!a || a.Count() < META_COUNT)
+			return 0;
+		return a[6];
+	}
+
 	// Тип фігури з meta (для лімітів вартості/сіток ДО створення запису). 0 = звичайний штрих.
 	static int ShapeFromMeta(array<int> a)
 	{

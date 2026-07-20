@@ -2,9 +2,11 @@
 //   1) растеризуємо всі видимі малюнки (штрихи з їх товщиною + наявні заливки) у сітку-перешкоди
 //      навколо точки кліку;
 //   2) BFS-розлив від кліку: не проходить крізь перешкоди; якщо дотік до краю вікна — пробуємо
-//      більше вікно (half 256→512→1024→2048→4096 м); якщо тече й з найбільшого — область не замкнута;
-//   3) якщо розлив уперся в бюджет клітинок — заливаємо ЧАСТКОВО (що встигли), наступний клік
-//      дофарбує решту, впершись у цю заливку як у перешкоду;
+//      більше вікно (half 32→64→128→256→512→1024→2048→4096 м); якщо тече й з найбільшого —
+//      область не замкнута;
+//   3) якщо розлив уперся в бюджет клітинок — теж ідемо на більше вікно (грубші клітинки беруть
+//      ту саму площу дешевше); ЧАСТКОВО заливаємо лише коли бюджет ліг на найбільшому вікні —
+//      наступний клік дофарбує решту, впершись у цю заливку як у перешкоду;
 //   4) контур залитих клітинок обводимо (wall-follower), переводимо у світові метри та
 //      спрощуємо RDP до ліміту точок штриха. Результат — полігон-контур для SM_MapDrawingData(fill=1).
 //
@@ -24,33 +26,67 @@ class SM_MapFloodFill
 	static const int NO_SPACE    = 2;	// клік у перешкоді (на лінії/в чужій заливці)
 	static const int FAILED      = 3;	// внутрішня помилка (не мало б траплятись)
 
-	protected static const int GRID_DIM   = 256;	// сітка завжди GRID_DIM×GRID_DIM клітинок
-	protected static const int MAX_VISIT  = 52000;	// бюджет розливу; далі — часткова заливка
-	protected static const int MAX_TRACE  = 300000;	// запобіжник обходу контуру
+	// 512, не 256: на найбільших вікнах клітинка була 32 м, а штамп лінії роздувається на
+	// (пів-ширини + пів-діагоналі клітинки) ≈ +22 м/бік — тонкий пензель ставав бар'єром ~47 м
+	// завширшки й замуровував будь-який вужчий коридор (незалиті виїмки у складних областях).
+	// Удвічі дрібніша клітинка вдвічі звужує роздування; ціна — вчетверо більше клітинок на клік,
+	// але лише коли заливка справді велика (дрібні кишені беруть перше, найдрібніше вікно).
+	protected static const int GRID_DIM   = 512;	// сітка завжди GRID_DIM×GRID_DIM клітинок
+	protected static const int MAX_VISIT  = 208000;	// бюджет розливу (∝ площі: ×4 разом із клітинками); далі — часткова заливка
+	protected static const int MAX_TRACE  = 600000;	// запобіжник обходу контуру
 
 	//! obstacles — усі видимі малюнки клієнта (штрихи і заливки). maxPts — ліміт точок контуру.
-	static int Compute(int clickX, int clickZ, notnull array<SM_MapDrawingData> obstacles, int maxPts, out SM_FloodFillResult res)
+	//! highDetail — режим «enhanced fill» (клієнтське налаштування): ущільнює джерело снапу, щоб
+	//! криві лягали ідеально. Вимкнено (дефолт) — снап по грубшому контуру: усі фікси лишаються, але
+	//! точок мало, тож тріангуляція дешева й немає фрізу при розміщенні великих складних заливок.
+	static int Compute(int clickX, int clickZ, notnull array<SM_MapDrawingData> obstacles, int maxPts, bool highDetail, out SM_FloodFillResult res)
 	{
 		res = new SM_FloodFillResult();
 
-		// Windows: half-size in metres, cell = (2*half)/GRID_DIM (2 -> 4 -> 8 -> 16 -> 32 m). We keep
-		// escalating while the paint runs off the window edge. The largest one covers a region about
-		// 8.2 km across; both it and the MAX_VISIT budget scale with cell^2, so the biggest fillable
-		// area lands around 53 km². Coarse cells only stay watertight because StampObstacles widens a
-		// line's stamp by the cell half-diagonal. The outline of a huge fill comes out stepped at the
-		// cell size, but SnapToStrokes pulls its vertices back onto the real lines. Small fills are
-		// unaffected — the 2 m window almost always answers on the first try.
-		for (int attempt = 0; attempt < 5; attempt++)
+		// Одна алокація сітки на весь виклик — не по одній на кожне вікно драбини. Обнуляється
+		// перед кожною спробою (нижче); клітинок GRID_DIM² завжди, тож reuse економить саме алокації.
+		array<int> grid = {};
+		grid.Resize(GRID_DIM * GRID_DIM);
+
+		// Відстань від кліку до НАЙБЛИЖЧОЇ лінії. Вікно, менше за неї, гарантовано витікає (навколо
+		// кліку суцільна вільна зона аж до краю вікна), тож будувати й заливати його — чистий програш.
+		// Пропуск цих вікон прибирає секундний фріз на великих заливках (клік у центрі великої області
+		// далеко від ліній → 6-7 марних повнорозмірних BFS-розливів). Малим кишеням лінія поруч, тож
+		// вони нічого не пропускають і зберігають найдрібнішу сітку.
+		float nearest = NearestObstacleDist(clickX, clickZ, obstacles);
+
+		// Windows: half-size in metres, cell = (2*half)/GRID_DIM (0.125 -> 0.25 -> ... -> 16 m).
+		// We escalate while the paint runs off the window edge. The ladder STARTS SMALL on purpose:
+		// small pockets used to be filled on a coarse grid, where the obstacle stamp (line half-width +
+		// cell half-diagonal, needed to stay watertight) ate most of a 10 m pocket's interior, the
+		// outline stepped in whole cells, and the free-cell hunt could jump clear out of the pocket.
+		// At sub-metre cells all three problems disappear; anything the small window can't hold escapes
+		// and climbs the ladder. The largest window covers ~8.2 km across (biggest fillable area
+		// ~53 km²); its stepped outline is pulled back onto the real lines by SnapToStrokes below.
+		for (int attempt = 0; attempt < 8; attempt++)
 		{
-			int half = 256;
+			int half = 32;
 			if (attempt == 1)
-				half = 512;
+				half = 64;
 			else if (attempt == 2)
-				half = 1024;
+				half = 128;
 			else if (attempt == 3)
-				half = 2048;
+				half = 256;
 			else if (attempt == 4)
+				half = 512;
+			else if (attempt == 5)
+				half = 1024;
+			else if (attempt == 6)
+				half = 2048;
+			else if (attempt == 7)
 				half = 4096;
+
+			// Provably escapes (free all the way to the border) — skip without touching the grid.
+			// half*0.9 leaves a margin: the click is not exactly centred vs the nearest line, so a
+			// window a touch larger than `nearest` can still be all-free on the near side.
+			if (half * 0.9 < nearest && attempt < 7)
+				continue;
+
 			float cell = (2.0 * half) / GRID_DIM;
 			int originX = clickX - half;	// світова позиція кутка сітки
 			int originZ = clickZ - half;
@@ -58,13 +94,14 @@ class SM_MapFloodFill
 			// Коди клітинок: 0 вільно, 1 перешкода-ЛІНІЯ, 4 перешкода-ЗАЛИВКА, 2 залито.
 			// Лінії й заливки — різні коди, бо під лінії заливку «роздуваємо», а під чужі
 			// заливки — ні (інакше сусідні заливки перекривались би).
-			array<int> grid = {};
-			grid.Resize(GRID_DIM * GRID_DIM);
 			for (int i = 0; i < GRID_DIM * GRID_DIM; i++)
 				grid[i] = 0;
 
 			float maxHalfW;
-			StampObstacles(grid, originX, originZ, cell, obstacles, maxHalfW);
+			float minHalfW;
+			StampObstacles(grid, originX, originZ, cell, obstacles, maxHalfW, minHalfW);
+			if (minHalfW > 100)
+				minHalfW = 2;	// вікно без жодного штриха — нейтральний дефолт
 
 			int cx = (clickX - originX) / cell;
 			int cz = (clickZ - originZ) / cell;
@@ -73,8 +110,15 @@ class SM_MapFloodFill
 			if (grid[cz * GRID_DIM + cx] != 0)
 			{
 				// Клік у перешкоду (лінія/крапка/заливка під курсором) — як справжнє «відерце»,
-				// шукаємо найближчу вільну клітинку в невеликому радіусі й стартуємо з неї.
-				if (!FindFreeNear(grid, cx, cz, 6))
+				// шукаємо найближчу вільну клітинку й стартуємо з неї. Радіус — від ширини штампа,
+				// не константа: на дрібних клітинках фіксовані 6 клітинок (1.5 м) не вибиралися б
+				// із-під п'ятиметрового пензля, і клік по лінії давав NO_SPACE.
+				int freeR = Math.Ceil((maxHalfW + cell * 0.7072) / cell) + 2;
+				if (freeR < 6)
+					freeR = 6;
+				if (freeR > 96)
+					freeR = 96;
+				if (!FindFreeNear(grid, cx, cz, freeR))
 					return NO_SPACE;
 			}
 
@@ -84,10 +128,16 @@ class SM_MapFloodFill
 
 			if (escaped)
 			{
-				if (attempt < 4)
+				if (attempt < 7)
 					continue;	// try a bigger window
 				return NOT_CLOSED;
 			}
+
+			// Closed but too big for this resolution's cell budget: a coarser window takes the same
+			// area whole. Partial fills are a last resort of the LARGEST window only — on the small
+			// ones they would be a regression (a 100 m yard used to fill in one click on the 2 m grid).
+			if (budgetHit && attempt < 7)
+				continue;
 
 			// Обводимо контур залитої області (по внутрішньому краю ліній — «сходинчастий»).
 			array<int> corners = {};
@@ -103,23 +153,58 @@ class SM_MapFloodFill
 			}
 
 			// Легкий RDP (точність пів-клітинки) — прибирає дрібний зигзаг сходинок, ЗБЕРІГАЮЧИ форму
-			// (зокрема кривину ліній). Спільна база для обох варіантів контуру нижче.
+			// (зокрема кривину ліній). База для растрового запасного варіанту нижче.
 			array<int> coarse = SM_PolylineUtil.RDPSimplify(world, cell * 0.5);
 			if (coarse.Count() < 6)
 				coarse = world;
+
+			// Джерело для СНАПУ: контур треба не спростити, а УЩІЛЬНИТИ. Растр має роздільність
+			// клітинки (до 32 м на великих вікнах), а RDP уміє лише ВИДАЛЯТИ вершини — тож на кривій
+			// лінії снап отримував опорні точки раз на клітинку й тягнув між ними пряму хорду:
+			// фестони на дугах, які не прибирався жодним лімітом точок (бюджет тут просто не досягався).
+			// Densify вставляє проміжні вершини кроком snapStep — тепер на кривій є що притягувати
+			// кожні кілька метрів, і контур лягає по дузі. Крок масштабуємо від найтоншого штриха
+			// (тонша лінія — щільніша дуга), із запобіжником на к-сть точок для велетенських периметрів.
+			// High-detail: densify the source so curves get a vertex every few metres to snap onto.
+			// Simple mode: snap the coarse contour as-is — the same edge-snap/wedge/narrow-channel
+			// logic runs, just on fewer points, so the outline is a touch blockier on tight curves but
+			// the triangulation stays small and placement never hitches.
+			array<int> snapSrc = coarse;
+			if (highDetail)
+			{
+				float snapStep = Math.Clamp(minHalfW, 2.0, 8.0);
+				snapSrc = Densify(world, snapStep, 6000);
+				if (snapSrc.Count() < 6)
+					snapSrc = coarse;
+			}
 
 			float epsFinal = maxHalfW * 0.4;
 			if (epsFinal < 1) epsFinal = 1;
 			if (epsFinal > cell) epsFinal = cell;
 
-			// Варіант A (кращий): притягуємо КОЖНУ вершину на ВІСЬ найближчої лінії-межі — контур
-			// лягає на реальні штрихи по всій кривині, заходить під лінію без зазору. Але snap може
-			// зробити контур самоперетинним (перекрутити) — тоді тріангуляція провалиться. Тож
-			// беремо snap-версію ЛИШЕ якщо вона тріангулюється; інакше — чистий не-snap контур.
+			// Ladder, best first. Every rung is checked by triangulation (= the polygon is simple);
+			// the first one that passes wins. All-or-nothing here was why busy regions kept coming out
+			// stepped: ONE bad crossing anywhere threw the whole snapped contour away.
+			//   A: snap to stroke edges + wedge-tip corners  (hugs everything, sharp corners filled)
+			//   B: snap only                                 (a tip crossed something nearby — drop tips)
+			//   C: raw raster outline                        (stepped; guaranteed simple)
+			array<int> snappedBase = {};
+			snappedBase.Copy(snapSrc);
+			array<float> vSegs = {};
+			array<int> vHasSeg = {};
+			SnapToStrokes(snappedBase, obstacles, maxHalfW + cell * 3, vSegs, vHasSeg);
+
+			// Post-snap RDP is about the POINT BUDGET, not smoothing: snapped points are exact, and a
+			// coarse epsilon here was re-cutting the very curve detail the dense snap source exists
+			// for. Scaled to the thinnest boundary stroke (same reasoning as srcSag above), floored at
+			// 0.5 — below the int-metre rounding jitter there is nothing left to preserve. Straight
+			// runs are collinear and fold regardless; FinalizeContour escalates if maxPts says too many.
+			float epsSnap = Math.Clamp(minHalfW * 0.5, 0.5, 1.0);
+
 			array<int> snapped = {};
-			snapped.Copy(coarse);
-			SnapToStrokes(snapped, obstacles, maxHalfW + cell * 3);
-			snapped = FinalizeContour(snapped, epsFinal, maxPts);
+			snapped.Copy(snappedBase);
+			InsertWedgeTips(snapped, vSegs, vHasSeg);	// добудувати вершини гострих кутів (див. функцію)
+			snapped = FinalizeContour(snapped, epsSnap, maxPts);
 			array<int> tmpTri = {};
 			if (snapped.Count() >= 6 && Triangulate(snapped, tmpTri))
 			{
@@ -128,8 +213,14 @@ class SM_MapFloodFill
 				return OK;
 			}
 
-			// Варіант B (запас): без притягання — гладкий контур (трохи всередині від ліній, дрібний
-			// зазор), зате гарантовано простий полігон.
+			array<int> noTips = FinalizeContour(snappedBase, epsSnap, maxPts);
+			if (noTips.Count() >= 6 && Triangulate(noTips, tmpTri))
+			{
+				res.m_aContour = noTips;
+				res.m_bPartial = budgetHit;
+				return OK;
+			}
+
 			array<int> plain = FinalizeContour(coarse, epsFinal, maxPts);
 			if (plain.Count() >= 6 && Triangulate(plain, tmpTri))
 			{
@@ -146,9 +237,10 @@ class SM_MapFloodFill
 	// Растеризація перешкод: штрихи — сегменти з половиною ширини, крапки — кола,
 	// заливки — нутро полігона (лише клітинки з центром строго всередині: нова заливка
 	// трохи перекриє край старої — шов без дірок).
-	protected static void StampObstacles(array<int> grid, int originX, int originZ, float cell, array<SM_MapDrawingData> obstacles, out float maxHalfW)
+	protected static void StampObstacles(array<int> grid, int originX, int originZ, float cell, array<SM_MapDrawingData> obstacles, out float maxHalfW, out float minHalfW)
 	{
 		maxHalfW = 0;
+		minHalfW = 1000;	// callers clamp anyway; stays huge only when no stroke got stamped
 		int winMaxX = originX + GRID_DIM * cell;
 		int winMaxZ = originZ + GRID_DIM * cell;
 
@@ -174,6 +266,8 @@ class SM_MapFloodFill
 					float slh = sl.m_fWidthMeters * 0.5;
 					if (slh > maxHalfW)
 						maxHalfW = slh;
+					if (slh < minHalfW)
+						minHalfW = slh;
 					float sr = slh + cell * 0.7072;
 					for (int si = 2; si < sl.m_aPts.Count(); si += 2)
 						StampSegment(grid, originX, originZ, cell, sl.m_aPts[si - 2], sl.m_aPts[si - 1], sl.m_aPts[si], sl.m_aPts[si + 1], sr);
@@ -190,6 +284,8 @@ class SM_MapFloodFill
 			float half = SM_DrawCanvas.WidthMeters(d.m_iWidthIdx) * 0.5;
 			if (half > maxHalfW)
 				maxHalfW = half;
+			if (half < minHalfW)
+				minHalfW = half;
 
 			int n = d.GetPointCount();
 			// The stamp marks cells whose CENTRE lies within r of the segment. For a line to seal
@@ -319,6 +415,56 @@ class SM_MapFloodFill
 
 	//------------------------------------------------------------------------------
 	//! Фінальне спрощення контуру: RDP з ескалацією eps до ліміту точок + прибирання дубля-замикання.
+	//! Вставити проміжні вершини так, щоб сусідні були не далі step одна від одної (замкнутий контур).
+	//! Протилежність RDP: не спрощує, а НАРОЩУЄ щільність — щоб снап мав що притягувати на кривій, чиї
+	//! опорні точки растр дав рідко (крок клітинки). maxPts обмежує вартість: на велетенському периметрі
+	//! крок збільшується, аби не наплодити десятки тисяч точок.
+	protected static array<int> Densify(array<int> pts, float step, int maxPts)
+	{
+		int n = pts.Count() / 2;
+		array<int> outp = {};
+		if (n < 2 || step < 0.5)
+		{
+			outp.Copy(pts);
+			return outp;
+		}
+
+		// Перевести крок під бюджет: якщо периметр/step перевищує maxPts — грубший крок.
+		float perim = 0;
+		for (int i = 0; i < n; i++)
+		{
+			int j = (i + 1) % n;
+			float dx = pts[j * 2] - pts[i * 2];
+			float dz = pts[j * 2 + 1] - pts[i * 2 + 1];
+			perim += Math.Sqrt(dx * dx + dz * dz);
+		}
+		if (maxPts > 0 && perim / step > maxPts)
+			step = perim / maxPts;
+
+		for (int i = 0; i < n; i++)
+		{
+			int j = (i + 1) % n;
+			int ax = pts[i * 2],     az = pts[i * 2 + 1];
+			int bx = pts[j * 2],     bz = pts[j * 2 + 1];
+			outp.Insert(ax);
+			outp.Insert(az);
+
+			float dx = bx - ax;
+			float dz = bz - az;
+			float len = Math.Sqrt(dx * dx + dz * dz);
+			int sub = Math.Floor(len / step);	// скільки проміжних вставити
+			for (int k = 1; k <= sub; k++)
+			{
+				float t = (k * step) / len;
+				if (t >= 1.0)
+					break;
+				outp.Insert(Math.Round(ax + dx * t));
+				outp.Insert(Math.Round(az + dz * t));
+			}
+		}
+		return outp;
+	}
+
 	protected static array<int> FinalizeContour(array<int> pts, float eps, int maxPts)
 	{
 		array<int> s = SM_PolylineUtil.RDPSimplify(pts, eps);
@@ -342,11 +488,18 @@ class SM_MapFloodFill
 	//! Притягнути кожну вершину контуру на найближчу точку осі лінії-межі (в межах maxSnapDist).
 	//! Растровий контур лягає точно на реальні штрихи → гладко, кути збережені, не виходить за межі.
 	//! Заливки (m_iFill) як межі для притягання НЕ беремо — інакше нова заливка «прилипла» б до сусідньої.
-	protected static void SnapToStrokes(array<int> contour, array<SM_MapDrawingData> obstacles, float maxSnapDist)
+	//! outSegs (4 float на вершину: ax,az,bx,bz) + outHasSeg (0/1) кажуть, на ЯКИЙ сегмент сіла кожна
+	//! вершина — InsertWedgeTips по цьому знаходить сусідів на різних лініях і добудовує вершину кута.
+	protected static void SnapToStrokes(array<int> contour, array<SM_MapDrawingData> obstacles, float maxSnapDist, out array<float> outSegs, out array<int> outHasSeg)
 	{
 		int n = contour.Count() / 2;
 		float maxSq = maxSnapDist * maxSnapDist;
 		int snapMargin = Math.Round(maxSnapDist) + 2;
+
+		outSegs = {};
+		outSegs.Resize(n * 4);
+		outHasSeg = {};
+		outHasSeg.Resize(n);
 
 		for (int i = 0; i < n; i++)
 		{
@@ -356,6 +509,9 @@ class SM_MapFloodFill
 			float bestX = px;
 			float bestZ = pz;
 			bool found = false;
+			bool haveSeg = false;
+			float segAx, segAz, segBx, segBz;
+			float bestHalfW = 0;
 
 			foreach (SM_MapDrawingData d : obstacles)
 			{
@@ -374,7 +530,7 @@ class SM_MapFloodFill
 					float ddx = px - ax;
 					float ddz = pz - az;
 					float dsq = ddx * ddx + ddz * ddz;
-					if (dsq < bestSq) { bestSq = dsq; bestX = ax; bestZ = az; found = true; }
+					if (dsq < bestSq) { bestSq = dsq; bestX = ax; bestZ = az; found = true; haveSeg = false; }
 					continue;
 				}
 				for (int s = 1; s < cnt; s++)
@@ -383,18 +539,145 @@ class SM_MapFloodFill
 					d.GetPoint(s, bx, bz);
 					float cxo, czo;
 					float dsq = ClosestOnSeg(px, pz, ax, az, bx, bz, cxo, czo);
-					if (dsq < bestSq) { bestSq = dsq; bestX = cxo; bestZ = czo; found = true; }
+					if (dsq < bestSq)
+					{
+						bestSq = dsq; bestX = cxo; bestZ = czo; found = true;
+						haveSeg = true;
+						segAx = ax; segAz = az; segBx = bx; segBz = bz;
+						bestHalfW = SM_DrawCanvas.WidthMeters(d.m_iWidthIdx) * 0.5;
+					}
 					ax = bx;
 					az = bz;
 				}
 			}
 
-			if (found)
+			outHasSeg[i] = 0;
+			if (!found)
+				continue;
+
+			// The snap target is NOT the axis: it is the axis pushed 70% of the half-width toward the
+			// vertex's own side. On the axis itself, the two banks of a contour wrapping a dead-end
+			// line inside the region collapsed onto the same centerline — a degenerate overlap, the
+			// main reason the snapped contour failed triangulation on busy regions and everything
+			// fell back to the stepped raster outline. At 70% the banks stay a stroke-width apart
+			// and the seam still hides under the stroke's paint (which extends to 100%).
+			float tx = bestX;
+			float tz = bestZ;
+			if (haveSeg)
 			{
-				contour[i * 2]     = Math.Round(bestX);
-				contour[i * 2 + 1] = Math.Round(bestZ);
+				float ex = segBx - segAx;
+				float ez = segBz - segAz;
+				float elen = Math.Sqrt(ex * ex + ez * ez);
+				if (elen > 0.05)
+				{
+					float perpX = -ez / elen;
+					float perpZ =  ex / elen;
+					float sideDot = (px - bestX) * perpX + (pz - bestZ) * perpZ;
+					if (sideDot < -0.01 || sideDot > 0.01)	// on-axis vertex keeps the axis point
+					{
+						float side = 1;
+						if (sideDot < 0)
+							side = -1;
+						float off = bestHalfW * 0.7;
+						tx = bestX + perpX * side * off;
+						tz = bestZ + perpZ * side * off;
+						// The stored segment is offset the same way: wedge tips then come out as the
+						// intersection of the two OFFSET edges — the corner of the free region, not of
+						// the axes — and the two banks of one line read as parallel (no bogus tips).
+						segAx += perpX * side * off;
+						segAz += perpZ * side * off;
+						segBx += perpX * side * off;
+						segBz += perpZ * side * off;
+					}
+				}
+			}
+
+			contour[i * 2]     = Math.Round(tx);
+			contour[i * 2 + 1] = Math.Round(tz);
+			if (haveSeg)
+			{
+				outHasSeg[i] = 1;
+				outSegs[i * 4]     = segAx;
+				outSegs[i * 4 + 1] = segAz;
+				outSegs[i * 4 + 2] = segBx;
+				outSegs[i * 4 + 3] = segBz;
 			}
 		}
+	}
+
+	//! Гострі внутрішні кути. Растр фізично не дістає у вершину клина: штампи двох ліній
+	//! (півширина + півдіагональ клітинки) перекриваються глибоко всередину кута, тому контур
+	//! зупиняється біля «рота» клина, а снап садить його сусідні вершини на ДВІ РІЗНІ лінії —
+	//! хорда між ними зрізає кут трикутною дірою (виразно видно на перетинах штрихів). Тут між
+	//! такою парою вставляється перетин осей їхніх сегментів — справжня вершина кута. Чиста
+	//! геометрія по снапнутих сегментах, тож працює на будь-якій роздільності растру, включно з
+	//! грубими вікнами великих заливок. Опуклий злам однієї лінії проходить ту саму умову
+	//! (сусідні сегменти одного штриха) і теж лягає точно на злам — так і треба.
+	protected static void InsertWedgeTips(array<int> contour, array<float> segs, array<int> hasSeg)
+	{
+		int n = contour.Count() / 2;
+		if (n < 3 || hasSeg.Count() != n)
+			return;
+
+		array<int> outPts = {};
+		for (int i = 0; i < n; i++)
+		{
+			int j = (i + 1) % n;
+			outPts.Insert(contour[i * 2]);
+			outPts.Insert(contour[i * 2 + 1]);
+
+			if (hasSeg[i] == 0 || hasSeg[j] == 0)
+				continue;
+
+			float ax = segs[i * 4],     az = segs[i * 4 + 1];
+			float bx = segs[i * 4 + 2], bz = segs[i * 4 + 3];
+			float cx = segs[j * 4],     cz = segs[j * 4 + 1];
+			float dxx = segs[j * 4 + 2], dzz = segs[j * 4 + 3];
+
+			if (ax == cx && az == cz && bx == dxx && bz == dzz)
+				continue;	// той самий сегмент — кута нема
+
+			float e1x = bx - ax, e1z = bz - az;
+			float e2x = dxx - cx, e2z = dzz - cz;
+			float len1 = Math.Sqrt(e1x * e1x + e1z * e1z);
+			float len2 = Math.Sqrt(e2x * e2x + e2z * e2z);
+			if (len1 < 0.1 || len2 < 0.1)
+				continue;
+
+			// Майже паралельні осі перетинаються за кілометри — це не клин. sin кута < ~5.7° ріжемо.
+			float den = e1x * e2z - e1z * e2x;
+			if (Math.AbsFloat(den) < 0.1 * len1 * len2)
+				continue;
+
+			float t = ((cx - ax) * e2z - (cz - az) * e2x) / den;
+			float s = ((cx - ax) * e1z - (cz - az) * e1x) / den;
+
+			// Вершина клина мусить лежати на обох сегментах (з випуском ~4 м за кінці).
+			float ext1 = 4.0 / len1;
+			float ext2 = 4.0 / len2;
+			if (t < -ext1 || t > 1 + ext1 || s < -ext2 || s > 1 + ext2)
+				continue;
+
+			float tipX = ax + t * e1x;
+			float tipZ = az + t * e1z;
+
+			// Глибина обмежена шириною «рота»: 8×рот покриває кути до ~7°, гостріше — не малюємо
+			// (разом із відсіканням паралельних це страхує від шпичаків у нескінченність).
+			float mx = contour[j * 2] - contour[i * 2];
+			float mz = contour[j * 2 + 1] - contour[i * 2 + 1];
+			float cap = Math.Sqrt(mx * mx + mz * mz) * 8 + 16;
+			float d1x = tipX - contour[i * 2], d1z = tipZ - contour[i * 2 + 1];
+			float d2x = tipX - contour[j * 2], d2z = tipZ - contour[j * 2 + 1];
+			float capSq = cap * cap;
+			if (d1x * d1x + d1z * d1z > capSq || d2x * d2x + d2z * d2z > capSq)
+				continue;
+			if (d1x * d1x + d1z * d1z < 1 || d2x * d2x + d2z * d2z < 1)
+				continue;	// вершина і так уже там — дубль не потрібен
+
+			outPts.Insert(Math.Round(tipX));
+			outPts.Insert(Math.Round(tipZ));
+		}
+		contour.Copy(outPts);
 	}
 
 	//! Найближча точка на відрізку a→b до p; повертає відстань² і саму точку (out cx,cz).
@@ -415,6 +698,84 @@ class SM_MapFloodFill
 		float ex = px - cx;
 		float ez = pz - cz;
 		return ex * ex + ez * ez;
+	}
+
+	//! Відстань (метри) від точки до найближчої перешкоди — будь-що, що спиняє розлив: штрих, лінія
+	//! фігури, контур чужої заливки. Використовується для пропуску завідомо-витікаючих вікон (див.
+	//! Compute). Оцінка «згори» лише зменшила б роздільність, не зіпсувала б заливку, тож рахуємо все.
+	protected static float NearestObstacleDist(int px, int pz, array<SM_MapDrawingData> obstacles)
+	{
+		float bestSq = 1000000000000.0;
+		foreach (SM_MapDrawingData d : obstacles)
+		{
+			if (!d)
+				continue;
+			int cnt = d.GetPointCount();
+			if (cnt < 1)
+				continue;
+
+			// AABB-відсів: перешкода, чий бокс далі за поточний мінімум, не може його побити.
+			// Пропускаємо, доки мінімум ще «нескінченний» (перша перешкода його й задасть).
+			if (bestSq < 100000000000.0)
+			{
+				int margin = Math.Ceil(Math.Sqrt(bestSq)) + 1;
+				if (!d.AABBOverlapsRect(px, px, pz, pz, margin))
+					continue;
+			}
+
+			if (d.m_iShape != 0)
+			{
+				array<ref SM_ShapeLine> lines = {};
+				SM_ShapeGeometry.Build(d.m_iShape, d.m_aPoints, SM_DrawCanvas.WidthMeters(d.m_iWidthIdx), lines);
+				foreach (SM_ShapeLine sl : lines)
+				{
+					if (!sl || sl.m_aPts.Count() < 4)
+						continue;
+					for (int si = 2; si < sl.m_aPts.Count(); si += 2)
+					{
+						float scx, scz;
+						float sdsq = ClosestOnSeg(px, pz, sl.m_aPts[si - 2], sl.m_aPts[si - 1], sl.m_aPts[si], sl.m_aPts[si + 1], scx, scz);
+						if (sdsq < bestSq)
+							bestSq = sdsq;
+					}
+				}
+				continue;
+			}
+
+			int ax, az;
+			d.GetPoint(0, ax, az);
+			if (cnt == 1)
+			{
+				float ex = px - ax;
+				float ez = pz - az;
+				float dsq0 = ex * ex + ez * ez;
+				if (dsq0 < bestSq)
+					bestSq = dsq0;
+				continue;
+			}
+			for (int i = 1; i < cnt; i++)
+			{
+				int bx, bz;
+				d.GetPoint(i, bx, bz);
+				float cx, cz;
+				float dsq = ClosestOnSeg(px, pz, ax, az, bx, bz, cx, cz);
+				if (dsq < bestSq)
+					bestSq = dsq;
+				ax = bx;
+				az = bz;
+			}
+			// Контур заливки замкнутий — врахувати ребро «остання→перша».
+			if (d.m_iFill != 0 && cnt >= 3)
+			{
+				int fx, fz;
+				d.GetPoint(0, fx, fz);
+				float cx2, cz2;
+				float dsqC = ClosestOnSeg(px, pz, ax, az, fx, fz, cx2, cz2);
+				if (dsqC < bestSq)
+					bestSq = dsqC;
+			}
+		}
+		return Math.Sqrt(bestSq);
 	}
 
 	//! BFS-розлив у 4 напрямки. escaped = дотекли до краю сітки; budgetHit = уперлись у MAX_VISIT.
@@ -661,13 +1022,25 @@ class SM_MapFloodFill
 				if (cross <= 0)
 					continue;
 
-				// жодна інша вершина не всередині трикутника?
+				// жодна інша вершина не всередині трикутника? Перевіряємо ЛИШЕ увігнуті (reflex)
+				// вершини: опукла всередині вуха лежати не може (класична властивість ear-clipping для
+				// простих полігонів). Заливки переважно опуклі, тож reflex-множина мала — саме це
+				// прибирає внутрішнє O(n) і рятує від O(n³) на великих контурах (секундний фріз кліку).
 				bool blocked = false;
 				for (int k = 0; k < count; k++)
 				{
 					int vk = v[k];
 					if (vk == i0 || vk == i1 || vk == i2)
 						continue;
+
+					// reflex? (CCW-полігон: опукла = лівий поворот, cross > 0 — пропускаємо)
+					int vpk = v[(k + count - 1) % count];
+					int vnk = v[(k + 1) % count];
+					float rc = (pts[vk * 2] - pts[vpk * 2]) * (pts[vnk * 2 + 1] - pts[vpk * 2 + 1])
+						- (pts[vk * 2 + 1] - pts[vpk * 2 + 1]) * (pts[vnk * 2] - pts[vpk * 2]);
+					if (rc > 0)
+						continue;	// опукла — блокувати вухо не може
+
 					if (PointInTri(pts[vk * 2], pts[vk * 2 + 1], ax, az, bx, bz, cx, cz))
 					{
 						blocked = true;

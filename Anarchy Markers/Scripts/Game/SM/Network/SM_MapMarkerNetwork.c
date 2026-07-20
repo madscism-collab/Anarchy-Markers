@@ -410,7 +410,7 @@ modded class SCR_PlayerController
 		// Спершу шлемо дозволені канали (щоб діалог одразу блокував заборонені кнопки), тоді мітки.
 		SM_MarkerConfig cfg = SM_MarkerConfig.GetInstance();
 		SM_SendConfig(cfg.m_bAllowLocal, cfg.m_bAllowGroup, cfg.m_bAllowSide, cfg.m_bAllowGlobal, cfg.m_bVanillaFactionNames, cfg.m_bAllowPointer, cfg.m_bAllowCopyLast, cfg.m_iDrawBatchIntervalMs);
-		SM_SendDrawLimits(cfg.m_iDrawPerMinuteLimit, cfg.m_iDrawMaxPerPlayer, cfg.m_iDrawMaxTotal, cfg.m_iDrawMaxPointsPerStroke, cfg.m_bAllowTemplates, cfg.m_iDrawMaxGridsPerPlayer);
+		SM_SendDrawLimits(cfg.m_iDrawPerMinuteLimit, cfg.m_iDrawMaxPerPlayer, cfg.m_iDrawMaxTotal, cfg.m_iDrawMaxPointsPerStroke, cfg.m_bAllowTemplates, cfg.m_iDrawMaxGridsPerPlayer, cfg.m_iDrawMaxPointsPerFill);
 
 		// This game's codes (separate for markers and drawings) — the client uses them to
 		// activate its own Local markers/drawings for this server.
@@ -452,17 +452,17 @@ modded class SCR_PlayerController
 	// Server -> client: the drawing limits. A separate packet rather than four more parameters on
 	// RpcDo_Config, which is already at eight. The client needs them to pace template auto-drawing
 	// and to tell the player, before he starts, that a template cannot fit on this server.
-	void SM_SendDrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates, int maxGrids)
+	void SM_SendDrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates, int maxGrids, int maxPointsPerFill)
 	{
-		Rpc(RpcDo_DrawLimits, perMinute, maxPerPlayer, maxTotal, maxPointsPerStroke, allowTemplates, maxGrids);
+		Rpc(RpcDo_DrawLimits, perMinute, maxPerPlayer, maxTotal, maxPointsPerStroke, allowTemplates, maxGrids, maxPointsPerFill);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
-	protected void RpcDo_DrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates, int maxGrids)
+	protected void RpcDo_DrawLimits(int perMinute, int maxPerPlayer, int maxTotal, int maxPointsPerStroke, bool allowTemplates, int maxGrids, int maxPointsPerFill)
 	{
 		if (Replication.IsServer())
 			return;
-		SM_MarkerConfig.GetInstance().SetClientDrawLimits(perMinute, maxPerPlayer, maxTotal, maxPointsPerStroke, allowTemplates, maxGrids);
+		SM_MarkerConfig.GetInstance().SetClientDrawLimits(perMinute, maxPerPlayer, maxTotal, maxPointsPerStroke, allowTemplates, maxGrids, maxPointsPerFill);
 	}
 
 	// Server -> client: this game's codes (separate for markers and drawings). The client keys

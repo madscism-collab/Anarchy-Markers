@@ -29,11 +29,6 @@ class SM_RenderStroke
 	bool m_bFill;
 	ref array<int> m_aTriIndices;
 
-	// Fill that reaches past the clip box: its cut-down outline and a matching triangulation.
-	// The original indices don't survive clipping — the vertex count changes.
-	ref array<int> m_aClipPoly;
-	ref array<int> m_aClipTri;
-
 	void SM_RenderStroke(int id)
 	{
 		m_iId = id;
@@ -1477,12 +1472,24 @@ class SM_DrawCanvas
 			return;
 		}
 
-		// 2) Розлив.
-		int maxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
-		if (maxPts <= 0)
-			maxPts = 200;
+		// 2) Розлив. Деталізація — за клієнтським налаштуванням (дефолт off = простіше й без фрізу).
+		// Enhanced: щільний ліміт точок (периметр великої заливки потребує деталі, якої в ручного
+		// штриха не буває) + ущільнення джерела снапу. Simple: ті самі фікси, але низький ліміт →
+		// дешева тріангуляція, миттєве розміщення.
+		bool highDetail = SM_ClientPrefs.EnhancedFill();
+		int maxPts;
+		if (highDetail)
+		{
+			maxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerFill;
+			if (maxPts <= 0)
+				maxPts = 1000;
+		}
+		else
+		{
+			maxPts = 250;	// stays well under the O(n²) triangulation knee — no placement hitch
+		}
 		SM_FloodFillResult res;
-		int code = SM_MapFloodFill.Compute(wx, wz, all, maxPts, res);
+		int code = SM_MapFloodFill.Compute(wx, wz, all, maxPts, highDetail, res);
 
 		if (code == SM_MapFloodFill.NOT_CLOSED)
 		{
@@ -2241,7 +2248,7 @@ class SM_DrawCanvas
 			if (d.m_iShape != 0)
 				BuildShapeProjected(d, rs, ppm);	// parameters -> the same geometry on every client
 			else if (rs.m_bFill)
-				BuildFillProjected(d, rs, inside, wMinX, wMaxX, wMinZ, wMaxZ, scr);
+				BuildFillProjected(d, rs, scr);
 			else
 			{
 				ProjectPointsToScreen(d.m_aPoints, scr);
@@ -2255,31 +2262,21 @@ class SM_DrawCanvas
 	// indices no longer describe it. Sutherland-Hodgman can degenerate on concave outlines; when the
 	// result refuses to triangulate we fall back to the full outline, since large coordinates beat a
 	// mangled or missing shape.
-	protected void BuildFillProjected(notnull SM_MapDrawingData d, notnull SM_RenderStroke rs, bool inside,
-		float wMinX, float wMaxX, float wMinZ, float wMaxZ, array<float> scr)
+	protected void BuildFillProjected(notnull SM_MapDrawingData d, notnull SM_RenderStroke rs, array<float> scr)
 	{
 		rs.m_aCmds.Clear();
 
-		array<int> poly = d.m_aPoints;
-		array<int> tri  = rs.m_aTriIndices;
-
-		if (!inside)
-		{
-			rs.m_aClipPoly = ClipPolygonToRect(d.m_aPoints, wMinX, wMaxX, wMinZ, wMaxZ);
-			if (rs.m_aClipPoly.Count() < 6)
-				return;	// nothing visible left
-			rs.m_aClipTri = new array<int>();
-			if (SM_MapFloodFill.Triangulate(rs.m_aClipPoly, rs.m_aClipTri) && rs.m_aClipTri.Count() >= 3)
-			{
-				poly = rs.m_aClipPoly;
-				tri  = rs.m_aClipTri;
-			}
-		}
-
-		if (!tri || tri.Count() < 3)
+		// Triangulation is TOPOLOGY — it depends on the outline, not on the view — so it is done ONCE
+		// when the stroke is synced (SyncStrokes) and reused for every projection. The old code instead
+		// clipped the outline to the viewport and RE-TRIANGULATED whenever the fill stuck out past the
+		// screen edge, which is exactly what happens the moment you zoom IN on a big fill: ear-clipping
+		// is O(n²), and on a 1000-point contour that ran ~1M ops PER ZOOM FRAME — the freeze. No clip is
+		// needed anyway; strokes already project their full point set off-screen and the map frame clips
+		// the raster. Off-screen fills are culled whole by the AABB test in ProjectAll before we get here.
+		if (!rs.m_aTriIndices || rs.m_aTriIndices.Count() < 3)
 			return;
-		ProjectPointsToScreen(poly, scr);
-		BuildFillCommands(scr, d.m_iColor, tri, rs);
+		ProjectPointsToScreen(d.m_aPoints, scr);
+		BuildFillCommands(scr, d.m_iColor, rs.m_aTriIndices, rs);
 	}
 
 	// Команди заливки: TriMesh із тріангуляцією (коректно й для увігнутих контурів).
@@ -2591,72 +2588,6 @@ class SM_DrawCanvas
 
 		if (cur.Count() >= 4)
 			pieces.Insert(cur);
-	}
-
-	//! One Sutherland-Hodgman pass over a closed outline. axis 0 = X, 1 = Z; keepGreater keeps the
-	//! >= bound side. World metres, rounded back to int.
-	protected array<int> ClipPolygonHalf(notnull array<int> poly, int axis, float bound, bool keepGreater)
-	{
-		array<int> outp = {};
-		int n = poly.Count() / 2;
-		if (n < 3)
-			return outp;
-
-		for (int i = 0; i < n; i++)
-		{
-			int j = (i + 1) % n;
-			float cx = poly[i * 2];
-			float cz = poly[i * 2 + 1];
-			float nx = poly[j * 2];
-			float nz = poly[j * 2 + 1];
-
-			float cv = cx;
-			float nv = nx;
-			if (axis == 1)
-			{
-				cv = cz;
-				nv = nz;
-			}
-
-			bool cIn, nIn;
-			if (keepGreater)
-			{
-				cIn = cv >= bound;
-				nIn = nv >= bound;
-			}
-			else
-			{
-				cIn = cv <= bound;
-				nIn = nv <= bound;
-			}
-
-			if (cIn)
-			{
-				outp.Insert(poly[i * 2]);	// already int, no rounding needed
-				outp.Insert(poly[i * 2 + 1]);
-			}
-			if (cIn != nIn)
-			{
-				float denom = nv - cv;
-				if (denom > -0.000001 && denom < 0.000001)
-					continue;
-				float t = (bound - cv) / denom;
-				outp.Insert(Math.Round(cx + (nx - cx) * t));
-				outp.Insert(Math.Round(cz + (nz - cz) * t));
-			}
-		}
-		return outp;
-	}
-
-	protected array<int> ClipPolygonToRect(notnull array<int> poly, float wMinX, float wMaxX, float wMinZ, float wMaxZ)
-	{
-		array<int> r = ClipPolygonHalf(poly, 0, wMinX, true);
-		if (r.Count() < 6) return r;
-		r = ClipPolygonHalf(r, 0, wMaxX, false);
-		if (r.Count() < 6) return r;
-		r = ClipPolygonHalf(r, 1, wMinZ, true);
-		if (r.Count() < 6) return r;
-		return ClipPolygonHalf(r, 1, wMaxZ, false);
 	}
 
 	// Ядро виправлення «шипів»: будуємо draw-команди штриха з екранних точок.
