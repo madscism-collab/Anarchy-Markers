@@ -104,7 +104,7 @@ class SM_MapDrawingStore
 		int n = 0;
 		foreach (SM_MapDrawingData d : m_aDrawings)
 		{
-			if (d && d.m_iOwnerId == ownerId && d.m_iShape == SM_ShapeGeometry.SHAPE_GRID)
+			if (d && d.m_iOwnerId == ownerId && SM_ShapeGeometry.IsGrid(d.m_iShape))
 				n++;
 		}
 		return n;

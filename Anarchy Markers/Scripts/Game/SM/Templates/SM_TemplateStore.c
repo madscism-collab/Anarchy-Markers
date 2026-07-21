@@ -347,6 +347,7 @@ class SM_TemplateStore
 			m_aBuiltIns.Insert(MakeBuiltIn("__rect",   "Rectangle", SM_ShapeGeometry.SHAPE_RECT));
 			m_aBuiltIns.Insert(MakeBuiltIn("__circle", "Circle",    SM_ShapeGeometry.SHAPE_CIRCLE));
 			m_aBuiltIns.Insert(MakeBuiltIn("__grid",   "Grid",      SM_ShapeGeometry.SHAPE_GRID));
+			m_aBuiltIns.Insert(MakeBuiltIn("__gridr",  "Grid MGRS", SM_ShapeGeometry.SHAPE_GRID_REV));
 		}
 
 		FileIO.MakeDirectory("$profile:SavingMarkers");

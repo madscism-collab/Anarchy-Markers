@@ -1281,7 +1281,7 @@ class SM_DrawPanel
 		{
 			// Grid cap up front: no point arming a placement the server will refuse. Checked against
 			// this client's own replica (it sees all of its own grids); the server enforces it for real.
-			if (t.m_iShape == SM_ShapeGeometry.SHAPE_GRID
+			if (SM_ShapeGeometry.IsGrid(t.m_iShape)
 				&& m_Canvas.GetVisibility() != SM_EMarkerVisibility.PERSONAL)
 			{
 				int gridCap = SM_MarkerConfig.GetInstance().m_iDrawMaxGridsPerPlayer;
@@ -1306,7 +1306,7 @@ class SM_DrawPanel
 			SM_TemplateSession.GetInstance().Clear();
 			m_Canvas.StartShapePlacement(t.m_iShape);
 			RefreshTemplates();
-			if (t.m_iShape == SM_ShapeGeometry.SHAPE_GRID)
+			if (SM_ShapeGeometry.IsGrid(t.m_iShape))
 				TemplateNotice("Click a grid square — it becomes A-1. A second click sets the size.");
 			else if (t.m_iShape == SM_ShapeGeometry.SHAPE_CIRCLE)
 				TemplateNotice("Click the centre, then click again to set the radius.");

@@ -763,7 +763,7 @@ modded class SCR_MapMarkersUI
 			if (armed && shapeMode != SM_ShapeGeometry.SHAPE_NONE)
 			{
 				bool second = m_DrawCanvas.ShapeFirstSet();
-				if (shapeMode == SM_ShapeGeometry.SHAPE_GRID)
+				if (SM_ShapeGeometry.IsGrid(shapeMode))
 				{
 					if (second)
 						txt = "Click to finish the grid (min 10 x 10 squares)";

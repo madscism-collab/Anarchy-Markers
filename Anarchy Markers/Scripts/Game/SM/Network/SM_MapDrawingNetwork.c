@@ -205,7 +205,7 @@ class SM_DrawingNet
 		if (shape != 0 && points.Count() == 4)
 			cost = SM_ShapeGeometry.StrokeCost(shape, points);
 
-		if (shape == SM_ShapeGeometry.SHAPE_GRID && drawCfg.m_iDrawMaxGridsPerPlayer > 0
+		if (SM_ShapeGeometry.IsGrid(shape) && drawCfg.m_iDrawMaxGridsPerPlayer > 0
 			&& drawStore.CountGridsByOwner(requesterId) >= drawCfg.m_iDrawMaxGridsPerPlayer)
 		{
 			if (denyPc)

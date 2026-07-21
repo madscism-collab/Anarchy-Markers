@@ -134,14 +134,14 @@ class SM_MapDrawingData
 
 		// Shapes: two parameter points, nothing else. Anything malformed degrades to a freehand stroke
 		// of the same points — visible garbage the author sees too, never a crash or a lying render.
-		if (m_iShape < 0 || m_iShape > SM_ShapeGeometry.SHAPE_GRID)
+		if (m_iShape < 0 || m_iShape > SM_ShapeGeometry.SHAPE_MAX)
 			m_iShape = 0;
 		if (m_iShape != 0)
 		{
 			m_iFill = 0;
 			if (GetPointCount() != 2)
 				m_iShape = 0;
-			else if (m_iShape == SM_ShapeGeometry.SHAPE_GRID)
+			else if (SM_ShapeGeometry.IsGrid(m_iShape))
 			{
 				// The whole promise of the grid is that it sits ON the map's own 100 m grid, for
 				// everyone. Snap the anchor and re-derive the extent, whatever the client sent.
@@ -205,7 +205,7 @@ class SM_MapDrawingData
 		if (!a || a.Count() < META_COUNT)
 			return 0;
 		int s = a[7];
-		if (s < 0 || s > SM_ShapeGeometry.SHAPE_GRID)
+		if (s < 0 || s > SM_ShapeGeometry.SHAPE_MAX)
 			return 0;
 		return s;
 	}
@@ -242,7 +242,7 @@ class SM_MapDrawingData
 			m_iMinX = m_aPoints[0] - r; m_iMaxX = m_aPoints[0] + r;
 			m_iMinZ = m_aPoints[1] - r; m_iMaxZ = m_aPoints[1] + r;
 		}
-		else if (m_iShape == SM_ShapeGeometry.SHAPE_GRID && n == 2)
+		else if (SM_ShapeGeometry.IsGrid(m_iShape) && n == 2)
 		{
 			m_iMinX -= SM_ShapeGeometry.GRID_CELL;	// header column, left of A
 			m_iMaxZ += SM_ShapeGeometry.GRID_CELL;	// header row, above 1

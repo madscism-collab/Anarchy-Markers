@@ -549,7 +549,7 @@ class SM_DrawCanvas
 
 		if (!m_bShapeFirstSet)
 		{
-			if (m_iShapeMode == SM_ShapeGeometry.SHAPE_GRID)
+			if (SM_ShapeGeometry.IsGrid(m_iShapeMode))
 			{
 				// The clicked CELL becomes A1: anchor on its top-left corner, on the map's own lattice.
 				m_iShapeX0 = Math.Floor(wx / 100.0) * SM_ShapeGeometry.GRID_CELL;
@@ -619,7 +619,7 @@ class SM_DrawCanvas
 			return true;
 		}
 
-		if (m_iShapeMode == SM_ShapeGeometry.SHAPE_GRID)
+		if (SM_ShapeGeometry.IsGrid(m_iShapeMode))
 		{
 			// Any cell the cursor is IN counts, so a partially covered column/row is included whole.
 			int cols = Math.Ceil((wx - m_iShapeX0) / 100.0);
@@ -658,7 +658,7 @@ class SM_DrawCanvas
 
 		if (!m_bShapeFirstSet)
 		{
-			if (m_iShapeMode != SM_ShapeGeometry.SHAPE_GRID)
+			if (!SM_ShapeGeometry.IsGrid(m_iShapeMode))
 			{
 				m_aPreviewCmds.Clear();
 				m_aGhostKeyPts.Clear();
@@ -1742,7 +1742,7 @@ class SM_DrawCanvas
 			// brush stroke must not wipe it — only Delete (a click on it) removes a grid.
 			if (d.m_iShape != 0)
 			{
-				if (d.m_iShape == SM_ShapeGeometry.SHAPE_GRID)
+				if (SM_ShapeGeometry.IsGrid(d.m_iShape))
 					continue;
 				if (WorldDistSqToStroke(d, wx, wz) <= thrSq)
 				{

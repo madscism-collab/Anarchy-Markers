@@ -16,15 +16,25 @@ class SM_ShapeLine
 
 class SM_ShapeGeometry
 {
-	static const int SHAPE_NONE   = 0;
-	static const int SHAPE_RECT   = 1;
-	static const int SHAPE_CIRCLE = 2;
-	static const int SHAPE_GRID   = 3;
+	static const int SHAPE_NONE     = 0;
+	static const int SHAPE_RECT     = 1;
+	static const int SHAPE_CIRCLE   = 2;
+	static const int SHAPE_GRID     = 3;
+	static const int SHAPE_GRID_REV = 4;	// same grid, letters down the side instead of across the top
+	static const int SHAPE_MAX      = 4;	// validation bound — raise with every shape added above
+
+	//! Both grids are one shape everywhere except which header carries the letters: same geometry, same
+	//! snapping, same per-cell fill, same quota. Everything that asks "is this a grid" goes through here
+	//! so a new variant cannot be forgotten in one of the dozen places that check.
+	static bool IsGrid(int shape)
+	{
+		return shape == SHAPE_GRID || shape == SHAPE_GRID_REV;
+	}
 
 	// The map's own grid is 100 m squares anchored at the world origin — ours snaps to it.
 	static const int GRID_CELL      = 100;
 	static const int GRID_MIN_CELLS = 10;	// 1 km² floor
-	static const int GRID_MAX_CELLS = 26;	// the English alphabet is the hard limit
+	static const int GRID_MAX_CELLS = 26;	// the English alphabet is the hard limit, whichever axis carries it
 	protected static const string LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 	//! Build the drawable lines for a shape. p = the two parameter points (x0,z0,x1,z1),
@@ -37,9 +47,10 @@ class SM_ShapeGeometry
 
 		switch (shape)
 		{
-			case SHAPE_RECT:   BuildRect(p[0], p[1], p[2], p[3], borderMeters, outLines); break;
-			case SHAPE_CIRCLE: BuildCircle(p[0], p[1], p[2], p[3], borderMeters, outLines); break;
-			case SHAPE_GRID:   BuildGrid(p[0], p[1], p[2], p[3], borderMeters, outLines); break;
+			case SHAPE_RECT:     BuildRect(p[0], p[1], p[2], p[3], borderMeters, outLines); break;
+			case SHAPE_CIRCLE:   BuildCircle(p[0], p[1], p[2], p[3], borderMeters, outLines); break;
+			case SHAPE_GRID:     BuildGrid(p[0], p[1], p[2], p[3], borderMeters, false, outLines); break;
+			case SHAPE_GRID_REV: BuildGrid(p[0], p[1], p[2], p[3], borderMeters, true,  outLines); break;
 		}
 	}
 
@@ -66,7 +77,7 @@ class SM_ShapeGeometry
 				outPts.Insert(p[1] + Math.Sin(a) * r);
 			}
 		}
-		else if (shape == SHAPE_GRID)
+		else if (IsGrid(shape))
 		{
 			// Outer border incl. the header row/column.
 			int loX = Math.Min(p[0], p[2]) - GRID_CELL;
@@ -122,7 +133,7 @@ class SM_ShapeGeometry
 			return x >= Math.Min(p[0], p[2]) && x <= Math.Max(p[0], p[2])
 				&& z >= Math.Min(p[1], p[3]) && z <= Math.Max(p[1], p[3]);
 		}
-		if (shape == SHAPE_GRID)
+		if (IsGrid(shape))
 		{
 			return x >= p[0] && x <= p[2] && z >= p[3] && z <= p[1];
 		}
@@ -141,7 +152,7 @@ class SM_ShapeGeometry
 			float dz = p[3] - p[1];
 			return dx * dx + dz * dz;	// r^2, monotonic in area
 		}
-		if (shape == SHAPE_GRID)
+		if (IsGrid(shape))
 			return GRID_CELL * GRID_CELL;	// a fill is one CELL, always the smallest thing
 		float w = Math.AbsFloat(p[2] - p[0]);
 		float h = Math.AbsFloat(p[3] - p[1]);
@@ -187,7 +198,7 @@ class SM_ShapeGeometry
 			outContour.Insert(hiX); outContour.Insert(hiZ);
 			outContour.Insert(loX); outContour.Insert(hiZ);
 		}
-		else if (shape == SHAPE_GRID)
+		else if (IsGrid(shape))
 		{
 			int col = Math.Floor((clickX - p[0]) / 100.0);
 			int row = Math.Floor((p[1] - clickZ) / 100.0);
@@ -254,7 +265,9 @@ class SM_ShapeGeometry
 	//! The grid of the screenshot: a header row of letters above row 1, a header column of numbers
 	//! left of column A, thin cell lines, thick outer border and thick header separators. (ax,az) is
 	//! the top-left corner of cell A1 — the cell the player clicked.
-	protected static void BuildGrid(int ax, int az, int bx, int bz, float borderW, notnull array<ref SM_ShapeLine> outLines)
+	//! reversed = letters run DOWN the header column and numbers across the header row, the mirror of the
+	//! usual convention. Nothing else changes — the lines, the snapping and cell A1 are identical.
+	protected static void BuildGrid(int ax, int az, int bx, int bz, float borderW, bool reversed, notnull array<ref SM_ShapeLine> outLines)
 	{
 		int cols = ClampI(Math.Round((bx - ax) / 100.0), 1, GRID_MAX_CELLS);
 		int rows = ClampI(Math.Round((az - bz) / 100.0), 1, GRID_MAX_CELLS);
@@ -282,17 +295,27 @@ class SM_ShapeGeometry
 		RectLoop(loX, loZ, hiX, hiZ, border.m_aPts);
 		outLines.Insert(border);
 
-		// Labels: letters across the header row, numbers down the header column.
+		// Labels. Normally letters run across the header row and numbers down the header column; the
+		// reversed variant swaps which header gets which. The glyph heights stay tied to the header they
+		// sit in (56 across the top, 46 down the side), so a swapped grid still reads at the same size.
 		float glyphW = Math.Max(borderW * 0.35, 2.5);
 		for (int c2 = 0; c2 < cols; c2++)
 		{
-			string letter = LETTERS.Get(c2);
-			AddLabel(letter, ax + c2 * GRID_CELL + 50, az + 50, 56, glyphW, outLines);
+			string top = LETTERS.Get(c2);
+			if (reversed)
+			{
+				int cn = c2 + 1;
+				top = cn.ToString();
+			}
+			AddLabel(top, ax + c2 * GRID_CELL + 50, az + 50, 56, glyphW, outLines);
 		}
 		for (int r2 = 0; r2 < rows; r2++)
 		{
 			int num = r2 + 1;
-			AddLabel(num.ToString(), ax - 50, az - r2 * GRID_CELL - 50, 46, glyphW, outLines);
+			string side = num.ToString();
+			if (reversed)
+				side = LETTERS.Get(r2);
+			AddLabel(side, ax - 50, az - r2 * GRID_CELL - 50, 46, glyphW, outLines);
 		}
 	}
 
