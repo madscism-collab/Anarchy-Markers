@@ -75,6 +75,19 @@ class AM_MapFeatures
 		s_mModeHintNudge.Remove(mode);
 	}
 
+	//! Next open only, same reasoning as SetPanelScaleNextOpen: a per-mode nudge STICKS, so with several
+	//! screens sharing one map mode the one that sets nothing inherits whatever the last one set. 0/0 is
+	//! a real value here — "hints where they normally go" — so a flag says whether anything is queued.
+	static void SetHintNudgeNextOpen(float dx, float dy)
+	{
+		s_bNextOpenHintNudge = true;
+		s_fNextOpenHintDX = dx;
+		s_fNextOpenHintDY = dy;
+	}
+
+	protected static bool  s_bNextOpenHintNudge;
+	protected static float s_fNextOpenHintDX, s_fNextOpenHintDY;
+
 	// --- Drawing panel: scale ---------------------------------------------------------------------
 	// The panel is laid out for a fullscreen map. On a host surface it can end up wider than the frame
 	// it landed in, and the bar runs off both edges.
@@ -201,6 +214,14 @@ class AM_MapFeatures
 	{
 		dx = 0;
 		dy = 0;
+
+		if (s_bNextOpenHintNudge)
+		{
+			s_bNextOpenHintNudge = false;
+			dx = s_fNextOpenHintDX;
+			dy = s_fNextOpenHintDY;
+			return;
+		}
 
 		int mode = EMapEntityMode.PLAIN;
 		if (config)

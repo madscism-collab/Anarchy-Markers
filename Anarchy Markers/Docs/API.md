@@ -255,7 +255,11 @@ The device that wants the default now calls **nothing** and gets auto-fit. `SetP
 
 ```c
 AM_MapFeatures.SetHintNudgeForMode(EMapEntityMode.PLAIN, 90, 0);   // +x = right, +y = down
+AM_MapFeatures.SetHintNudgeNextOpen(90, 0);                        // one-shot, same reasoning as above
 ```
+
+> [!TIP]
+> If several of your screens share one map mode, **call the `NextOpen` form unconditionally** — do not guard it with `if (value != 0)`. Zero is a real value in every one of these (`scale 0` = auto-fit, `offset 0,0` = where it normally goes), so a screen that wants the default should still say so. Guarding the call is how a screen ends up silently wearing the previous screen's settings.
 
 ### Drawing markers on your own surface (`AM_MarkerWidgets`, API v4)
 
