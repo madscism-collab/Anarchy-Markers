@@ -23,6 +23,8 @@ modded class SCR_MapMarkersUI
 		// Both are per-screen: reset them so nothing leaks in from the last map that was open.
 		m_iSMForcedVis = AM_MapFeatures.ResolveForcedVisibilityForOpen(config);
 		m_bSMPanelStartsHidden = AM_MapFeatures.ResolveDrawPanelHiddenForOpen(config);
+		m_fSMPanelScale = AM_MapFeatures.ResolvePanelScaleForOpen(config);	// 0 = panel fits itself
+		AM_MapFeatures.ResolvePanelOffsetForOpen(config, m_fSMPanelOffX, m_fSMPanelOffY);
 		m_bSMDrawPanelShown = !m_bSMPanelStartsHidden;
 		AM_MapFeatures.ResolveHintNudgeForOpen(config, m_fSMHintDX, m_fSMHintDY);
 		AM_MapFeatures.ResetLayerVisible();
@@ -76,6 +78,11 @@ modded class SCR_MapMarkersUI
 				{
 					m_DrawPanel = new SM_DrawPanel();
 					m_DrawPanel.Build(m_DrawCanvas, m_wSMMapFrame, m_bSMEditorMap, m_iSMForcedVis, SM_HasFeature(AM_EMapFeature.TEMPLATES));
+					// The pin only belongs to the player's own map. A screen that starts the panel
+					// hidden is a host (tablet/terminal) that owns it through a button of its own.
+					m_DrawPanel.SetAutoHideAllowed(!m_bSMPanelStartsHidden);
+					m_DrawPanel.SetPanelScaleOverride(m_fSMPanelScale);
+					m_DrawPanel.SetPanelOffset(m_fSMPanelOffX, m_fSMPanelOffY);
 				}
 			}
 		}
@@ -454,6 +461,12 @@ modded class SCR_MapMarkersUI
 				baseAllowed = baseAllowed && SM_GmState.s_bDrawPanel;
 			baseAllowed = baseAllowed && m_bSMDrawPanelShown;	// host screen's own toolbar button
 			m_DrawPanel.SetVisible(baseAllowed);
+			// Auto-hide slide (unpinned panel). Physical pixels, the space the panel hit-tests in.
+			InputManager him = GetGame().GetInputManager();
+			int apx, apy;
+			SM_CursorPhysPx(apx, apy);
+			m_DrawPanel.TickAutoHide(apx, apy, him && him.IsUsingMouseAndKeyboard(), timeSlice);
+
 			m_DrawPanel.TickFocusHighlight();
 			m_DrawPanel.TickTemplateState();	// the anchor is dropped on the MAP; the panel has to notice
 			m_DrawPanel.TickNameField();		// hold the name field's write mode while typing
@@ -688,6 +701,17 @@ modded class SCR_MapMarkersUI
 		}
 	}
 
+	//! Shared look for the cursor prompts (GM "pick a point", template placement steps).
+	//!
+	//! The orange alone was not enough: these sit ON the map, and over a pale fill or the sand/green
+	//! terrain a thin 20px font all but disappears. A dark outline gives the glyphs their own edge, so
+	//! they stay readable on ANY background instead of only on dark ones — which a shadow, biased to
+	//! one side, would not do.
+	protected void SM_StylePrompt(notnull TextWidget t)
+	{
+		t.SetOutline(1, 0xFF000000);
+	}
+
 	// Підказка «оберіть точку» біля курсора, поки активний режим Create Marker зевса.
 	protected void SM_UpdatePlacePrompt()
 	{
@@ -705,6 +729,7 @@ modded class SCR_MapMarkersUI
 				{
 					t.SetFont("{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt");
 					t.SetExactFontSize(20);
+					SM_StylePrompt(t);
 					FrameSlot.SetAnchorMin(t, 0, 0);
 					FrameSlot.SetAnchorMax(t, 0, 0);
 					FrameSlot.SetSizeToContent(t, true);
@@ -799,6 +824,7 @@ modded class SCR_MapMarkersUI
 				return;
 			t.SetFont("{3E7733BAC8C831F6}UI/Fonts/RobotoCondensed/RobotoCondensed_Regular.fnt");
 			t.SetExactFontSize(20);
+			SM_StylePrompt(t);
 			FrameSlot.SetAnchorMin(t, 0, 0);
 			FrameSlot.SetAnchorMax(t, 0, 0);
 			FrameSlot.SetSizeToContent(t, true);

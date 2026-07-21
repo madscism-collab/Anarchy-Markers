@@ -50,6 +50,15 @@ modded class SCR_MapEntity
 		// clear of it. Tune here if ATAK's chrome moves.
 		AM_MapFeatures.SetHintNudgeForMode(mapMode, 90, 0);
 
+		// The bar FITS here, so auto-fit leaves it alone — but fitting is not the same as belonging. At
+		// full size it eats a large share of a tablet screen, and this is a map you read as much as you
+		// draw on. Explicit shrink.
+		AM_MapFeatures.SetPanelScaleForMode(mapMode, 0.7);
+
+		// ATAK's own status strip runs along the top of the tablet screen, and our bar rests right under
+		// it. Drop it clear. Layout units, so this keeps its proportion at whatever scale is set above.
+		AM_MapFeatures.SetPanelOffsetForMode(mapMode, 0, 30);
+
 		return cfg;
 	}
 

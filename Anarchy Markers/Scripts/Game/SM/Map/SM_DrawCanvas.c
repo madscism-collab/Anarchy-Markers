@@ -28,6 +28,18 @@ class SM_RenderStroke
 	// координатах (індекси лишаються валідними після афінної проєкції на екран).
 	bool m_bFill;
 	ref array<int> m_aTriIndices;
+	// Coarse stand-in drawn when the fill is small on screen (see BuildFillLod).
+	ref array<int> m_aLodPoly;
+	ref array<int> m_aLodTri;
+	// Triangulating is O(n²) and there can be hundreds of fills, so both of these are built on first
+	// SIGHT, a few per frame, never in bulk at load. The flags stop a failed attempt being retried.
+	bool m_bTriTried;
+	bool m_bLodTried;
+
+	// World-space simplified copy of a plain stroke, and the tolerance it was built at. Projection
+	// walks THIS instead of every captured point — see StrokeLodTier.
+	ref array<int> m_aLodPts;
+	float m_fLodTol;
 
 	void SM_RenderStroke(int id)
 	{
@@ -111,13 +123,21 @@ class SM_DrawCanvas
 	protected const int GHOST_ALPHA_FILL   = 90;
 	protected ref array<ref CanvasWidgetCommand> m_aCommands = {};
 	protected bool m_bMembershipDirty = true;	// штрих додано/прибрано
+	protected int  m_iTriBudget;				// triangulations left in this projection pass
+	protected bool m_bTriPending;				// some visible fill ran out of budget — reproject next frame
+	protected bool m_bLodPending;				// some stroke LOD ran out of budget — reproject next frame
+	protected bool m_bSimplifyDistant;			// client opted INTO the stroke ladder AND the coarse fill outline (default off)
 
 	// Різати полілінію, коли cos кута між сусідніми сегментами < цього (turn > ~104°) — інакше
 	// LineDrawCommand дає miter-«шип». Стики/кінці закриваємо колом (SM_CIRCLE_SEG-кутник).
 	protected const float SM_SHARP_DOT  = -0.25;
 	protected const int   SM_CIRCLE_SEG = 12;
-	protected const float SM_DECIM_PX     = 1.5;	// LOD: точки ближче цього на екрані — зливаємо
-	protected const float SM_ROUND_MIN_PX = 2.5;	// LOD: тонше цього на екрані — без кіл-стиків
+	// LOD thresholds. Raised from 1.5/2.5 after measuring a map with hundreds of jagged template
+	// copies: merging sub-pixel points also removes the sharp corners they create, and each corner
+	// removed is one fewer line command AND one fewer join circle — the two things TranslateAll pays
+	// for on every pan frame. Both stay well under what the eye resolves at working zoom.
+	protected const float SM_DECIM_PX     = 3.0;	// LOD: точки ближче цього на екрані — зливаємо
+	protected const float SM_ROUND_MIN_PX = 3.5;	// LOD: тонше цього на екрані — без кіл-стиків
 
 	// Відстеження виду (для зсув-на-пан проти повної проєкції)
 	protected bool  m_bViewValid;
@@ -212,6 +232,15 @@ class SM_DrawCanvas
 	// Пресети ширини у СВІТОВИХ метрах (паперова поведінка: товщина прив'язана до землі,
 	// тож широка лінія завжди закриває велику ділянку; на екрані товщає при наближенні).
 	// idx 0..4 are shared (pencil/eraser/fill); idx 5 (100 m) is ERASER-ONLY (bulk erasing).
+	// Fill level-of-detail. Panning re-shifts every cached vertex of every visible drawing, so on a map
+	// with hundreds of fills the vertex count IS the frame time; below this on-screen size the detail a
+	// coarse outline drops is not visible anyway.
+	static const int   TRI_PER_FRAME    = 10;		// heavy rebuilds (triangulation, stroke LOD) per pass
+	static const int   STROKE_LOD_MIN_PTS = 40;		// shorter strokes are not worth a simplified copy
+	static const float FILL_LOD_PX      = 700;		// use the coarse copy under this on-screen span
+	static const float FILL_LOD_RATIO   = 0.012;	// RDP budget as a fraction of the shape's own size
+	static const int   FILL_LOD_MIN_PTS = 60;		// below this an outline is already cheap
+
 	static const int WIDTH_IDX_MAX_PENCIL = 4;	// regular tools: up to idx 4 (40 m)
 	static const int WIDTH_IDX_MAX_ERASER = 5;	// eraser: extra idx 5 (100 m)
 	static float WidthMeters(int idx)
@@ -989,6 +1018,17 @@ class SM_DrawCanvas
 			reproject = true;	// нові штрихи треба спроєктувати
 		}
 
+		// Last pass hit the per-frame triangulation budget: keep projecting until every visible fill
+		// has caught up. This is what turns a map opening on hundreds of fills into a short fade-in
+		// instead of a multi-second freeze.
+		if (m_bTriPending)
+			reproject = true;
+
+		// A zoom step can also leave stroke LOD levels half-rebuilt (same budget); one more pass lets
+		// them catch up instead of leaving strokes drawn at the previous zoom's detail.
+		if (m_bLodPending)
+			reproject = true;
+
 		float zoom = m_Map.GetCurrentZoom();
 
 		int ax = 0;
@@ -1448,9 +1488,9 @@ class SM_DrawCanvas
 		// Flood fill would only stairstep the circle into the 256-grid it rasterises against; we know
 		// the real geometry, so there is no reason to approximate it. The SMALLEST shape wins, so a cell
 		// inside a big circle fills the cell.
-		int fillMaxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerStroke;
+		int fillMaxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerFill;	// a fill, so the fill budget
 		if (fillMaxPts <= 0)
-			fillMaxPts = 200;
+			fillMaxPts = 400;
 		array<int> shapeContour = {};
 		if (TryShapeFill(wx, wz, all, fillMaxPts, shapeContour))
 		{
@@ -1482,7 +1522,7 @@ class SM_DrawCanvas
 		{
 			maxPts = SM_MarkerConfig.GetInstance().m_iDrawMaxPointsPerFill;
 			if (maxPts <= 0)
-				maxPts = 1000;
+				maxPts = 400;
 		}
 		else
 		{
@@ -2176,14 +2216,12 @@ class SM_DrawCanvas
 
 			SM_RenderStroke nrs = new SM_RenderStroke(d2.m_iId);
 			nrs.m_Data = d2;
+			// Тріангуляція — РАЗ у світових координатах (індекси переживають зум/пан), але НЕ тут:
+			// вона O(n²), а сюди за один прохід може прилетіти кілька сотень заливок (вхід у місію,
+			// синк із сервером) — рахувати їх усі разом означало б багатосекундне зависання на
+			// відкритті мапи. Робимо на першу появу в кадрі, порційно (див. BuildFillProjected).
 			if (d2.m_iFill != 0)
-			{
-				// Тріангуляція РАЗ у світових координатах — індекси переживають зум/пан.
 				nrs.m_bFill = true;
-				nrs.m_aTriIndices = new array<int>();
-				if (!SM_MapFloodFill.Triangulate(d2.m_aPoints, nrs.m_aTriIndices))
-					nrs.m_aTriIndices = null;	// вироджений контур → PolygonDrawCommand як запасний
-			}
 			m_mStrokes.Set(d2.m_iId, nrs);
 		}
 
@@ -2199,11 +2237,27 @@ class SM_DrawCanvas
 	// Sorted by the AABB against the clip box: strokes outside it build nothing at all (zoomed in
 	// that is nearly all of them), strokes fully inside skip clipping and allocate nothing, and only
 	// the handful straddling the border actually get cut.
+	//! TEMPORARY instrumentation. Set false (or delete the block at the end of ProjectAll) once the
+	//! draw-performance question is settled — it costs a per-frame walk of every command.
+	static bool s_bDiagProject = false;
+	protected static float s_fDiagLastPrint;
+
 	protected void ProjectAll()
 	{
 		ComputeAffine();
 		CaptureAnchor();
 		float ppm = PxPerMeter();
+
+		float diagStart;
+		if (s_bDiagProject)
+			diagStart = System.GetTickCount();
+
+		m_iTriBudget = TRI_PER_FRAME;	// fills triangulate on first sight, a few per pass
+		m_bTriPending = false;
+		m_bLodPending = false;
+		// Once per pass, not per drawing: the projection itself costs milliseconds, one settings read
+		// beside it is free, and every drawing in the pass must agree on the same answer.
+		m_bSimplifyDistant = SM_ClientPrefs.SimplifyDistant();
 
 		float wMinX, wMaxX, wMinZ, wMaxZ;
 		ClipBoxWorld(wMinX, wMaxX, wMinZ, wMaxZ);
@@ -2251,10 +2305,64 @@ class SM_DrawCanvas
 				BuildFillProjected(d, rs, scr);
 			else
 			{
-				ProjectPointsToScreen(d.m_aPoints, scr);
-				BuildStrokeCommands(scr, d.m_iColor, WidthPxForZoom(d.m_iWidthIdx, ppm), rs.m_aCmds, inside);
+				// Decimate DURING projection, in world units — see ProjectStrokeDecimated. ppm can be
+				// tiny when zoomed right out, so guard the divide.
+				float minWorld = 0;
+				if (ppm > 0.00001)
+					minWorld = SM_DECIM_PX / ppm;
+				ProjectStrokeDecimated(StrokePointsForZoom(rs, d, minWorld), minWorld, scr);
+				BuildStrokeCommands(scr, d.m_iColor, WidthPxForZoom(d.m_iWidthIdx, ppm), rs.m_aCmds, inside, true);
 			}
 		}
+
+		if (s_bDiagProject)
+			DiagReport(diagStart);
+	}
+
+	//! What a single projection pass actually costs, once a second. Answers the only questions that
+	//! matter here: how much is on screen, how many draw commands that turns into, how many vertices
+	//! get shifted on every pan frame, and how long the pass itself takes.
+	protected void DiagReport(float startedAt)
+	{
+		float now = System.GetTickCount();
+		float ms = now - startedAt;
+
+		if (now - s_fDiagLastPrint < 1000)
+			return;
+		s_fDiagLastPrint = now;
+
+		int visible = 0, cmds = 0, verts = 0, fills = 0, circles = 0;
+		foreach (int id, SM_RenderStroke rs : m_mStrokes)
+		{
+			if (!rs || rs.m_aCmds.IsEmpty())
+				continue;
+			visible++;
+			if (rs.m_bFill)
+				fills++;
+			foreach (CanvasWidgetCommand c : rs.m_aCmds)
+			{
+				cmds++;
+				LineDrawCommand lc = LineDrawCommand.Cast(c);
+				if (lc)
+				{
+					verts += lc.m_Vertices.Count() / 2;
+					continue;
+				}
+				PolygonDrawCommand pc = PolygonDrawCommand.Cast(c);
+				if (pc)
+				{
+					circles++;
+					verts += pc.m_Vertices.Count() / 2;
+					continue;
+				}
+				TriMeshDrawCommand mc = TriMeshDrawCommand.Cast(c);
+				if (mc)
+					verts += mc.m_Vertices.Count() / 2;
+			}
+		}
+
+		Print(string.Format("[SM-PERF] stored=%1 visible=%2 (fills=%3) cmds=%4 circles=%5 verts=%6 project=%7ms",
+			m_mStrokes.Count(), visible, fills, cmds, circles, verts, ms), LogLevel.NORMAL);
 	}
 
 	// Outline fully inside the box: reuse the cached triangulation. Otherwise cut the outline in
@@ -2262,6 +2370,41 @@ class SM_DrawCanvas
 	// indices no longer describe it. Sutherland-Hodgman can degenerate on concave outlines; when the
 	// result refuses to triangulate we fall back to the full outline, since large coordinates beat a
 	// mangled or missing shape.
+	//! Second, coarser copy of a fill's outline plus its own triangulation, built once when the drawing
+	//! first appears. Panning shifts EVERY cached vertex of EVERY visible drawing each frame, so on a
+	//! map carrying hundreds of fills the vertex count is the whole performance story — and a 600-point
+	//! outline drawn a few hundred pixels wide spends most of those points on detail below one pixel.
+	//! Zoomed out we draw this instead. Skipped for outlines already small enough to not care.
+	protected void BuildFillLod(notnull SM_RenderStroke rs, notnull SM_MapDrawingData d)
+	{
+		rs.m_bLodTried = true;
+		if (!rs.m_aTriIndices)
+			return;	// the full outline itself refused to triangulate; a coarser one will not do better
+		int n = d.GetPointCount();
+		if (n <= FILL_LOD_MIN_PTS)
+			return;
+
+		int minX, maxX, minZ, maxZ;
+		if (!d.GetAABB(minX, maxX, minZ, maxZ))
+			return;
+		float span = Math.Max(maxX - minX, maxZ - minZ);
+		if (span < 1)
+			return;
+
+		// Deviation budget: a fraction of the shape's own size, so big and small fills simplify by the
+		// same visual amount rather than the same metres.
+		array<int> lod = SM_PolylineUtil.RDPSimplify(d.m_aPoints, span * FILL_LOD_RATIO);
+		if (lod.Count() < 8 || lod.Count() / 2 >= n)
+			return;	// nothing gained
+
+		array<int> tri = {};
+		if (!SM_MapFloodFill.Triangulate(lod, tri) || tri.Count() < 3)
+			return;	// simplification crossed the outline over itself — keep using the full one
+
+		rs.m_aLodPoly = lod;
+		rs.m_aLodTri  = tri;
+	}
+
 	protected void BuildFillProjected(notnull SM_MapDrawingData d, notnull SM_RenderStroke rs, array<float> scr)
 	{
 		rs.m_aCmds.Clear();
@@ -2273,10 +2416,53 @@ class SM_DrawCanvas
 		// is O(n²), and on a 1000-point contour that ran ~1M ops PER ZOOM FRAME — the freeze. No clip is
 		// needed anyway; strokes already project their full point set off-screen and the map frame clips
 		// the raster. Off-screen fills are culled whole by the AABB test in ProjectAll before we get here.
+		// First time this fill is actually on screen: triangulate it now. Budgeted, so a map opening
+		// with hundreds of them fills in over a few frames instead of freezing on the first one.
+		if (!rs.m_bTriTried)
+		{
+			if (m_iTriBudget <= 0)
+			{
+				m_bTriPending = true;	// ask for another pass so this one isn't left undrawn
+				return;					// better a fill that appears a moment late than a stalled map
+			}
+			m_iTriBudget--;
+			rs.m_bTriTried = true;
+			rs.m_aTriIndices = new array<int>();
+			if (!SM_MapFloodFill.Triangulate(d.m_aPoints, rs.m_aTriIndices))
+				rs.m_aTriIndices = null;	// degenerate outline: nothing sane to draw
+		}
+
 		if (!rs.m_aTriIndices || rs.m_aTriIndices.Count() < 3)
 			return;
-		ProjectPointsToScreen(d.m_aPoints, scr);
-		BuildFillCommands(scr, d.m_iColor, rs.m_aTriIndices, rs);
+
+		// Pick the coarse copy once the shape is small enough on screen that the detail it drops is
+		// sub-pixel anyway. The saving is per-frame: fewer vertices to shift on every pan.
+		//
+		// Behind the same client setting as the stroke ladder, and off by default. "Sub-pixel" is the
+		// theory; in practice a zoomed-out fill is where the flattened edge shows up most, so this is a
+		// trade the player opts into rather than one we make for them.
+		array<int> poly = d.m_aPoints;
+		array<int> tri  = rs.m_aTriIndices;
+		if (rs.m_bCull && m_bSimplifyDistant)
+		{
+			float spanPx = Math.Max(rs.m_iMaxX - rs.m_iMinX, rs.m_iMaxZ - rs.m_iMinZ) * PxPerMeter();
+			if (spanPx < FILL_LOD_PX)
+			{
+				if (!rs.m_bLodTried && m_iTriBudget > 0)
+				{
+					m_iTriBudget--;
+					BuildFillLod(rs, d);
+				}
+				if (rs.m_aLodPoly)
+				{
+					poly = rs.m_aLodPoly;
+					tri  = rs.m_aLodTri;
+				}
+			}
+		}
+
+		ProjectPointsToScreen(poly, scr);
+		BuildFillCommands(scr, d.m_iColor, tri, rs);
 	}
 
 	// Команди заливки: TriMesh із тріангуляцією (коректно й для увігнутих контурів).
@@ -2474,6 +2660,102 @@ class SM_DrawCanvas
 
 	// Plain arithmetic, no bounds applied. Far vertices come out huge; whoever builds the draw
 	// commands clips them.
+	//! Project a stroke while dropping points that would land closer together than SM_DECIM_PX on
+	//! screen. The old order — project everything, then DecimateScreen the result — did the expensive
+	//! part on points it was about to throw away: with hundreds of drawings on screen that was hundreds
+	//! of thousands of transforms per projection pass to produce ~25k surviving vertices, and during a
+	//! zoom that pass runs EVERY frame. The test is done in WORLD metres (the affine is a uniform
+	//! scale, so screen distance is just world distance × ppm), which is what makes skipping possible
+	//! before any transform happens. First and last points are always kept so the stroke keeps its ends.
+	//! Which pre-simplified copy of a stroke to walk, given how many metres one screen-pixel-step is
+	//! worth at the current zoom. Quantised to a LADDER on purpose: a smooth zoom sweep would otherwise
+	//! ask for a slightly different tolerance every frame and rebuild the cache constantly. 0 = zoomed
+	//! in far enough that the real points are worth walking.
+	protected float StrokeLodTier(float minWorld)
+	{
+		if (minWorld < 2)
+			return 0;	// zoomed in far enough that the captured points are worth walking
+
+		// Powers of two rather than a hand-picked list: the first ladder started at 4 m and left a
+		// whole zoom band (the one profiling showed at 26 ms) with no cached copy at all, falling back
+		// to walking every captured point.
+		float t = 2;
+		while (t * 2 <= minWorld && t < 256)
+			t = t * 2;
+		return t;
+	}
+
+	//! Points to project for this stroke. Measurement showed the projection pass costs in proportion to
+	//! how many CAPTURED points it walks — hundreds of thousands of them per frame during a zoom, to
+	//! produce a couple of thousand draw commands. Walking a simplified copy instead is the whole point.
+	//!
+	//! It is OPT-IN, and the reason is honest: the tolerance ladder is discrete, so crossing a step
+	//! makes a shape visibly snap while you zoom. On a map with a handful of drawings that trade is not
+	//! worth it, which is why the default is off and the projection walks the captured points.
+	protected array<int> StrokePointsForZoom(notnull SM_RenderStroke rs, notnull SM_MapDrawingData d, float minWorld)
+	{
+		if (!m_bSimplifyDistant)
+			return d.m_aPoints;	// opted out: walk the captured points, shapes never step
+
+		float tier = StrokeLodTier(minWorld);
+		if (tier <= 0 || d.GetPointCount() < STROKE_LOD_MIN_PTS)
+			return d.m_aPoints;
+
+		if (rs.m_fLodTol != tier)
+		{
+			if (m_iTriBudget <= 0)
+			{
+				// Budget spent this pass: use whatever level we already hold rather than stalling.
+				m_bLodPending = true;
+				if (rs.m_aLodPts)
+					return rs.m_aLodPts;
+				return d.m_aPoints;
+			}
+			m_iTriBudget--;
+			rs.m_aLodPts = SM_PolylineUtil.RDPSimplify(d.m_aPoints, tier);
+			rs.m_fLodTol = tier;
+		}
+
+		if (rs.m_aLodPts && rs.m_aLodPts.Count() >= 4)
+			return rs.m_aLodPts;
+		return d.m_aPoints;
+	}
+
+	protected void ProjectStrokeDecimated(notnull array<int> pts, float minWorldDist, array<float> outScr)
+	{
+		int n = pts.Count() / 2;
+		outScr.Clear();
+		if (n <= 0)
+			return;
+
+		float minSq = minWorldDist * minWorldDist;
+		int lastX = pts[0];
+		int lastZ = pts[1];
+		EmitProjected(lastX, lastZ, outScr);
+
+		for (int i = 1; i < n - 1; i++)
+		{
+			int wx = pts[i * 2];
+			int wz = pts[i * 2 + 1];
+			float dx = wx - lastX;
+			float dz = wz - lastZ;
+			if (dx * dx + dz * dz < minSq)
+				continue;
+			lastX = wx;
+			lastZ = wz;
+			EmitProjected(wx, wz, outScr);
+		}
+
+		if (n > 1)
+			EmitProjected(pts[(n - 1) * 2], pts[(n - 1) * 2 + 1], outScr);
+	}
+
+	protected void EmitProjected(float wx, float wz, notnull array<float> outScr)
+	{
+		outScr.Insert(m_fPox + wx * m_fDxx + wz * m_fDxz);
+		outScr.Insert(m_fPoy + wx * m_fDyx + wz * m_fDyz);
+	}
+
 	protected void ProjectPointsToScreen(notnull array<int> pts, array<float> outScr)
 	{
 		int n = pts.Count() / 2;
@@ -2601,7 +2883,9 @@ class SM_DrawCanvas
 	// (їх однаково не видно), лишається ~1 команда на штрих. Обидва LOD залежать від зуму й
 	// перебудовуються у ProjectAll; на робочому наближенні (мало штрихів) якість повна.
 	//! noClip = the caller already proved the stroke fits the box (AABB test), skip the cutting.
-	protected void BuildStrokeCommands(array<float> pRaw, int argb, float widthPx, array<ref CanvasWidgetCommand> outCmds, bool noClip = false)
+	//! preDecimated = the caller already thinned the points while projecting them (ProjectAll does),
+	//! so the pass below would only re-walk and re-allocate for nothing.
+	protected void BuildStrokeCommands(array<float> pRaw, int argb, float widthPx, array<ref CanvasWidgetCommand> outCmds, bool noClip = false, bool preDecimated = false)
 	{
 		outCmds.Clear();
 		int nRaw = pRaw.Count() / 2;
@@ -2610,7 +2894,7 @@ class SM_DrawCanvas
 
 		if (noClip)
 		{
-			BuildStrokePiece(pRaw, argb, widthPx, outCmds);
+			BuildStrokePiece(pRaw, argb, widthPx, outCmds, preDecimated);
 			return;
 		}
 
@@ -2631,11 +2915,13 @@ class SM_DrawCanvas
 		array<ref array<float>> pieces;
 		ClipPolylineToPieces(pRaw, loX, hiX, loY, hiY, pieces);
 		foreach (array<float> piece : pieces)
-			BuildStrokePiece(piece, argb, widthPx, outCmds);
+			BuildStrokePiece(piece, argb, widthPx, outCmds, preDecimated);
 	}
 
 	// Commands for one already-clipped piece. Appends to outCmds rather than clearing it.
-	protected void BuildStrokePiece(array<float> pRaw, int argb, float widthPx, array<ref CanvasWidgetCommand> outCmds)
+	//! preDecimated: the points arrived already thinned (ProjectAll does it while projecting), so the
+	//! screen-space pass below would only re-walk and re-allocate to no effect.
+	protected void BuildStrokePiece(array<float> pRaw, int argb, float widthPx, array<ref CanvasWidgetCommand> outCmds, bool preDecimated = false)
 	{
 		int nRaw = pRaw.Count() / 2;
 		if (nRaw <= 0)
@@ -2650,7 +2936,9 @@ class SM_DrawCanvas
 			return;
 		}
 
-		array<float> p = DecimateScreen(pRaw, SM_DECIM_PX);
+		array<float> p = pRaw;
+		if (!preDecimated)
+			p = DecimateScreen(pRaw, SM_DECIM_PX);
 		int n = p.Count() / 2;
 		if (n == 1)
 		{
@@ -2753,10 +3041,20 @@ class SM_DrawCanvas
 	{
 		PolygonDrawCommand cmd = new PolygonDrawCommand();
 		cmd.m_iColor = argb;
+
+		// Segments by RADIUS, not a flat 12. A join circle a few pixels across is indistinguishable at
+		// 6 segments, and on a map carrying hundreds of jagged drawings these circles are the bulk of
+		// the vertices — every one of which gets shifted again on every pan frame.
+		int segs = 6;
+		if (r >= 8)
+			segs = SM_CIRCLE_SEG;
+		else if (r >= 4)
+			segs = 8;
+
 		array<float> v = new array<float>();
-		v.Resize(SM_CIRCLE_SEG * 2);
-		float step = (Math.PI * 2) / SM_CIRCLE_SEG;
-		for (int i = 0; i < SM_CIRCLE_SEG; i++)
+		v.Resize(segs * 2);
+		float step = (Math.PI * 2) / segs;
+		for (int i = 0; i < segs; i++)
 		{
 			float a = i * step;
 			v[i * 2]     = cx + Math.Cos(a) * r;

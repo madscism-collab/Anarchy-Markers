@@ -75,6 +75,85 @@ class AM_MapFeatures
 		s_mModeHintNudge.Remove(mode);
 	}
 
+	// --- Drawing panel: scale ---------------------------------------------------------------------
+	// The panel is laid out for a fullscreen map. On a host surface it can end up wider than the frame
+	// it landed in, and the bar runs off both edges.
+	//
+	// By default it FITS ITSELF: it measures the frame and shrinks only when it has to, so a host mod
+	// needs no code at all for the panel to look right. Set a scale here to override that — useful when
+	// "just barely fits" is not the look you want on a given device. 0 restores auto-fit.
+	//
+	// Scaled together with the bar: its dropdowns, the pin and the control hints — everything that is
+	// UI. NOT the cursor brush preview: that one shows the WORLD width of the line about to be drawn,
+	// so scaling it with the interface would make it lie about the stroke.
+
+	protected static ref map<int, float> s_mModePanelScale = new map<int, float>();
+
+	static void SetPanelScaleForMode(EMapEntityMode mode, float scale)
+	{
+		if (scale <= 0)
+		{
+			s_mModePanelScale.Remove(mode);	// back to auto-fit
+			return;
+		}
+		s_mModePanelScale.Set(mode, Math.Clamp(scale, 0.3, 2.0));
+	}
+
+	static void ClearPanelScaleForMode(EMapEntityMode mode)
+	{
+		s_mModePanelScale.Remove(mode);
+	}
+
+	//! Scale the panel should use, or 0 when the host left it on auto-fit.
+	static float ResolvePanelScaleForOpen(MapConfiguration config)
+	{
+		if (!config)
+			return 0;
+		float s;
+		if (s_mModePanelScale.Find(config.MapEntityMode, s))
+			return s;
+		return 0;
+	}
+
+	// --- Drawing panel: offset --------------------------------------------------------------------
+	// The bar rests centred near the top of the map frame. A host screen usually has its own chrome
+	// there — a status strip, a bezel, a row of its own buttons — so it can push ours clear of it.
+	//
+	// Layout units, added to the panel's own resting position; positive x = right, positive y = down.
+	// These are units, not pixels: they are applied BEFORE the UI scale, so a nudge keeps its
+	// proportion whatever scale the host also asked for. The auto-hide slide and the pin follow it.
+
+	protected static ref map<int, ref array<float>> s_mModePanelOffset = new map<int, ref array<float>>();
+
+	static void SetPanelOffsetForMode(EMapEntityMode mode, float dx, float dy)
+	{
+		array<float> n = {dx, dy};
+		s_mModePanelOffset.Set(mode, n);
+	}
+
+	static void ClearPanelOffsetForMode(EMapEntityMode mode)
+	{
+		s_mModePanelOffset.Remove(mode);
+	}
+
+	//! Called by the map layer on every open. 0/0 when the host never asked for a nudge.
+	static void ResolvePanelOffsetForOpen(MapConfiguration config, out float dx, out float dy)
+	{
+		dx = 0;
+		dy = 0;
+
+		int mode = EMapEntityMode.PLAIN;
+		if (config)
+			mode = config.MapEntityMode;
+
+		array<float> n;
+		if (!s_mModePanelOffset.Find(mode, n) || !n || n.Count() < 2)
+			return;
+
+		dx = n[0];
+		dy = n[1];
+	}
+
 	//! Called by the map layer when it builds the hints.
 	static void ResolveHintNudgeForOpen(MapConfiguration config, out float dx, out float dy)
 	{

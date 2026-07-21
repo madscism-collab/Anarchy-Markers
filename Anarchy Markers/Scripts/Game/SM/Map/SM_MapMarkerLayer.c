@@ -118,6 +118,8 @@ modded class SCR_MapMarkersUI
 	protected int  m_iSMForcedVis = -1;				// channel pinned by the host screen; -1 = player picks
 	protected bool m_bSMDrawPanelShown = true;		// host screens can start it hidden and toggle it
 	protected bool m_bSMPanelStartsHidden;			// this screen's panel is the host's to open (RB toggles it)
+	protected float m_fSMPanelScale;				// host-supplied UI scale for this map mode; 0 = panel fits itself
+	protected float m_fSMPanelOffX, m_fSMPanelOffY;	// host screen shoves the drawing panel clear of its chrome
 	protected float m_fSMHintDX, m_fSMHintDY;		// host screen shoves the control hints clear of its chrome
 
 	//! Show/hide our drawing panel from outside. For a host screen that owns its own toolbar button
@@ -153,6 +155,11 @@ modded class SCR_MapMarkersUI
 	protected float m_fSMPressY = 0;
 	// Шаблон останньої розміщеної/редагованої гравцем мітки (Alt+ЛКМ ставить її копію). Живе всю сесію.
 	protected ref SM_MapMarkerData m_SMLastTemplate;
+	// Copy numbering: the number we handed out last and the label it belonged to. A server-channel
+	// marker only reaches the store after the round trip, so without this a quick run of copies would
+	// keep reading the same "lowest free" number and hand out [2] several times over.
+	protected string m_sSMCopyStem;
+	protected int    m_iSMCopyIssued;
 	// Стан режиму розміщення зевса (Create Marker): відстежуємо, щоб клік по самій кнопці не зарахувався.
 	protected bool m_bSMWasCreatePending = false;
 	protected bool m_bSMCreateSawRelease = false;
@@ -349,6 +356,7 @@ modded class SCR_MapMarkersUI
 		copy.m_iId = -1;		// нова мітка — id призначить сервер (або LocalCreate для Local)
 		copy.m_iPosX = cwx;
 		copy.m_iPosY = cwy;
+		copy.m_sText = SM_NumberedCopyText(m_SMLastTemplate.m_sText);
 
 		// A Local copy stays client-side; anything else goes to the server.
 		if (copy.m_iVisibility == SM_EMarkerVisibility.PERSONAL)
@@ -358,6 +366,126 @@ modded class SCR_MapMarkersUI
 		}
 		else
 			cpc.SM_RequestPlace(copy.PackInts(), copy.m_sText);
+	}
+
+	//! Next label in a copy run: "Rally" -> "Rally [2]" -> "Rally [3]". A trailing [N] is REPLACED,
+	//! not stacked, so the suffix never grows into "[2] [3]".
+	//!
+	//! Returns the text unchanged when: the player switched numbering off, the label is empty (a bare
+	//! "[2]" is noise, not a name), or the result would run past the marker's character limit — the
+	//! label the player typed matters more than the counter.
+	protected string SM_NumberedCopyText(string src)
+	{
+		if (src == "" || !SM_ClientPrefs.CopyNumbering())
+			return src;
+
+		string stem = SM_CopyStem(src);
+		int next = SM_NextFreeCopyNumber(stem);
+
+		string outText;
+		if (stem == "")
+			outText = string.Format("[%1]", next);	// label was nothing but a counter — keep it that way
+		else
+			outText = string.Format("%1 [%2]", stem, next);
+
+		if (outText.Length() > SM_TEXT_CHAR_LIMIT)
+			return src;	// no room for the suffix — leave the label alone
+
+		return outText;
+	}
+
+	//! The label without its trailing [N], e.g. "Rally [3]" -> "Rally". Text that doesn't end in a
+	//! counter comes back untouched.
+	protected string SM_CopyStem(string src)
+	{
+		int len = src.Length();
+		if (len < 3 || src.Substring(len - 1, 1) != "]")
+			return src;
+
+		// Walk back over the digits to the '['. Bounded: a counter nobody will ever reach is not a
+		// counter, and the scan must not wander into the label itself ("Point [Alpha]" stays as it is).
+		int open = -1;
+		for (int i = len - 2; i >= 0 && len - 1 - i <= 6; i--)
+		{
+			string ch = src.Substring(i, 1);
+			if (ch == "[")
+			{
+				open = i;
+				break;
+			}
+			if (!SM_IsDigit(ch))
+				return src;
+		}
+		if (open < 0 || open >= len - 2)	// need at least one digit between the brackets
+			return src;
+
+		string stem = src.Substring(0, open);
+		stem.TrimInPlace();		// drop the space before '[', it is re-added when reformatting
+		return stem;
+	}
+
+	//! Lowest counter not currently taken by one of MY markers sharing this label, starting at 2 (the
+	//! un-suffixed original counts as 1). Reusing freed numbers is the point: delete "Rally [2]" and
+	//! the next copy fills that gap instead of climbing to [4] forever.
+	//!
+	//! Only the local player's own markers are considered — someone else's "Rally [3]" must never push
+	//! our numbering around. Local-channel markers live in the same store, so they count too.
+	protected int SM_NextFreeCopyNumber(string stem)
+	{
+		SCR_PlayerController pc = SM_LocalPC();
+		if (!pc)
+			return 2;
+		int myId = pc.GetPlayerId();
+
+		array<SM_MapMarkerData> all = {};
+		SM_MapMarkerStore.GetInstance().GetAll(all);
+
+		array<int> used = {};
+		foreach (SM_MapMarkerData m : all)
+		{
+			if (!m || m.m_iOwnerId != myId || m.m_sText == "")
+				continue;
+			if (SM_CopyStem(m.m_sText) != stem)
+				continue;
+			int n = SM_CopyNumberOf(m.m_sText);
+			if (n >= 2)
+				used.Insert(n);
+		}
+
+		// The copy we handed out a moment ago may still be in flight to the server, so it isn't in the
+		// store yet — hold its number anyway. Once it lands this is already in `used` and changes
+		// nothing; if the server refused it, the number is simply skipped.
+		if (m_iSMCopyIssued >= 2 && m_sSMCopyStem == stem && used.Find(m_iSMCopyIssued) == -1)
+			used.Insert(m_iSMCopyIssued);
+
+		int next = 2;
+		while (used.Find(next) != -1)
+			next++;
+
+		m_sSMCopyStem   = stem;
+		m_iSMCopyIssued = next;
+		return next;
+	}
+
+	//! The [N] a label ends with, or 0 when it carries no counter.
+	protected int SM_CopyNumberOf(string src)
+	{
+		string stem = SM_CopyStem(src);
+		if (stem == src)
+			return 0;	// nothing was stripped -> no counter
+
+		int len = src.Length();
+		int open = len - 2;
+		while (open >= 0 && src.Substring(open, 1) != "[")
+			open--;
+		if (open < 0)
+			return 0;
+		return src.Substring(open + 1, len - open - 2).ToInt();
+	}
+
+	protected bool SM_IsDigit(string ch)
+	{
+		return ch.Length() == 1 && "0123456789".IndexOf(ch) >= 0;
 	}
 
 	// Commit a marker move: Local (id <= -2) moves in the client file, server ones via RPC.

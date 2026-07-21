@@ -54,7 +54,9 @@ class AM_MarkerAPI
 	//! 9 = GetDrawingRenderData (render-ready, cached geometry for custom surfaces — expands
 	//!     parametric shapes, triangulates fills, shape-aware AABB, widths in metres) and
 	//!     AttachToMapConfig (splice our layer into a host map config in one call).
-	static const int API_VERSION = 9;
+	//! 10 = drawing panel placement: SetPanelOffsetForMode (nudge its resting position) alongside the
+	//!      existing SetPanelScaleForMode, so a host controls the panel's size AND where it sits.
+	static const int API_VERSION = 10;
 
 	//! Splice our marker/drawing layer into a host map's configuration — THE call for a tablet or
 	//! terminal mod whose screen is a real SCR_MapEntity. Use it from your SetupMapConfig override,

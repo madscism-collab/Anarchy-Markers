@@ -55,6 +55,7 @@ class SM_DrawPanel
 	static const int ACT_TPL_ADD        = 20;	// «Add new template»
 	static const int ACT_TPL_REMOVE     = 21;	// «Remove template»
 	static const int ACT_OPEN_OPACITY = 13;	// відкрити дропдаун прозорості
+	static const int ACT_PIN            = 22;	// шпилька: закріпити панель / дозволити їй ховатись
 
 	// Палітра кольорів малювання (ARGB) — кружечки Color0..ColorN у layout, КОЛОНКАМИ ПО 7.
 	// Кожна колонка = родина відтінку, тони від світлого (згори) до темного (знизу);
@@ -110,12 +111,43 @@ class SM_DrawPanel
 	}
 
 	// Текстури кружечків розміру: олівець — заливка, гумка — контур.
+	protected const ResourceName TEX_PIN         = "{E24EF8864F3E843F}pin.edds";
 	protected const ResourceName TEX_CIRCLE      = "{46DF3F67AC741C13}circle.edds";
 	protected const ResourceName TEX_CIRCLE_LINE = "{B72B0A3DAD46568C}circleLine.edds";
 
 	protected SM_DrawCanvas m_Canvas;
 	protected Widget m_wRoot;
 	protected Widget m_wToolbar;		// ToolbarWrapper — видима смуга (для IsCursorOver)
+
+	// UI scale. The panel is laid out for a fullscreen map; on a small host surface it would run off both
+	// edges. Enfusion has no per-widget transform (only ScaleWidget, which does not scale our nested
+	// SizeToContent bar), so instead we walk the bar once at build and multiply every leaf size — icons,
+	// fonts, button backgrounds, paddings — by the scale. The SizeToContent parents re-flow around the
+	// smaller leaves, so the dynamic button set still collapses the background exactly as before.
+	protected float m_fUiScale = 1.0;
+	protected bool  m_bScaleFitted;		// auto-fit needs one laid-out frame before it can measure
+	protected float m_fScaleOverride;	// host-supplied scale; 0 = fit automatically
+	protected float m_fOffX, m_fOffY;	// host-supplied nudge for the resting position (layout units)
+
+	// Auto-hide: unpinned, the bar slides up off the top of the map and comes back when the cursor
+	// returns to the strip it left behind. m_fSlide is the animation state, 0 = down, 1 = fully hidden.
+	protected ImageWidget m_wPin;
+	protected Widget m_wPinHit;			// transparent button under the icon (icons ignore the cursor)
+	protected bool  m_bPinned = true;
+	//! Auto-hide belongs to the player's fullscreen map only. A host screen (tablet/terminal) owns the
+	//! panel through its own button, and the GM map through its toolbar toggle — a pin competing with
+	//! either would give the same panel two masters. The layer sets this right after Build.
+	protected bool  m_bAutoHideAllowed = true;
+	protected float m_fSlide;
+	protected float m_fBarBaseY;		// where the bar sits when shown (layout units, or 130 on the GM map)
+	protected bool  m_bBarBaseKnown;
+	protected float m_fRestX, m_fRestY, m_fRestW, m_fRestH;	// bar's resting rect, PHYSICAL px (wake zone)
+	protected const float PIN_SIZE        = 22;
+	protected const float PIN_SLIDE_SPEED = 6.0;	// per second; ~0.17 s end to end
+	protected const float WAKE_PAD      = 40;		// forgiving margin around the bar, physical px
+	protected const float WAKE_PAD_LEFT = 90;		// wider: the pin hangs off the left edge
+	protected const int   PIN_ARGB_ON     = 0xFFF0A020;	// amber = pinned
+	protected const int   PIN_ARGB_OFF    = 0x80FFFFFF;	// dim white = free to hide
 	protected Widget m_wMapFrame;		// map-frame — під ним живе незалежна від панелі підказка
 	protected Widget m_wHintBox;		// стовпчик пад-підказок ліворуч від панелі
 	protected Widget m_wHintR1;			// R1 — Drawing Panel / Switch panel/map
@@ -433,7 +465,377 @@ class SM_DrawPanel
 
 		CloseDropdowns();
 		BuildPanelHint();
+		BuildPinButton();
 		UpdateVisuals();
+	}
+
+	//! The pin, top-left of the toolbar. Built in code rather than in the layout so it lands relative
+	//! to the bar wherever the bar ends up (the GM map pushes the bar down past the editor chrome).
+	protected void BuildPinButton()
+	{
+		if (!m_wToolbar)
+			return;
+		WorkspaceWidget ws = GetGame().GetWorkspace();
+		if (!ws)
+			return;
+
+		m_bPinned = SM_ClientPrefs.PanelPinned();
+
+		// Both go under the panel ROOT, not under the toolbar: the toolbar wrapper is SizeToContent, so
+		// a child hanging above it (negative Y) would grow the wrapper and shove the whole bar around.
+		// PositionPin() keeps them glued to the bar's top-left corner instead, which also makes them
+		// follow the slide for free.
+		ButtonWidget btn = ButtonWidget.Cast(ws.CreateWidget(WidgetType.ButtonWidgetTypeID,
+			WidgetFlags.VISIBLE | WidgetFlags.NOFOCUS, Color.FromInt(0x00000000), 0, m_wRoot));
+		if (!btn)
+			return;
+		FrameSlot.SetSize(btn, PIN_SIZE, PIN_SIZE);
+		Wire(btn, ACT_PIN, 0);
+		m_wPinHit = btn;
+
+		// The icon is a SIBLING of the button, not its child: an ImageWidget nested inside a
+		// ButtonWidget silently doesn't render (same trap the ATAK compat hit with its pencil).
+		ImageWidget icon = ImageWidget.Cast(ws.CreateWidget(WidgetType.ImageWidgetTypeID,
+			WidgetFlags.VISIBLE | WidgetFlags.BLEND | WidgetFlags.STRETCH | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS,
+			Color.FromInt(0xFFFFFFFF), 0, m_wRoot));
+		if (!icon)
+			return;
+		icon.LoadImageTexture(0, TEX_PIN);
+		FrameSlot.SetSizeToContent(icon, false);	// a fresh frame slot measures a new image as 0x0
+		FrameSlot.SetSize(icon, PIN_SIZE, PIN_SIZE);
+		m_wPin = icon;
+
+		PositionPin();
+		RefreshPinLook();
+	}
+
+	//! Fit the panel to the surface it landed on. Runs once, on the first frame the widgets have a
+	//! real size — a freshly created layout measures 0 and would divide the world by zero.
+	//!
+	//! Auto-fit shrinks ONLY when it has to (a fullscreen map keeps scale 1). A host that wants a
+	//! different look overrides it through AM_MapFeatures.SetPanelScaleForMode.
+	protected void FitToSurface()
+	{
+		if (m_bScaleFitted || !m_wToolbar || !m_wMapFrame)
+			return;
+
+		float barW, barH, frameW, frameH;
+		m_wToolbar.GetScreenSize(barW, barH);
+		m_wMapFrame.GetScreenSize(frameW, frameH);
+		if (barW < 1 || frameW < 1)
+			return;	// not laid out yet — try again next frame
+
+		m_bScaleFitted = true;
+
+		float scale = m_fScaleOverride;
+		if (scale <= 0)
+		{
+			// Auto: leave a margin so the bar never touches the frame edge.
+			scale = 1.0;
+			float room = frameW * 0.94;
+			if (barW > room)
+				scale = room / barW;
+			if (scale < 0.4)
+				scale = 0.4;	// past this the labels stop being readable; better to clip than to blur
+		}
+
+		// Nudge first, and independently of the scale — a host that only wants the bar moved must not have
+		// to pick a scale to get it. Applied to the resting position BEFORE the auto-hide records it, so
+		// the slide travels from the new spot and the pin (which reads screen coords) follows on its own.
+		if (m_fOffX != 0 || m_fOffY != 0)
+		{
+			FrameSlot.SetPos(m_wToolbar, FrameSlot.GetPosX(m_wToolbar) + m_fOffX,
+				FrameSlot.GetPosY(m_wToolbar) + m_fOffY);
+			m_bBarBaseKnown = false;
+		}
+
+		ApplyUiScale(scale);
+	}
+
+	protected const float SM_FONT_LINE = 1.2;	// rendered line height / font size, to back out a base font
+	protected const int   SM_FALLBACK_FONT = 22;	// base for text not yet laid out (hidden dropdown items)
+
+	//! Shrink the whole bar by walking it once and multiplying leaf sizes. No engine transform exists for
+	//! a nested SizeToContent panel (ScaleWidget does not scale it, and widgets have no Transform.Scale),
+	//! so this is the only reliable path. At scale 1.0 it is a no-op — the fullscreen map is untouched.
+	protected void ApplyUiScale(float scale)
+	{
+		if (!m_wToolbar || scale > 0.999)
+			return;
+
+		m_fUiScale = scale;
+		ScaleSubtree(m_wToolbar, scale);
+		m_bBarBaseKnown = false;	// resting geometry changed under it
+		m_fRestW = 0;
+
+		// UpdateVisuals ran once during Build, while the scale was still 1, and it sets this one height
+		// outright — so it stayed full size until a tool switch happened to re-run that branch. Scale it
+		// here instead of re-running UpdateVisuals: that would also re-swap the size textures, and
+		// LoadImageTexture resets an image to its native size, undoing the walk above.
+		if (m_wSizeDropdownBg)
+			FrameSlot.SetSizeY(m_wSizeDropdownBg, FrameSlot.GetSizeY(m_wSizeDropdownBg) * scale);
+	}
+
+	//! Recursively scale one widget and its children. Slot geometry needs the right API for the slot type,
+	//! which is decided by the PARENT: frame parents hand out FrameWidgetSlot (size), layout/button/overlay
+	//! parents hand out an alignable slot (padding). Anything else we leave alone rather than risk a
+	//! wrong-slot warning. Leaf primitives (image size, font) are set directly and are slot-independent.
+	protected void ScaleSubtree(Widget w, float s)
+	{
+		// The opacity dropdown is left at full size on purpose. SliderWidget exposes no size setter at all
+		// (SetRange/SetMin/SetMax/SetStep/SetCurrent and nothing else), so the slider itself cannot shrink
+		// with everything else — and a shrunken background around a full-size slider looks worse than
+		// leaving the whole popup alone. It is small enough that it does not crowd a host screen.
+		if (w == m_wOpacityDropdown)
+			return;
+
+		Widget parent = w.GetParent();
+		int slot = SM_SlotKind(parent);
+		if (slot == 1)	// frame child
+		{
+			// Only touch a fixed, point-anchored box. A stretched frame (AnchorMin != AnchorMax, e.g. the
+			// bar background at 0 0 1 1) derives its size from the parent — writing a size would collapse
+			// it — and a SizeToContent frame re-flows on its own. Both are left to follow the shrinking
+			// leaves around them.
+			vector amin = FrameSlot.GetAnchorMin(w);
+			vector amax = FrameSlot.GetAnchorMax(w);
+			bool fixedBox = amin[0] == amax[0] && amin[1] == amax[1] && !FrameSlot.IsSizeToContent(w);
+			// The offset from the anchor has to shrink with the size. The colour grid is ten VerticalLayout
+			// columns, each 65 wide, hand-placed at PositionX 0, 65, 130 ... — scale only the widths and
+			// the columns keep a full-size stride, so the grid stays 650 wide inside a background that
+			// shrank to 462 and the last three columns hang outside it.
+			if (fixedBox)
+			{
+				FrameSlot.SetSize(w, FrameSlot.GetSizeX(w) * s, FrameSlot.GetSizeY(w) * s);
+				FrameSlot.SetPos(w, FrameSlot.GetPosX(w) * s, FrameSlot.GetPosY(w) * s);
+			}
+		}
+		else if (slot >= 2)	// alignable child: scale the padding that spaces it from its neighbours
+		{
+			float l, t, r, b;
+			AlignableSlot.GetPadding(w, l, t, r, b);
+
+			// The template Add/Remove buttons sit outside the list, pulled back against its edge by a
+			// negative horizontal padding. Shrinking that pull along with everything else only weakens it,
+			// and the buttons drift further from the list instead of tracking it. Keep it at full strength.
+			if (w == m_wTplAdd || w == m_wTplRemove)
+				AlignableSlot.SetPadding(w, l, t * s, r, b * s);
+			else
+				AlignableSlot.SetPadding(w, l * s, t * s, r * s, b * s);
+		}
+
+		ImageWidget img = ImageWidget.Cast(w);
+		if (img)
+		{
+			vector sz = img.GetSize();
+			if (sz[0] > 0.5 && sz[1] > 0.5)	// 0 means "use the texture's own size" — leave that alone
+			{
+				img.SetSize(sz[0] * s, sz[1] * s);
+
+				// A Fill item ignores its own size and stretches along the layout's main axis, so the
+				// dropdown swatches kept their full height while only the cell around them shrank. Now
+				// that the size above is scaled, pin the item to Auto so that size is what renders.
+				if (slot == 2 && LayoutSlot.GetSizeMode(w) == LayoutSizeMode.Fill)
+					LayoutSlot.SetSizeMode(w, LayoutSizeMode.Auto);
+			}
+		}
+
+		TextWidget txt = TextWidget.Cast(w);
+		if (txt)
+		{
+			int base = SM_FALLBACK_FONT;
+			float tx, ty;
+			txt.GetTextSize(tx, ty);
+			if (ty > 1.0)
+				base = Math.Round(ty / SM_FONT_LINE);	// visible text self-calibrates its own base
+			int scaled = Math.Round(base * s);
+			if (scaled < 6)
+				scaled = 6;
+			txt.SetExactFontSize(scaled);
+		}
+
+		for (Widget c = w.GetChildren(); c; c = c.GetSibling())
+			ScaleSubtree(c, s);
+	}
+
+	//! What kind of slot this parent hands its children, so we call the right API and never a wrong one:
+	//! 1 = FrameSlot family (size), 2 = LayoutSlot (padding + SizeMode), 3 = plain AlignableSlot (padding
+	//! only — asking a ButtonSlot or OverlaySlot for a SizeMode is what logs "expected: LayoutSlot"),
+	//! 0 = unknown, leave the slot alone. Children are recursed into either way.
+	//!
+	//! Deliberately a named list, not "anything that is not a frame". That was tried and it re-padded
+	//! widgets whose spacing was never ours to touch — the template list rows collapsed into each other.
+	protected int SM_SlotKind(Widget parent)
+	{
+		if (!parent)
+			return 0;
+		string t = parent.GetTypeName();
+		if (t == "FrameWidget" || t == "SmartPanelWidget" || t == "PanelWidget")
+			return 1;	// SmartPanel/Panel hand out a PanelSlot, which extends FrameSlot — same API
+		if (t == "HorizontalLayoutWidget" || t == "VerticalLayoutWidget")
+			return 2;	// a real LayoutSlot: padding AND SizeMode
+		if (t == "OverlayWidget" || t == "ButtonWidget")
+			return 3;	// OverlaySlot/ButtonSlot extend AlignableSlot: padding only, no SizeMode
+		return 0;
+	}
+
+	//! Physical pixels -> the panel root's own layout units. Just the DPI step: the pin is a child of the
+	//! root, so nothing on this path is scaled.
+	protected float ScreenToPanelUnits(float px)
+	{
+		WorkspaceWidget ws = GetGame().GetWorkspace();
+		if (!ws)
+			return px;
+		return ws.DPIUnscale(px);	// the pin's parent is the root, which is never scaled
+	}
+
+	//! Park the pin on the bar's top-left corner. Screen space -> root-local, because the bar is
+	//! centre-anchored: its slot X says nothing about where it actually sits.
+	protected void PositionPin()
+	{
+		if (!m_wPin || !m_wPinHit || !m_wToolbar || !m_wRoot)
+			return;
+		WorkspaceWidget ws = GetGame().GetWorkspace();
+		if (!ws)
+			return;
+
+		float bx, by, rx, ry;
+		m_wToolbar.GetScreenPos(bx, by);
+		m_wRoot.GetScreenPos(rx, ry);
+		// Overlapping the bar's top-left corner: ~82% of the pin hangs outside, the remaining tip sits
+		// on the panel so the two read as one piece rather than a button floating beside it.
+		float px = ScreenToPanelUnits(bx - rx) - PIN_SIZE * 0.82;
+		float py = ScreenToPanelUnits(by - ry) - PIN_SIZE * 0.8;
+
+		FrameSlot.SetPos(m_wPin, px, py);
+		FrameSlot.SetPos(m_wPinHit, px, py);
+	}
+
+	//! Host-supplied UI scale (AM_MapFeatures.SetPanelScaleForMode). 0 leaves the panel to fit itself.
+	void SetPanelScaleOverride(float scale)
+	{
+		m_fScaleOverride = scale;
+	}
+
+	//! Host-supplied nudge for the resting position (AM_MapFeatures.SetPanelOffsetForMode), layout units.
+	void SetPanelOffset(float dx, float dy)
+	{
+		m_fOffX = dx;
+		m_fOffY = dy;
+	}
+
+	//! Host screens (tablets, terminals) toggle this panel with their own button — no pin there.
+	void SetAutoHideAllowed(bool allowed)
+	{
+		m_bAutoHideAllowed = allowed;
+	}
+
+	protected void RefreshPinLook()
+	{
+		if (!m_wPin)
+			return;
+		if (m_bPinned)
+			m_wPin.SetColor(Color.FromInt(PIN_ARGB_ON));
+		else
+			m_wPin.SetColor(Color.FromInt(PIN_ARGB_OFF));
+	}
+
+	protected void TogglePinned()
+	{
+		m_bPinned = !m_bPinned;
+		SM_ClientPrefs.SetPanelPinned(m_bPinned);
+		RefreshPinLook();
+	}
+
+	//! Per-frame slide. cx/cy are physical pixels (same space IsCursorOver uses).
+	//!
+	//! Only ever hides on mouse and keyboard: on a pad there is no hover to bring the bar back, and the
+	//! pad already has its own fade (SetPanelOpacity) driven by the map layer. It also refuses to hide
+	//! while a dropdown or a template modal is open — sliding the bar out from under a menu the player
+	//! is using would be hostile.
+	void TickAutoHide(float cx, float cy, bool kbm, float dt)
+	{
+		if (!m_wToolbar)
+			return;
+
+		FitToSurface();	// one-shot, once the widgets report a real size
+
+		if (!m_bBarBaseKnown)
+		{
+			m_fBarBaseY = FrameSlot.GetPosY(m_wToolbar);
+			m_bBarBaseKnown = true;
+		}
+
+		// The pin is a mouse affordance on the player's map and nowhere else: the pad toggles the whole
+		// panel with RB, and host screens/GM have their own buttons. Showing it there would advertise a
+		// second, conflicting way to do the same thing.
+		bool feature = m_bAutoHideAllowed && !m_bEditorMap && kbm;
+		if (m_wPin)
+			m_wPin.SetVisible(feature);
+		if (m_wPinHit)
+			m_wPinHit.SetVisible(feature);
+
+		if (!feature && m_fSlide == 0)
+			return;	// nothing to animate and nothing to show — the common pad/tablet case
+
+		// Remember where the bar sits when it is NOT slid. The wake zone has to stay put even after the
+		// bar has left the screen, otherwise there would be nothing left to hover to get it back.
+		if (m_fSlide == 0)
+		{
+			m_wToolbar.GetScreenPos(m_fRestX, m_fRestY);
+			m_wToolbar.GetScreenSize(m_fRestW, m_fRestH);
+		}
+
+		bool awake = IsCursorOver(cx, cy) || InWakeZone(cx, cy);
+		bool wantHide = feature && !m_bPinned && !AnyDropdownOpen() && !IsModalBusy() && !awake;
+
+		float target = 0;
+		if (wantHide)
+			target = 1;
+
+		if (m_fSlide != target)
+		{
+			float step = PIN_SLIDE_SPEED * dt;
+			if (m_fSlide < target)
+				m_fSlide = Math.Min(target, m_fSlide + step);
+			else
+				m_fSlide = Math.Max(target, m_fSlide - step);
+
+			FrameSlot.SetPos(m_wToolbar, FrameSlot.GetPosX(m_wToolbar), m_fBarBaseY - m_fSlide * BarHideDistance());
+		}
+
+		PositionPin();	// the pin rides the bar, hidden or not — it is how the player gets it back
+	}
+
+	//! Cursor inside the strip the bar rests in (a little wider than the bar itself), whether the bar is
+	//! currently there or parked off-screen. Padded on all sides so brushing past the panel — or
+	//! reaching for the pin hanging off its left edge — does not make it duck away; the left side gets
+	//! extra room for exactly that reason. Physical pixels, the space the cursor is reported in.
+	protected bool InWakeZone(float cx, float cy)
+	{
+		if (m_fRestW < 1)
+			return false;
+		return cx >= m_fRestX - WAKE_PAD_LEFT && cx <= m_fRestX + m_fRestW + WAKE_PAD
+			&& cy >= m_fRestY - WAKE_PAD && cy <= m_fRestY + m_fRestH + WAKE_PAD;
+	}
+
+	//! How far up the bar travels to clear the screen: its own height plus the pin sticking out above.
+	protected float BarHideDistance()
+	{
+		float h = 60;
+		if (m_fRestH >= 1)
+			h = ScreenToPanelUnits(m_fRestH);
+		return h + 34;
+	}
+
+	protected bool AnyDropdownOpen()
+	{
+		return (m_wSizeDropdown && m_wSizeDropdown.IsVisible())
+			|| (m_wColorDropdown && m_wColorDropdown.IsVisible())
+			|| (m_wVisDropdown && m_wVisDropdown.IsVisible())
+			|| (m_wSideDropdown && m_wSideDropdown.IsVisible())
+			|| (m_wOpacityDropdown && m_wOpacityDropdown.IsVisible())
+			|| IsTemplatesOpen();
 	}
 
 	protected const int SM_HINT_SIZE = 46;	// висота рядка підказки в px (більша за дефолтну)
@@ -604,8 +1006,15 @@ class SM_DrawPanel
 		}
 		m_aTplGlyphs.Clear();
 		if (m_wRoot)
-			m_wRoot.RemoveFromHierarchy();
+			m_wRoot.RemoveFromHierarchy();	// takes the pin with it, both are its children
 		m_wRoot = null;
+		m_fUiScale = 1.0;
+		m_bScaleFitted = false;
+		m_wPin = null;
+		m_wPinHit = null;
+		m_fSlide = 0;
+		m_bBarBaseKnown = false;	// the next Build measures the bar's resting Y again (GM map differs)
+		m_fRestW = 0;				// and its resting rect, which the wake zone is built from
 		m_wToolbar = null;
 		m_wMapFrame = null;
 		m_wPencil = null; m_wErase = null;
@@ -2304,6 +2713,10 @@ class SM_DrawPanel
 				OnTemplateRemove();
 				break;
 
+			case ACT_PIN:
+				TogglePinned();
+				break;
+
 			case ACT_TEMPLATE_SAVE:
 				CloseDropdowns();
 				if (m_Canvas.IsActive() && m_Canvas.GetTool() == SM_DrawCanvas.TOOL_SELECT)
@@ -2583,10 +2996,11 @@ class SM_DrawPanel
 			{
 				// Кружечок меншає, але його місце в ряду лишається 34px (паддінгом добираємо різницю),
 				// інакше комірка стискається і текст зʼїжджає вліво.
+				float sc = m_fUiScale;	// this refresh reasserts sizes the one-shot scale walk already set
 				float px = SizePreviewPx(m_Canvas.GetWidthIdx());
-				si.SetSize(px, px);
+				si.SetSize(px * sc, px * sc);
 				float pad = (34 - px) * 0.5;
-				AlignableSlot.SetPadding(si, 5 + pad, pad, 5 + pad, pad);	// базовий боковий паддінг 5 з layout
+				AlignableSlot.SetPadding(si, (5 + pad) * sc, pad * sc, (5 + pad) * sc, pad * sc);	// базовий боковий паддінг 5 з layout
 			}
 		}
 
@@ -2608,9 +3022,9 @@ class SM_DrawPanel
 			if (m_wSizeDropdownBg)
 			{
 				if (eraser)
-					FrameSlot.SetSizeY(m_wSizeDropdownBg, SIZE_BG_H_ERASER);
+					FrameSlot.SetSizeY(m_wSizeDropdownBg, SIZE_BG_H_ERASER * m_fUiScale);
 				else
-					FrameSlot.SetSizeY(m_wSizeDropdownBg, SIZE_BG_H_BASE);
+					FrameSlot.SetSizeY(m_wSizeDropdownBg, SIZE_BG_H_BASE * m_fUiScale);
 			}
 
 			m_iSizeTexTool = tool;
@@ -2689,8 +3103,15 @@ class SM_DrawPanel
 		if (!btn)
 			return;
 		ImageWidget img = ImageWidget.Cast(btn.FindAnyWidget("Image0"));
-		if (img)
-			img.LoadImageTexture(0, tex);
+		if (!img)
+			return;
+
+		// Loading a texture resets the widget to that texture's native size, which would wipe out a UI
+		// scale applied earlier. Remember what it was and put it back.
+		vector sz = img.GetSize();
+		img.LoadImageTexture(0, tex);
+		if (sz[0] > 0.5 && sz[1] > 0.5)
+			img.SetSize(sz[0], sz[1]);
 	}
 
 	//! Слайдер прозорості посунувся — передати пензлю (значення застосується до наступних малюнків).

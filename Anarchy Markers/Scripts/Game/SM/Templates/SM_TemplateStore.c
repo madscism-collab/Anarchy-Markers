@@ -144,9 +144,12 @@ class SM_TemplateStore
 
 		int need = t.StrokeCount();
 
-		if (cfg.m_iDrawMaxPointsPerStroke > 0 && t.MaxPointsInAStroke() > cfg.m_iDrawMaxPointsPerStroke)
+		// Fills carry their own, higher point budget — checking them against the stroke cap turned
+		// away templates that only "failed" because they contained a filled area.
+		int overCap;
+		if (t.HasOverlongStroke(cfg.m_iDrawMaxPointsPerStroke, cfg.m_iDrawMaxPointsPerFill, overCap))
 		{
-			outDetail = cfg.m_iDrawMaxPointsPerStroke;
+			outDetail = overCap;
 			return SM_ETemplateFit.STROKE_TOO_LONG;
 		}
 

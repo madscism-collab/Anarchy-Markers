@@ -8,6 +8,9 @@
 
 class SM_DrawTemplateStroke
 {
+	// A filled outline past this gets thinned on load — see SimplifyOversizedFill.
+	protected const int TPL_FILL_MAX_PTS = 400;
+
 	int m_iColor;
 	int m_iWidthIdx;
 	int m_iFill;					// 1 = filled area: the points are a closed outline
@@ -73,9 +76,37 @@ class SM_DrawTemplateStroke
 		if (m_iWidthIdx > SM_DrawCanvas.WIDTH_IDX_MAX_PENCIL)
 			m_iWidthIdx = SM_DrawCanvas.WIDTH_IDX_MAX_PENCIL;
 		if (m_iFill != 0)
+		{
 			m_iFill = 1;
+			SimplifyOversizedFill();
+		}
 
 		return m_aPoints.Count() >= 4 && (m_aPoints.Count() % 2) == 0;	// at least two points
+	}
+
+	//! Fills traced around SCRIBBLES are the pathological case: the outline follows every wobble of a
+	//! hand-drawn squiggle, so one fill can carry thousands of points. Triangulation is O(n²) and the
+	//! ghost triangulates every fill the template holds, so a file with a few dozen of them locks the
+	//! map up for seconds on load — measured against a 2245-stroke drawing that opens instantly because
+	//! its fills are tiny. The dropped detail is invisible: these outlines are metre-precise around
+	//! shapes tens of metres across. Only the in-memory copy is thinned; the file keeps what it had.
+	protected void SimplifyOversizedFill()
+	{
+		if (GetPointCount() <= TPL_FILL_MAX_PTS)
+			return;
+
+		float eps = 1.0;
+		array<int> simp = SM_PolylineUtil.RDPSimplify(m_aPoints, eps);
+		int guard = 0;
+		while (simp.Count() / 2 > TPL_FILL_MAX_PTS && guard < 14)
+		{
+			eps = eps * 1.6;
+			simp = SM_PolylineUtil.RDPSimplify(m_aPoints, eps);
+			guard++;
+		}
+
+		if (simp.Count() >= 8)
+			m_aPoints = simp;
 	}
 }
 
@@ -107,6 +138,29 @@ class SM_DrawTemplate
 				worst = s.GetPointCount();
 		}
 		return worst;
+	}
+
+	//! Does any stroke exceed the cap that applies to IT? Fills have their own, higher budget than
+	//! hand-drawn strokes — a filled area's outline legitimately carries far more points — so measuring
+	//! everything against the stroke cap refused perfectly placeable templates that contained a fill.
+	//! Returns the offending stroke's own cap in outCap, so the message can quote the right number.
+	bool HasOverlongStroke(int strokeCap, int fillCap, out int outCap)
+	{
+		outCap = strokeCap;
+		foreach (SM_DrawTemplateStroke s : m_aStrokes)
+		{
+			if (!s)
+				continue;
+			int cap = strokeCap;
+			if (s.m_iFill != 0)
+				cap = fillCap;
+			if (cap > 0 && s.GetPointCount() > cap)
+			{
+				outCap = cap;
+				return true;
+			}
+		}
+		return false;
 	}
 
 	void RecomputeSpan()

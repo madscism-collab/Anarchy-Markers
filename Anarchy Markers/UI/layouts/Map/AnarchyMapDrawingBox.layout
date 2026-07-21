@@ -4170,14 +4170,15 @@ FrameWidgetClass {
              Name "Slider0"
              Slot FrameWidgetSlot "{69C8E77470FA3F33}" {
               Anchor 1 0 1 0
-              PositionX -10
-              OffsetLeft -10
+              PositionX -160
+              OffsetLeft -160
               PositionY 2
               OffsetTop 2
-              OffsetRight -90
+              SizeX 100
+              OffsetRight 60
               SizeY 20
               OffsetBottom -22
-              Alignment 1 0
+              Alignment 0.5 0
               SizeToContent 1
              }
              Size 300 20
@@ -8347,7 +8348,7 @@ FrameWidgetClass {
           }
          }
         }
-        ButtonWidgetClass "{69DCF4B22C2CB9F5}" {
+        ButtonWidgetClass "{69EAC44637C6354E}" {
          Name "TemplatesButton"
          Slot FrameWidgetSlot "{69C29B79B1CFE15C}" {
           Anchor 0 0 0 0
@@ -8363,45 +8364,53 @@ FrameWidgetClass {
          }
          Color 0.0231 0.0231 0.0231 0
          {
-          OverlayWidgetClass "{69DCF4B505BA68EF}" {
-           Name "TemplatesOverlay"
-           Slot ButtonWidgetSlot "{69DCF4B505BA68F4}" {
+          FrameWidgetClass "{69EAC4463C220098}" {
+           Name "ButtonContentFrame"
+           Slot ButtonWidgetSlot "{69C29B72D876510C}" {
             HorizontalAlign 3
             VerticalAlign 3
            }
            {
-            SmartPanelWidgetClass "{69DCF4B520BDC073}" {
+            SmartPanelWidgetClass "{69EAC4463C220099}" {
              Name "Background1"
-             Slot OverlayWidgetSlot "{69DCF4A07D0D1BB5}" {
-              HorizontalAlign 3
-              VerticalAlign 3
+             Slot FrameWidgetSlot "{69C29B729EF76341}" {
+              PositionX 0
+              OffsetLeft 0
+              PositionY 0
+              OffsetTop 0
+              SizeX 125
+              OffsetRight -125
+              SizeY 40
+              OffsetBottom -40
              }
              Color 0.0123 0.0123 0.0123 1
              style rounded_12px
             }
-            HorizontalLayoutWidgetClass "{69DCF4B52E807BB4}" {
+            HorizontalLayoutWidgetClass "{69EAC4462B79CEA3}" {
              Name "Content"
-             Slot OverlayWidgetSlot "{69DCF4A07D0D1BC1}" {
-              HorizontalAlign 3
-              VerticalAlign 3
-              Padding 0 6.5 0 6.75
+             Slot FrameWidgetSlot "{69EAC4462B79CEC1}" {
+              OffsetLeft 0
+              OffsetTop 0
+              SizeX 120
+              OffsetRight -120
+              SizeY 40
+              OffsetBottom -40
              }
              {
-              TextWidgetClass "{69DCF4B52E807BB6}" {
+              TextWidgetClass "{69EAC4462B79CEA4}" {
                Name "Text0"
                Slot LayoutSlot "{69C29B74C915ADC1}" {
+                VerticalAlign 1
                 Padding 5 0 5 0
                }
                Text "Templates"
                "Font Size" 22
                "Min Font Size" 22
               }
-              ImageWidgetClass "{69DCF4B52E808254}" {
+              ImageWidgetClass "{69EAC4462B79CEA5}" {
                Name "Arrow"
                Slot LayoutSlot "{69C29B439A84D8BE}" {
-                HorizontalAlign 2
                 VerticalAlign 1
-                SizeMode Fill
                }
                "Z Order" 1
                Texture "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"

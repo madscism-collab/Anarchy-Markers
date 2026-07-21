@@ -10,7 +10,7 @@ Public integration surface for other mods. Two entry points:
 
 **Setup:** add `Anarchy Markers` to `Dependencies` in your `addon.gproj` and call the static methods directly. Do not touch internal classes (`SM_MapMarkerStore`, `SM_MarkerNet`, ...) — only what is documented here is kept stable.
 
-`AM_MarkerAPI.API_VERSION` (currently `9`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
+`AM_MarkerAPI.API_VERSION` (currently `10`) is bumped whenever behavior changes. Existing signatures are only extended, never broken.
 
 ---
 
@@ -39,6 +39,11 @@ modded class SCR_MapEntity
         {
             AM_MarkerAPI.AttachToMapConfig(cfg);                                  // idempotent splice
             AM_MapFeatures.SetForMode(mode, AM_MapFeatures.VIEW | AM_EMapFeature.DRAWING_TOOLS);
+
+            // Optional — the panel fits itself if you say nothing. Size it and move it clear of your
+            // own chrome when the default is not the look you want:
+            AM_MapFeatures.SetPanelScaleForMode(mode, 0.7);
+            AM_MapFeatures.SetPanelOffsetForMode(mode, 0, 30);
         }
         return cfg;
     }
@@ -198,9 +203,13 @@ AM_MapFeatures.SetForcedVisibilityNextOpen(SM_EMarkerVisibility.FACTION);   // o
 - **`SetLayerVisible`** gates *rendering only* — nothing is destroyed, so flipping a toggle back is instant. It is global (one map is open at a time) and our layer resets it to visible on every map open, so a toggle you left off cannot follow the player onto the fullscreen map.
 - **`SetForcedVisibilityForMode`** pins every marker and drawing created on that screen to one channel and **removes our channel picker from the drawing panel**. Use it when your screen has its own audience model: an ATAK-style tablet scopes everything to the player's faction, so leaving a Group/Everyone switch in our panel would promise the player an audience your screen doesn't actually have. Resolved per open, exactly like the feature mask, so it cannot leak onto the normal map.
 
-### Your toolbar owns our panel (API v6)
+### The drawing panel on your screen (API v6, placement in v10)
 
-If your screen already has a tool column, our drawing panel should not just appear on top of it — your button should be the way in:
+Our panel is laid out for a fullscreen map. On a tablet it lands in a much smaller frame, usually with the host's own chrome above it. Four things are yours to decide: **which buttons it carries, whether it is visible at all, how big it is, and where it sits.**
+
+**Which buttons.** The panel is built from the feature mask — it carries only what you allowed. `DRAWING_TOOLS` gives pencil/eraser/fill with the size, colour and opacity pickers; `TEMPLATES` adds the Templates tab; `SetForcedVisibilityForMode` takes the channel picker off (see above). Nothing else to configure — there is no per-button switch, and that is deliberate: a panel missing an arbitrary button is a panel whose remaining buttons lie about what the tool does.
+
+**Visible at all.** If your screen already has a tool column, our panel should not just appear on top of it — your button should be the way in:
 
 ```c
 // Our panel starts hidden on your screen:
@@ -212,12 +221,31 @@ if (layer)
 {
     layer.AM_ToggleDrawPanel();          // also AM_SetDrawPanelShown(bool) / AM_IsDrawPanelShown()
 }
-
-// And shove our control hints clear of your chrome (they anchor bottom-left):
-AM_MapFeatures.SetHintNudgeForMode(EMapEntityMode.PLAIN, 90, 0);   // +x = right, +y = down
 ```
 
 Hiding the panel also disarms the active tool — a hidden panel must never keep drawing. Registering your button as a vanilla `SCR_MapToolEntry` is worth it: the tool menu is already gamepad-navigable, so console and PC get the same entry point with no second code path.
+
+**How big, and where:**
+
+```c
+AM_MapFeatures.SetPanelScaleForMode(EMapEntityMode.PLAIN, 0.7);    // 0.3 .. 2.0; 0 restores auto-fit
+AM_MapFeatures.SetPanelOffsetForMode(EMapEntityMode.PLAIN, 0, 30); // +x = right, +y = down
+
+AM_MapFeatures.ClearPanelScaleForMode(EMapEntityMode.PLAIN);
+AM_MapFeatures.ClearPanelOffsetForMode(EMapEntityMode.PLAIN);
+```
+
+- **You may need neither.** Left alone the panel **fits itself**: it measures your frame on open and shrinks only when it would otherwise run off the edges (6% margin, never below `0.4`). A host that just wants a working panel writes no placement code at all.
+- **`SetPanelScaleForMode`** overrides that, for when "just barely fits" is not the look you want — a bar that technically fits a tablet can still eat a third of a screen you mostly *read*. Scaling covers the whole panel: the bar, its dropdowns, icons, fonts and the pin. It does **not** touch the cursor's brush preview — that circle shows the WORLD width of the line you are about to draw, so shrinking it with the interface would make it lie.
+- **`SetPanelOffsetForMode`** nudges the resting position — a status strip or a bezel across the top of your screen is the usual reason. Independent of the scale: if you only want the panel moved, you do not have to pick a scale to get it.
+- **Both take layout units, not pixels**, and the offset is applied *before* the scale. A nudge therefore keeps its proportion at any scale and on any DPI — the same call looks the same on a 1080p laptop and a 4K monitor, which raw pixels would not.
+- Resolved per map open, like every other per-mode setting, so nothing you set for your tablet can follow the player onto the fullscreen map.
+
+**Control hints** anchor bottom-left and are shoved separately, since your chrome down there is a different problem from your chrome up top:
+
+```c
+AM_MapFeatures.SetHintNudgeForMode(EMapEntityMode.PLAIN, 90, 0);   // +x = right, +y = down
+```
 
 ### Drawing markers on your own surface (`AM_MarkerWidgets`, API v4)
 
