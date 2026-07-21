@@ -241,6 +241,16 @@ AM_MapFeatures.ClearPanelOffsetForMode(EMapEntityMode.PLAIN);
 - **Both take layout units, not pixels**, and the offset is applied *before* the scale. A nudge therefore keeps its proportion at any scale and on any DPI — the same call looks the same on a 1080p laptop and a 4K monitor, which raw pixels would not.
 - Resolved per map open, like every other per-mode setting, so nothing you set for your tablet can follow the player onto the fullscreen map.
 
+**Several screens sharing one map mode?** A per-mode value **sticks between opens**. If your mod is modular — a handful of device sizes that all open as `EMapEntityMode.PLAIN` — then a device that sets `0.7` hands that `0.7` to the next device that sets nothing, and auto-fit never gets a turn. You would have to give *every* device an explicit value just to stop them bleeding into each other. Use the one-shot form instead:
+
+```c
+// Right before you open that screen. Consumed by the next map open, then gone:
+AM_MapFeatures.SetPanelScaleNextOpen(0.7);
+AM_MapFeatures.SetPanelOffsetNextOpen(0, 30);
+```
+
+The device that wants the default now calls **nothing** and gets auto-fit. `SetPanelScaleNextOpen(0)` is meaningful too — "auto-fit this one open", even if the mode carries an override. Same pairing as `SetNextOpen` / `SetForcedVisibilityNextOpen`, and the same caveat: it is claimed by the next map open *whatever it is*, so set it immediately before opening your screen, not minutes ahead.
+
 **Control hints** anchor bottom-left and are shoved separately, since your chrome down there is a different problem from your chrome up top:
 
 ```c

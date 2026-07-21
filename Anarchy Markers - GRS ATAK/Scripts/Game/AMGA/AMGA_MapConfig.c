@@ -53,11 +53,18 @@ modded class SCR_MapEntity
 		// The bar FITS here, so auto-fit leaves it alone — but fitting is not the same as belonging. At
 		// full size it eats a large share of a tablet screen, and this is a map you read as much as you
 		// draw on. Explicit shrink.
-		AM_MapFeatures.SetPanelScaleForMode(mapMode, 0.7);
-
+		// !!! TEMPORARY — testing the one-shot API form. REVERT AFTER THE TEST !!!
+		// The per-mode calls are the right choice for this compat (one device, one mode); these are here
+		// only to prove the NextOpen path works, and to find out whether SetupMapConfig is even a valid
+		// place to call it from — the engine caches the config and re-issues it, so if this hook does not
+		// run on every open the value is consumed once and the SECOND open loses it.
+		AM_MapFeatures.SetPanelScaleNextOpen(0.7);
+		AM_MapFeatures.SetPanelOffsetNextOpen(0, 30);
+		//AM_MapFeatures.SetPanelScaleForMode(mapMode, 0.7);
+		//
 		// ATAK's own status strip runs along the top of the tablet screen, and our bar rests right under
 		// it. Drop it clear. Layout units, so this keeps its proportion at whatever scale is set above.
-		AM_MapFeatures.SetPanelOffsetForMode(mapMode, 0, 30);
+		//AM_MapFeatures.SetPanelOffsetForMode(mapMode, 0, 30);
 
 		return cfg;
 	}

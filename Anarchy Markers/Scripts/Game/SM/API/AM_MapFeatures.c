@@ -104,9 +104,31 @@ class AM_MapFeatures
 		s_mModePanelScale.Remove(mode);
 	}
 
+	//! Next open only; pairs with SetNextOpen. For a host whose screens all open in the SAME map mode —
+	//! a modular tablet with several device sizes, say. A per-mode scale STICKS, so a device that set one
+	//! would silently hand it to the next device that set nothing, and auto-fit would never get a turn.
+	//! Set it right before opening the screen that wants it; the one that wants the default calls nothing.
+	//! 0 is a real value here: "auto-fit this open", even if the mode carries an override.
+	static void SetPanelScaleNextOpen(float scale)
+	{
+		if (scale <= 0)
+			s_fNextOpenPanelScale = 0;
+		else
+			s_fNextOpenPanelScale = Math.Clamp(scale, 0.3, 2.0);
+	}
+
+	protected static float s_fNextOpenPanelScale = -1;	// -1 = nothing queued (0 means auto-fit, so it cannot be the sentinel)
+
 	//! Scale the panel should use, or 0 when the host left it on auto-fit.
 	static float ResolvePanelScaleForOpen(MapConfiguration config)
 	{
+		if (s_fNextOpenPanelScale >= 0)
+		{
+			float oneShot = s_fNextOpenPanelScale;
+			s_fNextOpenPanelScale = -1;
+			return oneShot;
+		}
+
 		if (!config)
 			return 0;
 		float s;
@@ -136,11 +158,31 @@ class AM_MapFeatures
 		s_mModePanelOffset.Remove(mode);
 	}
 
+	//! Next open only, same reasoning as SetPanelScaleNextOpen. 0/0 is a real value here — "sit where you
+	//! normally would this open" — so a flag, not the numbers, says whether anything is queued.
+	static void SetPanelOffsetNextOpen(float dx, float dy)
+	{
+		s_bNextOpenPanelOffset = true;
+		s_fNextOpenOffX = dx;
+		s_fNextOpenOffY = dy;
+	}
+
+	protected static bool  s_bNextOpenPanelOffset;
+	protected static float s_fNextOpenOffX, s_fNextOpenOffY;
+
 	//! Called by the map layer on every open. 0/0 when the host never asked for a nudge.
 	static void ResolvePanelOffsetForOpen(MapConfiguration config, out float dx, out float dy)
 	{
 		dx = 0;
 		dy = 0;
+
+		if (s_bNextOpenPanelOffset)
+		{
+			s_bNextOpenPanelOffset = false;
+			dx = s_fNextOpenOffX;
+			dy = s_fNextOpenOffY;
+			return;
+		}
 
 		int mode = EMapEntityMode.PLAIN;
 		if (config)

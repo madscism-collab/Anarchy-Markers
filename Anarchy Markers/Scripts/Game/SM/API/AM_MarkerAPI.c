@@ -56,6 +56,8 @@ class AM_MarkerAPI
 	//!     AttachToMapConfig (splice our layer into a host map config in one call).
 	//! 10 = drawing panel placement: SetPanelOffsetForMode (nudge its resting position) alongside the
 	//!      existing SetPanelScaleForMode, so a host controls the panel's size AND where it sits.
+	//!      Both also come in one-shot SetPanel*NextOpen form, for a modular host whose screens all
+	//!      open in the same map mode and would otherwise inherit each other's per-mode value.
 	static const int API_VERSION = 10;
 
 	//! Splice our marker/drawing layer into a host map's configuration — THE call for a tablet or
